@@ -1,0 +1,1 @@
+const AdminView = { render: function () {} };

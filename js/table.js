@@ -1,0 +1,1 @@
+const TableView = { render: function () {} };
