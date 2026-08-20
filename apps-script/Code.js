@@ -293,7 +293,7 @@ function handleUpdatePlot(user, payload) {
 
     const before = rowToObject(row, data.map);
     const changes = Lib_diffFields(before, clean);
-    if (changes.length === 0) return ok({ cad: cad, updated_at: current, changed: 0 });
+    if (changes.length === 0) return ok({ cad: cad, updated_at: current, changed: 0, fields: clean });
 
     for (const field in clean) {
       if (data.map[field] === undefined) {
@@ -312,7 +312,7 @@ function handleUpdatePlot(user, payload) {
     data.sheet.getRange(sheetRow, data.map.updated_by + 1).setValue(user.email);
 
     appendLog(user.email, 'update', cad, changes);
-    return ok({ cad: cad, updated_at: now, changed: changes.length });
+    return ok({ cad: cad, updated_at: now, changed: changes.length, fields: clean });
   } finally {
     lock.releaseLock();
   }

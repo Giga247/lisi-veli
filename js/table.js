@@ -156,7 +156,10 @@ const TableView = (function () {
           expected_updated_at: String(plot.updated_at || ''),
           fields: changed,
         });
-        Object.assign(plot, changed);
+        // სერვერი ინახავს გასუფთავებულ მნიშვნელობებს (მაგ. ტელეფონი +995-ით
+        // ნორმალიზებული) — ვცდილობთ ვცადოთ ისინი, თუ სერვერმა `fields`
+        // დააბრუნა; თუ არა (ძველი დეპლოი), მაინც არ დავტოვოთ რიგი ცარიელი.
+        Object.assign(plot, result.fields || changed);
         plot.updated_at = result.updated_at;
         draw();
         if (window.MapView) MapView.render(plots, user);
