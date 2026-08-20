@@ -64,27 +64,31 @@ Mac-ზე) საიტზე შესული მდგომარეობ
 - [ ] მოდერატორს ადმინის ტაბი გვერდის თავში **არ უჩანს**
 - [ ] მოდერატორი, კონსოლიდან: `await API.call('users')` → იჭერს შეცდომას,
       `error.code === 'FORBIDDEN'`
-- [ ] მოდერატორი, კონსოლიდან, ცხრილიდან აიღეთ ნებისმიერი რეალური
-      საკადასტრო კოდი და სცადეთ დაცული ველების შეცვლა — ოთხივე უნდა
+- [ ] მოდერატორი, კონსოლიდან, სცადეთ დაცული ველების შეცვლა — ოთხივე უნდა
       დაბლოკოს `FORBIDDEN`-ით და შეტყობინებით „ველი არ ექვემდებარება
-      რედაქტირებას: …":
+      რედაქტირებას: …". ქვემოთ გამოყენებული `01.99.99.999.001` ბაზაში
+      **რეალურად არსებული** ნაკვეთის კოდია (იგივე, რაც `docs/setup.md`-ში) —
+      ბრძანებები პირდაპირ, უცვლელად იწერება კონსოლში. არარსებული კოდი
+      `NOT_FOUND`-ს დააბრუნებდა, ველების თეთრი სია საერთოდ არ შემოწმდებოდა
+      და პუნქტი ჩუმად აზრს დაკარგავდა:
 
   ```js
-  await API.call('updatePlot', { cad: '<რეალური cad>', expected_updated_at: '',
+  await API.call('updatePlot', { cad: '01.99.99.999.001', expected_updated_at: '',
     fields: { geometry: '[[[0,0]]]' } })   // FORBIDDEN: geometry
-  await API.call('updatePlot', { cad: '<რეალური cad>', expected_updated_at: '',
+  await API.call('updatePlot', { cad: '01.99.99.999.001', expected_updated_at: '',
     fields: { lat: '41.7' } })             // FORBIDDEN: lat
-  await API.call('updatePlot', { cad: '<რეალური cad>', expected_updated_at: '',
+  await API.call('updatePlot', { cad: '01.99.99.999.001', expected_updated_at: '',
     fields: { lon: '44.7' } })             // FORBIDDEN: lon
-  await API.call('updatePlot', { cad: '<რეალური cad>', expected_updated_at: '',
+  await API.call('updatePlot', { cad: '01.99.99.999.001', expected_updated_at: '',
     fields: { cad: '00.00.00.000' } })     // FORBIDDEN: cad
   ```
 
 - [ ] მაცხოვრებელს (`member`) ✏️ ღილაკი **არ უჩანს** არც ცხრილში, არც რუკის
       ბარათზე
-- [ ] მაცხოვრებელი, კონსოლიდან: `await API.call('updatePlot', { cad: '<რეალური
-      cad>', expected_updated_at: '', fields: { note: 'x' } })` → `FORBIDDEN`
-      (მოქმედება საერთოდ არ აქვს ამ როლს, ველის ტიპს არა აქვს მნიშვნელობა)
+- [ ] მაცხოვრებელი, კონსოლიდან: `await API.call('updatePlot', { cad:
+      '01.99.99.999.001', expected_updated_at: '', fields: { note: 'x' } })` →
+      `FORBIDDEN` (მოქმედება საერთოდ არ აქვს ამ როლს, ველის ტიპს არა აქვს
+      მნიშვნელობა)
 - [ ] ადმინი, ადმინის პანელიდან, საკუთარ როლს `member`/`moderator`-ზე ცდილობს
       დაქვეითებას → „ბოლო ადმინის როლი ვერ შეიცვლება" (თუ ეს ერთადერთი
       ადმინია — ჩვეულებრივ ასეა)
