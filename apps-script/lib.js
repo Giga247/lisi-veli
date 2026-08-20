@@ -63,9 +63,20 @@ function normalizePhone(raw) {
   if (raw == null || String(raw).trim() === '') {
     return { ok: true, value: '' };
   }
-  const digits = String(raw).replace(/[\s\-()+.]/g, '');
+  const text = String(raw).trim();
+  // წამყვანი `+` განზრახვის ნიშანია: მფლობელი უცხოურ ნომერს წერს. მის გარეშე
+  // ისევ მხოლოდ ქართული ფორმატი მიიღება — ათნიშნა ნომერი ტიპოა, არა უცხოური.
+  const international = text.charAt(0) === '+';
+  const digits = text.replace(/[\s\-()+.]/g, '');
   if (!/^[0-9]+$/.test(digits)) {
     return { ok: false, message: 'ტელეფონი მხოლოდ ციფრებს უნდა შეიცავდეს' };
+  }
+  if (international) {
+    // E.164: ქვეყნის კოდი + ნომერი, სულ 15 ციფრამდე.
+    if (digits.length < 8 || digits.length > 15) {
+      return { ok: false, message: 'საერთაშორისო ნომერი უნდა იყოს 8-15 ციფრი' };
+    }
+    return { ok: true, value: '+' + digits };
   }
   let local;
   if (digits.length === 9) {
@@ -73,7 +84,7 @@ function normalizePhone(raw) {
   } else if (digits.length === 12 && digits.indexOf('995') === 0) {
     local = digits.slice(3);
   } else {
-    return { ok: false, message: 'ნომერი უნდა იყოს 9 ციფრი, ან 995 + 9 ციფრი' };
+    return { ok: false, message: 'ნომერი უნდა იყოს 9 ციფრი, 995 + 9 ციფრი, ან +ქვეყნის-კოდი' };
   }
   return { ok: true, value: '+995' + local };
 }

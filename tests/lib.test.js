@@ -70,6 +70,32 @@ test('normalizePhone — გრძელი ნომერი უარყო�
   assert.strictEqual(lib.normalizePhone('5991234567890').ok, false);
 });
 
+// უბანში უცხოელი მფლობელებიც არიან. `+`-ით დაწყებული ნომერი საერთაშორისოდ
+// ითვლება და უცვლელად ინახება. ქვემოთ ნომრები გამოგონილია.
+test('normalizePhone — +-ით დაწყებული უცხოური ნომერი მიიღება', () => {
+  assert.deepStrictEqual(lib.normalizePhone('+989001234567'),
+    { ok: true, value: '+989001234567' });
+});
+
+test('normalizePhone — უცხოური ნომრის გამოტოვებები ირეცხება', () => {
+  assert.deepStrictEqual(lib.normalizePhone('+44 7700 900123'),
+    { ok: true, value: '+447700900123' });
+});
+
+// `+`-ის გარეშე ისევ მხოლოდ ქართული ფორმატია — ათნიშნა ნომერი ტიპოა,
+// არა საერთაშორისო ნომერი, და ჩუმად არ უნდა გაიაროს.
+test('normalizePhone — +-ის გარეშე ათნიშნა ნომერი უარყოფილია', () => {
+  assert.strictEqual(lib.normalizePhone('5991234567').ok, false);
+});
+
+test('normalizePhone — ძალიან მოკლე საერთაშორისო ნომერი უარყოფილია', () => {
+  assert.strictEqual(lib.normalizePhone('+1234567').ok, false);
+});
+
+test('normalizePhone — E.164-ის ზღვარზე გრძელი ნომერი უარყოფილია', () => {
+  assert.strictEqual(lib.normalizePhone('+1234567890123456').ok, false);
+});
+
 test('parseGeometry — სწორი პოლიგონი', () => {
   const cell = '[[[44.72,41.74],[44.73,41.74],[44.73,41.75],[44.72,41.74]]]';
   const out = lib.parseGeometry(cell);
