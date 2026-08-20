@@ -8,14 +8,29 @@ const MapView = (function () {
   let plots = [];
   let user = null;
 
-  // dataviz-ის ვალიდირებული კატეგორიული პალიტრა (light mode), ფიქსირებული
-  // რიგით. 8 ქუჩა = 8 სლოტი. ფერები არასოდეს ციკლდება —
-  // მე-9 ქუჩა ნაცრისფერში ჩავარდება.
-  const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100',
+  // dataviz-ის ვალიდირებული კატეგორიული პალიტრა, ფიქსირებული რიგით.
+  // 8 ქუჩა = 8 სლოტი. ფერები არასოდეს ციკლდება — მე-9 ქუჩა ნაცრისფერში
+  // ჩავარდება. light და dark ცალკე მასივებია: dataviz-ის ვალიდატორი
+  // ერთი პალიტრით ორივე ზედაპირს ვერ ამტკიცებს (light-ის ფერები dark
+  // ზედაპირზე Lightness band-ს არღვევენ) — ამიტომ ბნელი რეჟიმისთვის
+  // საცნობარო დოკუმენტის საკუთარი dark სვეტია. მე-6 სლოტი (მწვანე)
+  // ორივეგან ერთია — ეს საცნობარო მასივის მიხედვით სწორია, არა კოპირების
+  // შეცდომა.
+  const PALETTE_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100',
     '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+  const PALETTE_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500',
+    '#d55181', '#008300', '#9085e9', '#e66767'];
   const GREY = '#898781';
 
+  const DARK_QUERY = (typeof window !== 'undefined' && window.matchMedia)
+    ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
   let colorByStreet = {};
+
+  /** მიმდინარე OS/ბრაუზერის თემის შესაბამისი მასივი. */
+  function activePalette() {
+    return (DARK_QUERY && DARK_QUERY.matches) ? PALETTE_DARK : PALETTE_LIGHT;
+  }
 
   /**
    * Sheet-ის მონაცემი ხელით ივსება და შეიძლება შეიცავდეს ნებისმიერ
@@ -54,10 +69,11 @@ const MapView = (function () {
     plots = allPlots;
     user = currentUser;
 
+    const palette = activePalette();
     const streets = WebLib.streetList(plots);
     colorByStreet = {};
     streets.forEach(function (street, index) {
-      if (index < PALETTE.length) colorByStreet[street] = PALETTE[index];
+      if (index < palette.length) colorByStreet[street] = palette[index];
     });
 
     if (!map) {
@@ -128,6 +144,16 @@ const MapView = (function () {
   }
 
   function refresh() { if (map) map.invalidateSize(); }
+
+  // მობილურზე/OS-ში სესიის შუაში თემის გადართვისას რუკა ხელახლა უნდა
+  // დაიხატოს ახალი პალიტრით — თორემ ლეგენდა ერთ რეჟიმში ჩერდება, პოლიგონები
+  // მეორეში. render()-მდე (map ჯერ არ არსებობს, plots ჯერ არ არის მიწოდებული)
+  // არაფერი ხდება.
+  if (DARK_QUERY) {
+    DARK_QUERY.addEventListener('change', function () {
+      if (map) render(plots, user);
+    });
+  }
 
   return { render: render, refresh: refresh };
 })();
