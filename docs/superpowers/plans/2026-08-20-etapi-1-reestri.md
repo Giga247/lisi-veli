@@ -68,6 +68,7 @@
 **Files:**
 - Create: `.gitignore`
 - Create: `tools/import.py`
+- Create: `tools/import_lib.py`
 - Test: `tools/test_import.py`
 
 **Interfaces:**
@@ -384,7 +385,7 @@ USER_HEADERS = [
     u'მოთხოვნის თარიღი', u'დამტკიცების თარიღი', u'დამამტკიცებელი',
 ]
 LOG_HEADERS = [
-    u'დრო', u'მეილი', u'მოქმედება', u'საკადასტრო კოდი',
+    u'დრო', u'ვინ', u'მოქმედება', u'საკადასტრო კოდი',
     u'ველი', u'ძველი მნიშვნელობა', u'ახალი მნიშვნელობა',
 ]
 
@@ -560,6 +561,15 @@ test('mapHeaders — ზედმეტი გამოტოვება ირ
   assert.strictEqual(map.cad, 0);
 });
 
+test('mapHeaders — ლოგის „ვინ" და მომხმარებლის „მეილი" არ ერევა', () => {
+  const log = lib.mapHeaders(['დრო', 'ვინ', 'მოქმედება']);
+  assert.strictEqual(log.by, 1);
+  assert.strictEqual(log.email, undefined);
+  const users = lib.mapHeaders(['მეილი', 'როლი']);
+  assert.strictEqual(users.email, 0);
+  assert.strictEqual(users.by, undefined);
+});
+
 test('mapHeaders — უცნობი სვეტი იგნორირდება, არ აგდებს შეცდომას', () => {
   const map = lib.mapHeaders(['საკადასტრო კოდი', 'რაღაც ახალი სვეტი']);
   assert.strictEqual(map.cad, 0);
@@ -570,7 +580,7 @@ test('mapHeaders — უცნობი სვეტი იგნორირდ
 - [ ] **Step 2: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `Cannot find module '../apps-script/lib.js'`
@@ -615,6 +625,7 @@ const HEADER_MAP = {
   'დამამტკიცებელი': 'approved_by',
   // ლოგი
   'დრო': 'at',
+  'ვინ': 'by',
   'მოქმედება': 'action',
   'ველი': 'field',
   'ძველი მნიშვნელობა': 'old',
@@ -647,10 +658,10 @@ if (typeof module !== 'undefined' && module.exports) {
 - [ ] **Step 4: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 4 ტესტი
+Expected: PASS — 5 ტესტი
 
 - [ ] **Step 5: commit**
 
@@ -702,7 +713,7 @@ test('normalizePhone — გრძელი ნომერი უარყო�
 - [ ] **Step 7: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `lib.normalizePhone is not a function`
@@ -742,10 +753,10 @@ function normalizePhone(raw) {
 - [ ] **Step 9: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 11 ტესტი
+Expected: PASS — 12 ტესტი
 
 - [ ] **Step 10: commit**
 
@@ -786,7 +797,7 @@ test('parseGeometry — არასწორი სტრუქტურა -> 
 - [ ] **Step 12: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `lib.parseGeometry is not a function`
@@ -828,10 +839,10 @@ function parseGeometry(cell) {
 - [ ] **Step 14: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 15 ტესტი
+Expected: PASS — 16 ტესტი
 
 - [ ] **Step 15: commit**
 
@@ -895,7 +906,7 @@ test('checkPermission — pending და blocked ვერაფერს', () =
 - [ ] **Step 17: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `lib.isEditableField is not a function`
@@ -937,10 +948,10 @@ function checkPermission(role, action) {
 - [ ] **Step 19: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 23 ტესტი
+Expected: PASS — 24 ტესტი
 
 - [ ] **Step 20: commit**
 
@@ -1015,7 +1026,7 @@ test('verifyTokenClaims — ცარიელი claims უარყოფი�
 - [ ] **Step 22: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `lib.verifyTokenClaims is not a function`
@@ -1054,10 +1065,10 @@ function verifyTokenClaims(claims, clientId, nowSec) {
 - [ ] **Step 24: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 31 ტესტი
+Expected: PASS — 32 ტესტი
 
 - [ ] **Step 25: commit**
 
@@ -1100,7 +1111,7 @@ test('diffFields — რიცხვი და ტექსტი ერთნ�
 - [ ] **Step 27: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `lib.diffFields is not a function`
@@ -1142,10 +1153,10 @@ if (typeof module !== 'undefined' && module.exports) {
 - [ ] **Step 29: ყველა ტესტის გაშვება**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 35 ტესტი, 0 failed
+Expected: PASS — 36 ტესტი, 0 failed
 
 - [ ] **Step 30: commit**
 
@@ -1770,7 +1781,7 @@ test('sortPlots — ორიგინალი მასივი არ იც
 - [ ] **Step 2: ტესტის გაშვება — უნდა დაეცეს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
 Expected: FAIL — `Cannot find module '../js/lib.js'`
@@ -1863,10 +1874,10 @@ Expected: FAIL — `Cannot find module '../js/lib.js'`
 - [ ] **Step 4: ტესტის გაშვება — უნდა გაიაროს**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
 
-Expected: PASS — 48 ტესტი სულ (35 სერვერის + 13 ფრონტენდის)
+Expected: PASS — 49 ტესტი სულ (36 სერვერის + 13 ფრონტენდის)
 
 - [ ] **Step 5: commit**
 
@@ -2815,11 +2826,11 @@ git commit -m "feat: ადმინის პანელი — დამტ�
 - [ ] **Step 1: ყველა ტესტის გაშვება**
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 python3 tools/test_import.py -v
 ```
 
-Expected: 48 Node-ტესტი PASS, 11 Python-ტესტი PASS, 0 failed.
+Expected: 49 Node-ტესტი PASS, 11 Python-ტესტი PASS, 0 failed.
 
 **თუ რომელიმე ეცემა — გააჩერე და გაასწორე. აქედან წინ ტესტების გატეხვით არ მიდიხარ.**
 
@@ -2840,7 +2851,7 @@ Expected: 48 Node-ტესტი PASS, 11 Python-ტესტი PASS, 0 failed
 
 ## ტესტები
 
-    node --test tests/
+    node --test tests/*.test.js
     python3 tools/test_import.py -v
 
 npm-პაკეტები არ არის საჭირო.
@@ -2964,7 +2975,7 @@ git push
 
 ეტაპი 1 დასრულებულია, როცა:
 
-- [ ] `node --test tests/` — 48 ტესტი PASS
+- [ ] `node --test tests/*.test.js` — 49 ტესტი PASS
 - [ ] `python3 tools/test_import.py -v` — 11 ტესტი PASS
 - [ ] `docs/qa-checklist.md`-ის ყველა პუნქტი მონიშნულია პროდაქშენ მისამართზე
 - [ ] სამი რეალური მეზობელი შესულია და ხედავს ცხრილს

@@ -161,7 +161,7 @@ Apps Script Web App **preflight `OPTIONS` მოთხოვნას არ ა
 | ქართული სათაური | გასაღები |
 |---|---|
 | დრო | `at` |
-| მეილი | `by` |
+| ვინ | `by` | — სვეტს განზრახ ჰქვია „ვინ" და არა „მეილი": „მეილი" უკვე დაკავებულია `მომხმარებლები` ფურცელში და სათაურების ერთიან რუკაში ორჯერ ვერ იქნება |
 | მოქმედება | `action` |
 | საკადასტრო კოდი | `cad` |
 | ველი | `field` |
@@ -386,7 +386,7 @@ Apps Script-ს ტესტ-რანერი არ აქვს და Sheet
 `lib.js` ორივე გარემოში მუშაობს — Apps Script-ში `module` განუსაზღვრელია და ექსპორტის ბლოკი გამოტოვდება, Node-ში კი `require`-ით იტვირთება. ეს იძლევა **რეალურ წითელ-მწვანე ციკლს** ლოკალურად:
 
 ```
-node --test tests/
+node --test tests/*.test.js
 ```
 
 npm-პაკეტები არ არის საჭირო — Node-ის ჩაშენებული რანერი და `node:assert` საკმარისია.
@@ -422,7 +422,7 @@ npm-პაკეტები არ არის საჭირო — Node-ი
 3. **Google Cloud პროექტი** — ახალი პროექტი, OAuth consent screen (External, Testing→Production), OAuth 2.0 Client ID (Web application).
 4. **Authorized JavaScript origins** — `https://<username>.github.io`.
 5. **Apps Script** — Sheet-იდან Extensions → Apps Script; `Code.js`-ისა და `lib.js`-ის ჩასმა (`lib.gs`-ს ბოლოში ემატება `Lib_` პრეფიქსიანი ფსევდონიმები, რადგან Apps Script-ს მოდულები არ აქვს); `CLIENT_ID` კონსტანტის შევსება.
-6. **ტესტების გაშვება:** `node --test tests/` და `python3 tools/test_import.py -v` — ყველა უნდა გაიაროს. შემდეგ Apps Script-ის რედაქტორიდან `smokeTest()`.
+6. **ტესტების გაშვება:** `node --test tests/*.test.js` და `python3 tools/test_import.py -v` — ყველა უნდა გაიაროს. შემდეგ Apps Script-ის რედაქტორიდან `smokeTest()`.
 7. **Deploy → New deployment → Web app**; Execute as: **Me**; Who has access: **Anyone**. URL-ის კოპირება.
 8. **GitHub repo** — `.gitignore`-ში `*.png` (22 MB რასტრი repo-ს ამძიმებს); კოდის push; Settings → Pages → main branch.
 9. **`js/config.js`** — Client ID და Apps Script URL.
