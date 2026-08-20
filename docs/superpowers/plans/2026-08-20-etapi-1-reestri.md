@@ -1899,7 +1899,7 @@ git commit -m "feat: ფრონტენდის სუფთა ლოგი
 - Consumes: Task 3-ის Web App URL; Task 2-ის პასუხის ფორმატი
 - Produces:
   - `API.call(action, payload) → Promise<data>` — შეცდომაზე აგდებს `Error`-ს `.code` თვისებით
-  - `Auth.getToken() → string | null`, `Auth.onSignIn(callback)`, `Auth.signOut()`
+  - `Auth.init(callback)`, `Auth.getToken() → string | null`, `Auth.refresh() → Promise<boolean>`, `Auth.signOut()`
   - `UI.showError(message)`, `UI.showTab(name)`, `UI.el(id)`
 
 - [ ] **Step 1: `js/config.js`**
