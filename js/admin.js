@@ -6,20 +6,6 @@ const AdminView = (function () {
     { value: 'blocked', label: 'დაბლოკილი' },
   ];
 
-  /**
-   * ამ ეკრანზეც (Task 6/7-ის js/table.js და js/map.js-ის მსგავსად) მონაცემები
-   * მოდის Sheet-იდან და მომხმარებელთა თვითრეგისტრაციიდან — ინტერპოლაცია
-   * escape-ის გარეშე მარკაპს გატეხს ან attribute-დან გამოაპარებს. js/lib.js-ში
-   * გატანა ამ დავალების ფარგლებს სცდება, ამიტომ helper-ი აქაც დუბლირებულია.
-   */
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
   async function render() {
     const panel = UI.el('panel-admin');
     panel.innerHTML = '<p>იტვირთება…</p>';
@@ -51,20 +37,20 @@ const AdminView = (function () {
     // ყოველთვის უნდა ჩანდეს, თუნდაც არცერთ ნაკვეთს არ ეკუთვნოდეს.
     const isOrphan = trimmedCurrent && streets.indexOf(trimmedCurrent) === -1;
     const orphanOption = isOrphan
-      ? '<option value="' + escapeHtml(trimmedCurrent) + '" selected>' +
-        escapeHtml(trimmedCurrent) + ' (ნაკვეთებში არ გვხვდება)</option>'
+      ? '<option value="' + WebLib.escapeHtml(trimmedCurrent) + '" selected>' +
+        WebLib.escapeHtml(trimmedCurrent) + ' (ნაკვეთებში არ გვხვდება)</option>'
       : '';
     return orphanOption + '<option value="">ქუჩის გარეშე</option>' +
       streets.map(function (street) {
-        return '<option value="' + escapeHtml(street) + '"' +
-          (street === trimmedCurrent ? ' selected' : '') + '>' + escapeHtml(street) + '</option>';
+        return '<option value="' + WebLib.escapeHtml(street) + '"' +
+          (street === trimmedCurrent ? ' selected' : '') + '>' + WebLib.escapeHtml(street) + '</option>';
       }).join('');
   }
 
   function userRow(user) {
-    return '<tr data-email="' + escapeHtml(user.email) + '">' +
-      '<td>' + escapeHtml(user.email) + '</td>' +
-      '<td>' + escapeHtml(user.display_name || '—') + '</td>' +
+    return '<tr data-email="' + WebLib.escapeHtml(user.email) + '">' +
+      '<td>' + WebLib.escapeHtml(user.email) + '</td>' +
+      '<td>' + WebLib.escapeHtml(user.display_name || '—') + '</td>' +
       '<td><select data-role>' + roleOptions(user.role) + '</select></td>' +
       '<td><select data-street>' + streetOptions(user.street) + '</select></td>' +
       '<td><button data-save>შენახვა</button></td>' +
@@ -87,10 +73,10 @@ const AdminView = (function () {
       '<table><thead><tr><th>დრო</th><th>ვინ</th><th>მოქმედება</th>' +
       '<th>კოდი</th><th>ველი</th><th>ძველი</th><th>ახალი</th></tr></thead><tbody>' +
       logs.map(function (row) {
-        return '<tr><td>' + escapeHtml(String(row.at).slice(0, 16).replace('T', ' ')) + '</td>' +
-          '<td>' + escapeHtml(row.by) + '</td><td>' + escapeHtml(row.action) + '</td>' +
-          '<td><code>' + escapeHtml(row.cad) + '</code></td><td>' + escapeHtml(row.field) + '</td>' +
-          '<td>' + escapeHtml(row.old || '—') + '</td><td>' + escapeHtml(row.new || '—') + '</td></tr>';
+        return '<tr><td>' + WebLib.escapeHtml(String(row.at).slice(0, 16).replace('T', ' ')) + '</td>' +
+          '<td>' + WebLib.escapeHtml(row.by) + '</td><td>' + WebLib.escapeHtml(row.action) + '</td>' +
+          '<td><code>' + WebLib.escapeHtml(row.cad) + '</code></td><td>' + WebLib.escapeHtml(row.field) + '</td>' +
+          '<td>' + WebLib.escapeHtml(row.old || '—') + '</td><td>' + WebLib.escapeHtml(row.new || '—') + '</td></tr>';
       }).join('') + '</tbody></table>';
 
     panel.querySelectorAll('[data-save]').forEach(function (button) {

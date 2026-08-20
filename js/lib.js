@@ -10,6 +10,28 @@
   }
 })(typeof self !== 'undefined' ? self : this, function () {
 
+  /**
+   * HTML-ში ჩასასმელი ტექსტის escape.
+   *
+   * მონაცემები Sheet-იდან მოდის, ხელით ივსება და შეიძლება შეიცავდეს
+   * ნებისმიერ სიმბოლოს — escape-ის გარეშე შენიშვნა ან მისამართი მარკაპს
+   * გატეხს, ან attribute-იდან გამოაპარებს (შენახული injection).
+   *
+   * `&` ყოველთვის პირველი იცვლება: სხვა რიგში უკვე ჩასმული `&lt;`
+   * მეორედ დამუშავდებოდა და `&amp;lt;`-ად გადაიქცეოდა.
+   *
+   * `'` -> `&#39;` დღეს ზედმეტია (ყველა attribute ორმაგ ბრჭყალშია), მაგრამ
+   * ის ხსნის დამოკიდებულებას იმაზე, რომ ეს ასე დარჩება.
+   */
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function fullName(plot) {
     const name = [plot.last_name, plot.first_name]
       .filter(function (part) { return part && String(part).trim(); })
@@ -81,6 +103,6 @@
     });
   }
 
-  return { fullName: fullName, mapStatus: mapStatus, streetList: streetList,
-    filterPlots: filterPlots, sortPlots: sortPlots };
+  return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
+    streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots };
 });

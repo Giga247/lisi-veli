@@ -111,3 +111,49 @@ test('streetList — რეგრესია: ნამდვილი ქუ�
     'ლეო კვაჭაძის ქუჩა',
   ]);
 });
+
+// ── escapeHtml ─────────────────────────────────────────────────────────
+// სამი კერძო ასლი (table.js, map.js, admin.js) აქ გაერთიანდა. ეს
+// ერთადერთი ფუნქციაა, რომელიც ხელით რედაქტირებულ Sheet-ს შენახული
+// injection-ისგან გვიცავს — ამიტომ ყველა სიმბოლო ცალკე მოწმდება.
+
+test('escapeHtml — თითოეული სიმბოლო ცალკე', () => {
+  assert.strictEqual(WebLib.escapeHtml('&'), '&amp;');
+  assert.strictEqual(WebLib.escapeHtml('<'), '&lt;');
+  assert.strictEqual(WebLib.escapeHtml('>'), '&gt;');
+  assert.strictEqual(WebLib.escapeHtml('"'), '&quot;');
+  assert.strictEqual(WebLib.escapeHtml("'"), '&#39;');
+});
+
+test('escapeHtml — რამდენიმე სიმბოლო ერთ სტრიქონში', () => {
+  assert.strictEqual(
+    WebLib.escapeHtml('<img src="x" onerror=\'alert(1)\'> & მეტი'),
+    '&lt;img src=&quot;x&quot; onerror=&#39;alert(1)&#39;&gt; &amp; მეტი');
+});
+
+test('escapeHtml — უსაფრთხო სტრიქონი უცვლელი რჩება', () => {
+  assert.strictEqual(WebLib.escapeHtml('კედრის ქუჩა N7'), 'კედრის ქუჩა N7');
+  assert.strictEqual(WebLib.escapeHtml('01.99.99.999.001'), '01.99.99.999.001');
+});
+
+test('escapeHtml — ცარიელი, null, undefined -> ცარიელი სტრიქონი', () => {
+  assert.strictEqual(WebLib.escapeHtml(''), '');
+  assert.strictEqual(WebLib.escapeHtml(null), '');
+  assert.strictEqual(WebLib.escapeHtml(undefined), '');
+});
+
+test('escapeHtml — არა-სტრიქონი სტრიქონად გადადის', () => {
+  assert.strictEqual(WebLib.escapeHtml(0), '0');
+  assert.strictEqual(WebLib.escapeHtml(599), '599');
+});
+
+// რეგრესია: `&` აუცილებლად პირველი უნდა შეიცვალოს. თუ ვინმე replace-ების
+// რიგს გადაალაგებს (მაგ. `<`-ს პირველ ადგილას გადმოიტანს), უკვე ჩასმული
+// `&lt;`-ის `&` მეორედ დამუშავდება და შედეგი `&amp;lt;` გახდება — ტექსტი
+// გვერდზე `&lt;`-ად, და არა `<`-ად გამოჩნდება.
+test('escapeHtml — რეგრესია: & პირველი იცვლება, ორმაგი escape არ ხდება', () => {
+  assert.strictEqual(WebLib.escapeHtml('<'), '&lt;');
+  assert.strictEqual(WebLib.escapeHtml('&lt;'), '&amp;lt;');
+  assert.strictEqual(WebLib.escapeHtml('&amp;'), '&amp;amp;');
+  assert.strictEqual(WebLib.escapeHtml('a & b < c'), 'a &amp; b &lt; c');
+});

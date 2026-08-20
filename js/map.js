@@ -32,37 +32,21 @@ const MapView = (function () {
     return (DARK_QUERY && DARK_QUERY.matches) ? PALETTE_DARK : PALETTE_LIGHT;
   }
 
-  /**
-   * Sheet-ის მონაცემი ხელით ივსება და შეიძლება შეიცავდეს ნებისმიერ
-   * სიმბოლოს — popup-ის და "არ ჩანს" სიის HTML-ში embed-მდე ყველგან
-   * escape-ვართ. table.js-ს იგივე დანიშნულების კერძო ჰელფერი აქვს
-   * (არ არის export-ილი მოდულის საჯარო API-დან), ამიტომ ეს 5-სტრიქონიანი
-   * სუფთა ფუნქცია აქაც დუბლირებულია — გაზიარებული export-ის დამატება
-   * js/lib.js-ში ამ დავალების ფარგლებს სცდება.
-   */
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
   function colorOf(plot) {
     return colorByStreet[String(plot.street || '').trim()] || GREY;
   }
 
   function popupHtml(plot) {
     const phone = plot.phone
-      ? '<a href="tel:' + escapeHtml(plot.phone) + '">' + escapeHtml(plot.phone) + '</a>' : '—';
+      ? '<a href="tel:' + WebLib.escapeHtml(plot.phone) + '">' + WebLib.escapeHtml(plot.phone) + '</a>' : '—';
     const edit = (user && (user.role === 'moderator' || user.role === 'admin'))
-      ? '<button data-edit="' + escapeHtml(plot.cad) + '">✏️ რედაქტირება</button>'
+      ? '<button data-edit="' + WebLib.escapeHtml(plot.cad) + '">✏️ რედაქტირება</button>'
       : '';
-    return '<b>' + escapeHtml(plot.address || plot.cad) + '</b><br>' +
-      escapeHtml(WebLib.fullName(plot)) + '<br>' + phone + '<br>' +
-      (plot.area ? escapeHtml(plot.area) + ' კვ.მ' : '') + '<br>' +
-      '<small>' + escapeHtml(plot.purpose || '') + '</small><br>' +
-      '<code>' + escapeHtml(plot.cad) + '</code><br>' + edit;
+    return '<b>' + WebLib.escapeHtml(plot.address || plot.cad) + '</b><br>' +
+      WebLib.escapeHtml(WebLib.fullName(plot)) + '<br>' + phone + '<br>' +
+      (plot.area ? WebLib.escapeHtml(plot.area) + ' კვ.მ' : '') + '<br>' +
+      '<small>' + WebLib.escapeHtml(plot.purpose || '') + '</small><br>' +
+      '<code>' + WebLib.escapeHtml(plot.cad) + '</code><br>' + edit;
   }
 
   function render(allPlots, currentUser) {
@@ -129,7 +113,7 @@ const MapView = (function () {
       streets.map(function (street) {
         return '<span class="legend-item">' +
           '<i style="background:' + (colorByStreet[street] || GREY) + '"></i>' +
-          escapeHtml(street) + '</span>';
+          WebLib.escapeHtml(street) + '</span>';
       }).join('');
 
     UI.el('map-missing').innerHTML = missing.length === 0 ? '' :
@@ -138,8 +122,8 @@ const MapView = (function () {
       'ადმინმა Sheet-ში უნდა შეავსოს <code>გეომეტრია</code> ან ' +
       '<code>გრძედი</code>/<code>განედი</code>.</p><ul>' +
       missing.map(function (plot) {
-        return '<li><code>' + escapeHtml(plot.cad) + '</code> — ' +
-          escapeHtml(plot.address || 'მისამართის გარეშე') + '</li>';
+        return '<li><code>' + WebLib.escapeHtml(plot.cad) + '</code> — ' +
+          WebLib.escapeHtml(plot.address || 'მისამართის გარეშე') + '</li>';
       }).join('') + '</ul>';
   }
 

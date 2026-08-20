@@ -13,20 +13,6 @@ const TableView = (function () {
     { key: 'cad', label: 'საკადასტრო კოდი' },
   ];
 
-  /**
-   * ველების მონაცემები Sheet-იდან მოდის და შეიძლება შეიცავდეს ნებისმიერ
-   * სიმბოლოს (მათ შორის `"`, `<`, `>`, `&`) — ყველა ადგილას, სადაც ეს
-   * მონაცემი HTML-ში embed-დება, escape-ვართ, თორემ ველი (მაგ. შენიშვნა
-   * ან მისამართი) მარკაპს გატეხს ან attribute-დან გამოაპარებს.
-   */
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
   function canEdit() {
     return user && (user.role === 'moderator' || user.role === 'admin');
   }
@@ -75,17 +61,17 @@ const TableView = (function () {
       const status = WebLib.mapStatus(plot);
       const flag = status === 'missing' ? ' 🚩' : (status === 'marker' ? ' 📍' : '');
       const phone = plot.phone
-        ? '<a href="tel:' + escapeHtml(plot.phone) + '">' + escapeHtml(plot.phone) + '</a>'
+        ? '<a href="tel:' + WebLib.escapeHtml(plot.phone) + '">' + WebLib.escapeHtml(plot.phone) + '</a>'
         : '—';
       const edit = canEdit()
-        ? '<button data-edit="' + escapeHtml(plot.cad) + '">✏️</button>' : '';
+        ? '<button data-edit="' + WebLib.escapeHtml(plot.cad) + '">✏️</button>' : '';
       return '<tr>' +
-        '<td>' + escapeHtml(plot.street || '—') + flag + '</td>' +
-        '<td>' + escapeHtml(plot.num || '—') + '</td>' +
-        '<td>' + escapeHtml(WebLib.fullName(plot)) + '</td>' +
+        '<td>' + WebLib.escapeHtml(plot.street || '—') + flag + '</td>' +
+        '<td>' + WebLib.escapeHtml(plot.num || '—') + '</td>' +
+        '<td>' + WebLib.escapeHtml(WebLib.fullName(plot)) + '</td>' +
         '<td>' + phone + '</td>' +
-        '<td>' + escapeHtml(plot.area || '—') + '</td>' +
-        '<td>' + escapeHtml(plot.cad) + '</td>' +
+        '<td>' + WebLib.escapeHtml(plot.area || '—') + '</td>' +
+        '<td>' + WebLib.escapeHtml(plot.cad) + '</td>' +
         '<td>' + edit + '</td>' +
         '</tr>';
     }).join('');
@@ -128,14 +114,14 @@ const TableView = (function () {
     const fields = EDITABLE.map(function (field) {
       return '<label>' + field.label +
         '<input data-field="' + field.key + '" value="' +
-        escapeHtml(plot[field.key]) +
+        WebLib.escapeHtml(plot[field.key]) +
         '"></label>';
     }).join('');
 
     const dialog = document.createElement('dialog');
     dialog.innerHTML =
       '<form method="dialog">' +
-      '<h3>' + escapeHtml(plot.address || plot.cad) + '</h3>' + fields +
+      '<h3>' + WebLib.escapeHtml(plot.address || plot.cad) + '</h3>' + fields +
       '<p class="dialog-error" data-error hidden></p>' +
       '<div class="controls">' +
       '<button value="save">შენახვა</button>' +
