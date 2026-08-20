@@ -22,6 +22,7 @@ async function afterSignIn() {
 
   try {
     PLOTS = await API.call('plots');
+    window.PLOTS = PLOTS;
     TableView.render(PLOTS, CURRENT_USER);
     MapView.render(PLOTS, CURRENT_USER);
     if (CURRENT_USER.role === 'admin') AdminView.render();
