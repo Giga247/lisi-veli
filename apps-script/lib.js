@@ -130,6 +130,32 @@ function checkPermission(role, action) {
   return allowed.indexOf(role) !== -1;
 }
 
+const VALID_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
+
+/**
+ * Google-ის tokeninfo-ს პასუხის შემოწმება.
+ *
+ * `aud`-ის შემოწმება კრიტიკულია: მის გარეშე ნებისმიერი Google აპლიკაციის
+ * ტოკენი მიიღებოდა და ბაზა ღია იქნებოდა. ხელმოწერას და ვადას tokeninfo
+ * უკვე ამოწმებს, მაგრამ `exp` აქაც მოწმდება ქეშირების გამო.
+ */
+function verifyTokenClaims(claims, clientId, nowSec) {
+  const bad = function (message) {
+    return { ok: false, error: 'UNAUTHENTICATED', message: message };
+  };
+  if (!claims || typeof claims !== 'object') return bad('ტოკენი არასწორია');
+  if (claims.aud !== clientId) return bad('ტოკენი სხვა აპლიკაციისაა');
+  if (VALID_ISSUERS.indexOf(String(claims.iss)) === -1) return bad('ტოკენის წყარო არასწორია');
+  if (String(claims.email_verified) !== 'true') return bad('მეილი დადასტურებული არაა');
+  const email = String(claims.email || '').trim().toLowerCase();
+  if (!email) return bad('ტოკენში მეილი არ არის');
+  if (!(Number(claims.exp) > nowSec)) return bad('ტოკენს ვადა გაუვიდა');
+  return { ok: true, email: email };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { mapHeaders, normalizePhone, parseGeometry, isEditableField, checkPermission };
+  module.exports = {
+    mapHeaders, normalizePhone, parseGeometry,
+    isEditableField, checkPermission, verifyTokenClaims,
+  };
 }

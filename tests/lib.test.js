@@ -138,3 +138,58 @@ test('checkPermission — pending და blocked ვერაფერს', () =
   assert.strictEqual(lib.checkPermission('blocked', 'plots'), false);
   assert.strictEqual(lib.checkPermission('', 'plots'), false);
 });
+
+const CID = '123456789-abc.apps.googleusercontent.com';
+const NOW = 1800000000;
+
+function claims(extra) {
+  return Object.assign({
+    aud: CID,
+    iss: 'https://accounts.google.com',
+    email: 'Neighbor@Gmail.com',
+    email_verified: 'true',
+    exp: String(NOW + 3600),
+  }, extra || {});
+}
+
+test('verifyTokenClaims — სწორი ტოკენი, მეილი lowercase-ში', () => {
+  const r = lib.verifyTokenClaims(claims(), CID, NOW);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.email, 'neighbor@gmail.com');
+});
+
+test('verifyTokenClaims — სხვისი aud უარყოფილია', () => {
+  const r = lib.verifyTokenClaims(claims({ aud: 'სხვა-აპლიკაცია' }), CID, NOW);
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.error, 'UNAUTHENTICATED');
+});
+
+test('verifyTokenClaims — არასწორი iss უარყოფილია', () => {
+  const r = lib.verifyTokenClaims(claims({ iss: 'evil.example.com' }), CID, NOW);
+  assert.strictEqual(r.ok, false);
+});
+
+test('verifyTokenClaims — accounts.google.com სქემის გარეშეც ვარგისია', () => {
+  const r = lib.verifyTokenClaims(claims({ iss: 'accounts.google.com' }), CID, NOW);
+  assert.strictEqual(r.ok, true);
+});
+
+test('verifyTokenClaims — დაუდასტურებელი მეილი უარყოფილია', () => {
+  const r = lib.verifyTokenClaims(claims({ email_verified: 'false' }), CID, NOW);
+  assert.strictEqual(r.ok, false);
+});
+
+test('verifyTokenClaims — გასული ტოკენი უარყოფილია', () => {
+  const r = lib.verifyTokenClaims(claims({ exp: String(NOW - 1) }), CID, NOW);
+  assert.strictEqual(r.ok, false);
+});
+
+test('verifyTokenClaims — მეილის გარეშე უარყოფილია', () => {
+  const r = lib.verifyTokenClaims(claims({ email: '' }), CID, NOW);
+  assert.strictEqual(r.ok, false);
+});
+
+test('verifyTokenClaims — ცარიელი claims უარყოფილია', () => {
+  assert.strictEqual(lib.verifyTokenClaims(null, CID, NOW).ok, false);
+  assert.strictEqual(lib.verifyTokenClaims({}, CID, NOW).ok, false);
+});
