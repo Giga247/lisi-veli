@@ -6,7 +6,7 @@
  * Sheet პირადი რჩება — მასთან წვდომა მხოლოდ ამ სკრიპტს აქვს.
  */
 
-const CLIENT_ID = 'ჩასვი-შენი-client-id.apps.googleusercontent.com';
+const CLIENT_ID = '653432134885-71vbd293jlgrceuujql2gtqf8m0g6iqr.apps.googleusercontent.com';
 const ADMIN_EMAIL = 'g.gabriadze@gmail.com';
 
 const SHEET_PLOTS = 'ნაკვეთები';
