@@ -92,3 +92,49 @@ test('parseGeometry — არასწორი სტრუქტურა -> 
   assert.strictEqual(lib.parseGeometry('[]'), null);
   assert.strictEqual(lib.parseGeometry('[[[44.72,41.74]]]'), null); // 1 წერტილი
 });
+
+test('isEditableField — თეთრი სია', () => {
+  assert.strictEqual(lib.isEditableField('phone'), true);
+  assert.strictEqual(lib.isEditableField('first_name'), true);
+  assert.strictEqual(lib.isEditableField('note'), true);
+});
+
+test('isEditableField — გეო-ველები და გასაღები დაცულია', () => {
+  assert.strictEqual(lib.isEditableField('geometry'), false);
+  assert.strictEqual(lib.isEditableField('lat'), false);
+  assert.strictEqual(lib.isEditableField('lon'), false);
+  assert.strictEqual(lib.isEditableField('cad'), false);
+});
+
+test('isEditableField — სისტემური ველები დაცულია', () => {
+  assert.strictEqual(lib.isEditableField('updated_at'), false);
+  assert.strictEqual(lib.isEditableField('updated_by'), false);
+});
+
+test('isEditableField — უცნობი ველი უარყოფილია (თეთრი სია, არა შავი)', () => {
+  assert.strictEqual(lib.isEditableField('რაღაც_ახალი'), false);
+});
+
+test('checkPermission — member მხოლოდ კითხულობს', () => {
+  assert.strictEqual(lib.checkPermission('member', 'plots'), true);
+  assert.strictEqual(lib.checkPermission('member', 'updatePlot'), false);
+  assert.strictEqual(lib.checkPermission('member', 'setRole'), false);
+});
+
+test('checkPermission — moderator რედაქტირებს, ადმინობს ვერა', () => {
+  assert.strictEqual(lib.checkPermission('moderator', 'updatePlot'), true);
+  assert.strictEqual(lib.checkPermission('moderator', 'setRole'), false);
+  assert.strictEqual(lib.checkPermission('moderator', 'logs'), false);
+});
+
+test('checkPermission — admin ყველაფერს', () => {
+  assert.strictEqual(lib.checkPermission('admin', 'updatePlot'), true);
+  assert.strictEqual(lib.checkPermission('admin', 'setRole'), true);
+  assert.strictEqual(lib.checkPermission('admin', 'logs'), true);
+});
+
+test('checkPermission — pending და blocked ვერაფერს', () => {
+  assert.strictEqual(lib.checkPermission('pending', 'plots'), false);
+  assert.strictEqual(lib.checkPermission('blocked', 'plots'), false);
+  assert.strictEqual(lib.checkPermission('', 'plots'), false);
+});

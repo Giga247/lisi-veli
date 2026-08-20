@@ -104,6 +104,32 @@ function parseGeometry(cell) {
   return parsed;
 }
 
+/** რედაქტირებადი ველების თეთრი სია. სიის გარეთ ყველაფერი აკრძალულია. */
+const EDITABLE_FIELDS = [
+  'first_name', 'last_name', 'phone', 'street',
+  'num', 'address', 'area', 'purpose', 'note',
+];
+
+function isEditableField(field) {
+  return EDITABLE_FIELDS.indexOf(field) !== -1;
+}
+
+/** მოქმედება -> როლები, რომლებსაც უფლება აქვთ. */
+const PERMISSIONS = {
+  me: ['member', 'moderator', 'admin'],
+  plots: ['member', 'moderator', 'admin'],
+  updatePlot: ['moderator', 'admin'],
+  users: ['admin'],
+  setRole: ['admin'],
+  logs: ['admin'],
+};
+
+function checkPermission(role, action) {
+  const allowed = PERMISSIONS[action];
+  if (!allowed) return false;
+  return allowed.indexOf(role) !== -1;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { mapHeaders, normalizePhone, parseGeometry };
+  module.exports = { mapHeaders, normalizePhone, parseGeometry, isEditableField, checkPermission };
 }
