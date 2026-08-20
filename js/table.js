@@ -124,14 +124,18 @@ const TableView = (function () {
       '<h3>' + WebLib.escapeHtml(plot.address || plot.cad) + '</h3>' + fields +
       '<p class="dialog-error" data-error hidden></p>' +
       '<div class="controls">' +
-      '<button value="save">შენახვა</button>' +
+      '<button data-save>შენახვა</button>' +
       '<button type="button" data-cancel>გაუქმება</button>' +
       '</div></form>';
     document.body.appendChild(dialog);
     dialog.showModal();
 
     const errorBox = dialog.querySelector('[data-error]');
-    const saveButton = dialog.querySelector('[value="save"]');
+    // `[data-save]`, და არა `[value="save"]`: ველების <input>-ებს ზემოთ
+    // Sheet-იდან მოსული value აქვთ და თუ რომელიმე მათგანი სიტყვასიტყვით
+    // "save"-ს შეიცავდა, querySelector სწორედ მას დააბრუნებდა (DOM-ში ისინი
+    // ღილაკზე ადრე დგანან) — disabled არასწორ ელემენტზე დაჯდებოდა.
+    const saveButton = dialog.querySelector('[data-save]');
 
     // `close` ერთადერთი ადგილია, სადაც dialog DOM-იდან იშლება — და ის
     // ყველა დახურვის გზაზე ისვლება: Escape, „გაუქმება" და წარმატებული
