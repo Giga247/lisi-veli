@@ -44,6 +44,9 @@ th { cursor: pointer; color: var(--ink-muted); font-weight: 600; white-space: no
 input, select, button { font: inherit; padding: 6px 10px;
   border: 1px solid var(--line); border-radius: 6px;
   background: var(--surface); color: var(--ink); }
+/* რედაქტორის dialog-ში დარჩენილი შეცდომა — ტოსტისგან განსხვავებით
+   თავად არ ქრება, ამიტომ ვიზუალურადაც შეცდომად უნდა იკითხებოდეს. */
+.dialog-error { color: var(--danger); font-size: 14px; margin: 8px 0 0; }
 #map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; font-size: 13px; }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-item i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }

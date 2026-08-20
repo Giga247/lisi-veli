@@ -136,20 +136,39 @@ const TableView = (function () {
     dialog.innerHTML =
       '<form method="dialog">' +
       '<h3>' + escapeHtml(plot.address || plot.cad) + '</h3>' + fields +
+      '<p class="dialog-error" data-error hidden></p>' +
       '<div class="controls">' +
       '<button value="save">შენახვა</button>' +
-      '<button value="cancel">გაუქმება</button>' +
+      '<button type="button" data-cancel>გაუქმება</button>' +
       '</div></form>';
     document.body.appendChild(dialog);
     dialog.showModal();
 
-    dialog.addEventListener('close', async function () {
-      if (dialog.returnValue !== 'save') { dialog.remove(); return; }
+    const errorBox = dialog.querySelector('[data-error]');
+    const saveButton = dialog.querySelector('[value="save"]');
+
+    // `close` ერთადერთი ადგილია, სადაც dialog DOM-იდან იშლება — და ის
+    // ყველა დახურვის გზაზე ისვლება: Escape, „გაუქმება" და წარმატებული
+    // შენახვა. ასე ვერცერთ ტოტზე ვერ დარჩება მიტოვებული <dialog>.
+    dialog.addEventListener('close', function () { dialog.remove(); });
+    dialog.querySelector('[data-cancel]').addEventListener('click', function () {
+      dialog.close();
+    });
+
+    dialog.querySelector('form').addEventListener('submit', async function (event) {
+      // `method="dialog"`-ის ნაგულისხმევი ქცევა ფორმის გაგზავნისთანავე ხურავს
+      // dialog-ს — ვაჩერებთ. თუ სერვერი VALIDATION-ს (მაგ. არასწორი ტელეფონი),
+      // CONFLICT-ს ან ქსელის შეცდომას დააბრუნებს, მოდერატორის აკრეფილი ექვსივე
+      // ველი ეკრანზე რჩება და შესწორება ხელახლა აკრეფის გარეშე შეიძლება.
+      event.preventDefault();
+
       const changed = {};
       dialog.querySelectorAll('[data-field]').forEach(function (input) {
         changed[input.getAttribute('data-field')] = input.value;
       });
-      dialog.remove();
+
+      errorBox.hidden = true;
+      saveButton.disabled = true;
       try {
         const result = await API.call('updatePlot', {
           cad: cad,
@@ -161,10 +180,16 @@ const TableView = (function () {
         // დააბრუნა; თუ არა (ძველი დეპლოი), მაინც არ დავტოვოთ რიგი ცარიელი.
         Object.assign(plot, result.fields || changed);
         plot.updated_at = result.updated_at;
+        dialog.close();
         draw();
         if (window.MapView) MapView.render(plots, user);
       } catch (error) {
-        UI.showError(error.message);
+        // შეცდომა თავად dialog-ში ჩანს და 6 წამში არ ქრება — ტოსტი
+        // შესწორებისთვის საკმარისი დრო არ იყო, და მისი გაქრობის შემდეგ
+        // მოდერატორს აღარაფერი რჩებოდა, გარდა ხელახლა აკრეფისა.
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+        saveButton.disabled = false;
       }
     });
   }

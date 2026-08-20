@@ -15,8 +15,8 @@ async function afterSignIn() {
     CURRENT_USER.display_name || CURRENT_USER.email;
   if (CURRENT_USER.role === 'admin') UI.el('tab-admin').hidden = false;
 
-  // აპის ჩარჩო ჩანს მონაცემების ლოდინშიც — თუ `plots` ჩავარდება, მომხმარებელი
-  // ცარიელ ცხრილს ხედავს შეცდომის ბანერთან ერთად, არა უსასრულოდ ჩატვირთვის ეკრანს.
+  // აპის ჩარჩო ჩანს მონაცემების ლოდინშიც — თუ `plots` ჩავარდება, catch
+  // ცხრილის პანელში მუდმივ შეტყობინებას წერს, არა უსასრულოდ ჩატვირთვის ეკრანს.
   UI.showScreen('app');
   UI.showTab('table');
 
@@ -28,6 +28,12 @@ async function afterSignIn() {
     if (CURRENT_USER.role === 'admin') AdminView.render();
   } catch (error) {
     UI.showError(error.message || 'მონაცემების ჩატვირთვა ვერ მოხერხდა');
+    // ბანერი 6 წამში თავად იმალება. მის გარეშე ეკრანზე რჩებოდა ჩვეულებრივი
+    // header სამი ტაბით, რომლებიც არაფერს აკეთებენ, და არცერთი ნიშანი იმისა,
+    // რომ რაღაც ვერ მოხერხდა — ამიტომ პანელში მუდმივი კვალიც იწერება
+    // (იგივე პატერნი, რაც js/admin.js-ს აქვს საკუთარი ჩავარდნისთვის).
+    UI.el('panel-table').innerHTML =
+      '<p>მონაცემები ვერ ჩაიტვირთა — გადატვირთეთ გვერდი.</p>';
   }
 }
 
@@ -73,7 +79,30 @@ async function handleSignInError(error) {
   UI.showError(error.message || 'შეცდომა მოხდა, სცადეთ თავიდან');
 }
 
+/**
+ * `js/config.js` ჯერ პლეისჰოლდერებით არის შევსებული თუ არა.
+ *
+ * სერვერი ამას თავად იცავს — `smokeTest()` გამონაკლისს აგდებს, სანამ
+ * `CLIENT_ID` არ შეიცვლება. კლიენტს ასეთი დაცვა არ ჰქონდა: GSI ცრუ
+ * client id-ით ინიციალიზდებოდა, შესვლის ღილაკი ჩუმად ვერაფერს აკეთებდა
+ * და მფლობელი ინგლისურ კონსოლის შეცდომას იღებდა სწორედ იმ მომენტში,
+ * როცა ყველაზე ნაკლებად შეეძლო მისი ამოკითხვა.
+ */
+function configNotFilled() {
+  return String(CONFIG.CLIENT_ID).indexOf('ჩასვი') !== -1 ||
+    String(CONFIG.API_URL).indexOf('ჩასვი') !== -1;
+}
+
 window.addEventListener('load', function () {
+  if (configNotFilled()) {
+    UI.showScreen('signin');
+    UI.el('signin-button').textContent =
+      'კონფიგურაცია ჯერ არ არის შევსებული: js/config.js-ში CLIENT_ID და ' +
+      'API_URL კვლავ პლეისჰოლდერებია. შეავსეთ ორივე docs/setup.md-ის ' +
+      'მიხედვით (Step 8) და გადატვირთეთ გვერდი.';
+    return;
+  }
+
   const GSI_TIMEOUT_MS = 10000;
   const startedAt = Date.now();
 
