@@ -69,3 +69,26 @@ test('normalizePhone — მოკლე ნომერი უარყოფ�
 test('normalizePhone — გრძელი ნომერი უარყოფილია', () => {
   assert.strictEqual(lib.normalizePhone('5991234567890').ok, false);
 });
+
+test('parseGeometry — სწორი პოლიგონი', () => {
+  const cell = '[[[44.72,41.74],[44.73,41.74],[44.73,41.75],[44.72,41.74]]]';
+  const out = lib.parseGeometry(cell);
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].length, 4);
+  assert.deepStrictEqual(out[0][0], [44.72, 41.74]);
+});
+
+test('parseGeometry — ცარიელი უჯრა -> null', () => {
+  assert.strictEqual(lib.parseGeometry(''), null);
+  assert.strictEqual(lib.parseGeometry(null), null);
+});
+
+test('parseGeometry — დაზიანებული JSON -> null, არა გამონაკლისი', () => {
+  assert.strictEqual(lib.parseGeometry('[[[44.72,'), null);
+});
+
+test('parseGeometry — არასწორი სტრუქტურა -> null', () => {
+  assert.strictEqual(lib.parseGeometry('"რაღაც ტექსტი"'), null);
+  assert.strictEqual(lib.parseGeometry('[]'), null);
+  assert.strictEqual(lib.parseGeometry('[[[44.72,41.74]]]'), null); // 1 წერტილი
+});

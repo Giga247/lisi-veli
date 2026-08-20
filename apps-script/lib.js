@@ -78,6 +78,32 @@ function normalizePhone(raw) {
   return { ok: true, value: '+995' + local };
 }
 
+/**
+ * უჯრის ტექსტი -> პოლიგონის კოორდინატები, ან null.
+ *
+ * ტოლერანტულია განზრახ: გეომეტრიას ადმინი ხელით სვამს Sheet-ში და
+ * შეცდომა გარდაუვალია. დაზიანებული უჯრა ერთ ნაკვეთს მარკერზე გადაიყვანს,
+ * და არ ჩამოაგდებს მთელ რუკას.
+ */
+function parseGeometry(cell) {
+  if (cell == null || String(cell).trim() === '') return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(String(cell));
+  } catch (e) {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  for (const ring of parsed) {
+    if (!Array.isArray(ring) || ring.length < 3) return null;
+    for (const point of ring) {
+      if (!Array.isArray(point) || point.length < 2) return null;
+      if (typeof point[0] !== 'number' || typeof point[1] !== 'number') return null;
+    }
+  }
+  return parsed;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { mapHeaders, normalizePhone };
+  module.exports = { mapHeaders, normalizePhone, parseGeometry };
 }
