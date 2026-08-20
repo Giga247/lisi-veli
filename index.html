@@ -10,6 +10,13 @@
 </head>
 <body>
 
+<!--
+  ეკრანისგან დამოუკიდებელი — screen-app-ის შიგნით რომ ყოფილიყო, UI.showError
+  ხმას ვერ გასცემდა loading/signin/pending ეკრანებზე, სადაც screen-app
+  [hidden]-ითაა დამალული და მისი შვილებიც არ ჩანს.
+-->
+<div id="error-box" hidden></div>
+
 <div id="screen-loading" class="screen">
   <p>იტვირთება…</p>
 </div>
@@ -37,8 +44,6 @@
     <span id="whoami"></span>
     <button onclick="Auth.signOut()">გასვლა</button>
   </header>
-
-  <div id="error-box" hidden></div>
 
   <section id="panel-table"></section>
   <section id="panel-map" hidden></section>

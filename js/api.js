@@ -9,11 +9,20 @@ const API = (function () {
 
   async function call(action, payload) {
     const token = Auth.getToken();
-    const response = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ idToken: token, action: action, payload: payload || {} }),
-    });
+    let response;
+    try {
+      response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ idToken: token, action: action, payload: payload || {} }),
+      });
+    } catch (networkError) {
+      // fetch თავად რომ ჩავარდეს (offline, DNS) — ბრაუზერის ინგლისურ
+      // შეტყობინებას (მაგ. "Failed to fetch") არ ვუშვებთ მომხმარებლამდე.
+      const error = new Error('სერვერთან კავშირი ვერ დამყარდა');
+      error.code = 'SERVER';
+      throw error;
+    }
 
     if (!response.ok) {
       const error = new Error('სერვერთან კავშირი ვერ დამყარდა');

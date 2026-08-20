@@ -55,7 +55,7 @@ function doPost(e) {
 
     if (action === 'requestAccess') return handleRequestAccess(auth.email, user);
 
-    if (!user) return err('PENDING', 'თქვენი მოთხოვნა ჯერ არ გაგზავნილა');
+    if (!user) return err('NO_ACCOUNT', 'ანგარიში ვერ მოიძებნა');
     if (user.role === 'pending') return err('PENDING', 'თქვენი მოთხოვნა დამტკიცების პროცესშია');
     if (user.role === 'blocked') return err('BLOCKED', 'წვდომა შეზღუდულია');
 

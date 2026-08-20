@@ -6,10 +6,11 @@ const Auth = (function () {
   let token = null;
   let signInCallback = null;
   let refreshResolve = null;
+  let refreshPromise = null;
 
   function handleCredential(response) {
     token = response.credential;
-    if (refreshResolve) { refreshResolve(true); refreshResolve = null; }
+    if (refreshResolve) refreshResolve(true);
     if (signInCallback) signInCallback();
   }
 
@@ -29,19 +30,35 @@ const Auth = (function () {
 
   function getToken() { return token; }
 
-  /** ტოკენის ვადა ერთი საათია; გასვლისას ჩუმად ვცდილობთ ახლის აღებას. */
+  /**
+   * ტოკენის ვადა ერთი საათია; გასვლისას ჩუმად ვცდილობთ ახლის აღებას.
+   *
+   * ერთდროული გამოძახებები (მაგ. ორი პარალელური API.call ერთსა და იმავე
+   * წუთს UNAUTHENTICATED-ს იჭერს) ერთსა და იმავე in-flight promise-ს
+   * იზიარებენ — ცალკე resolver-ები აღარ ეწერება ერთმანეთს თავზე, და
+   * არცერთი resolver ორჯერ არ ისვლება.
+   */
   function refresh() {
-    return new Promise(function (resolve) {
-      refreshResolve = resolve;
+    if (refreshPromise) return refreshPromise;
+
+    refreshPromise = new Promise(function (resolve) {
+      function settle(value) {
+        if (!refreshResolve) return;
+        refreshResolve = null;
+        refreshPromise = null;
+        resolve(value);
+      }
+      refreshResolve = settle;
+
       google.accounts.id.prompt(function (notification) {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          if (refreshResolve) { refreshResolve(false); refreshResolve = null; }
+          settle(false);
         }
       });
-      setTimeout(function () {
-        if (refreshResolve) { refreshResolve(false); refreshResolve = null; }
-      }, 5000);
+      setTimeout(function () { settle(false); }, 5000);
     });
+
+    return refreshPromise;
   }
 
   function signOut() {
