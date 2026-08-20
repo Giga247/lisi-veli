@@ -42,10 +42,22 @@ const AdminView = (function () {
 
   function streetOptions(current) {
     const streets = window.PLOTS ? WebLib.streetList(window.PLOTS) : [];
-    return '<option value="">ქუჩის გარეშე</option>' +
+    const trimmedCurrent = String(current || '').trim();
+    // მომხმარებლის შენახული ქუჩა შეიძლება არცერთ ნაკვეთზე აღარ ჩანდეს
+    // (გადარქმეული, სხვანაირად აკრეფილი, ან ბოლო ნაკვეთი შეიცვალა) — ასეთ
+    // შემთხვევაში streets-ს შორის selected ვერაფერი ემთხვევა და ბრაუზერი
+    // პირველ option-ს (ქუჩის გარეშე) აირჩევდა ნაგულისხმევად. მხოლოდ როლის
+    // შესაცვლელად შენახვისას ეს ჩუმად წაშლიდა ქუჩას — ამიტომ რეალური მნიშვნელობა
+    // ყოველთვის უნდა ჩანდეს, თუნდაც არცერთ ნაკვეთს არ ეკუთვნოდეს.
+    const isOrphan = trimmedCurrent && streets.indexOf(trimmedCurrent) === -1;
+    const orphanOption = isOrphan
+      ? '<option value="' + escapeHtml(trimmedCurrent) + '" selected>' +
+        escapeHtml(trimmedCurrent) + ' (ნაკვეთებში არ გვხვდება)</option>'
+      : '';
+    return orphanOption + '<option value="">ქუჩის გარეშე</option>' +
       streets.map(function (street) {
         return '<option value="' + escapeHtml(street) + '"' +
-          (street === current ? ' selected' : '') + '>' + escapeHtml(street) + '</option>';
+          (street === trimmedCurrent ? ' selected' : '') + '>' + escapeHtml(street) + '</option>';
       }).join('');
   }
 
