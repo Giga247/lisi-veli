@@ -193,3 +193,28 @@ test('verifyTokenClaims — ცარიელი claims უარყოფი�
   assert.strictEqual(lib.verifyTokenClaims(null, CID, NOW).ok, false);
   assert.strictEqual(lib.verifyTokenClaims({}, CID, NOW).ok, false);
 });
+
+test('diffFields — მხოლოდ შეცვლილი ველები', () => {
+  const oldRow = { phone: '+995599111111', first_name: 'ზურაბ' };
+  const out = lib.diffFields(oldRow, { phone: '+995599222222', first_name: 'ზურაბ' });
+  assert.strictEqual(out.length, 1);
+  assert.deepStrictEqual(out[0], {
+    field: 'phone', old: '+995599111111', new: '+995599222222',
+  });
+});
+
+test('diffFields — უცვლელი ველი არ იწერება', () => {
+  const out = lib.diffFields({ phone: 'X' }, { phone: 'X' });
+  assert.strictEqual(out.length, 0);
+});
+
+test('diffFields — ცარიელიდან შევსებამდე ჩაიწერება', () => {
+  const out = lib.diffFields({ phone: '' }, { phone: '+995599111111' });
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].old, '');
+});
+
+test('diffFields — რიცხვი და ტექსტი ერთნაირად ედრება', () => {
+  const out = lib.diffFields({ area: 599 }, { area: '599' });
+  assert.strictEqual(out.length, 0);
+});

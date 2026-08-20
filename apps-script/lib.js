@@ -153,9 +153,26 @@ function verifyTokenClaims(claims, clientId, nowSec) {
   return { ok: true, email: email };
 }
 
+/**
+ * ძველი რიგი და ახალი ველები -> ლოგისთვის ცვლილებების სია.
+ * უცვლელი ველი არ იწერება — ლოგი მხოლოდ რეალურ ცვლილებას ინახავს.
+ */
+function diffFields(oldRow, newFields) {
+  const out = [];
+  for (const field in newFields) {
+    if (!Object.prototype.hasOwnProperty.call(newFields, field)) continue;
+    const before = oldRow[field] == null ? '' : String(oldRow[field]);
+    const after = newFields[field] == null ? '' : String(newFields[field]);
+    if (before !== after) {
+      out.push({ field: field, old: before, new: after });
+    }
+  }
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     mapHeaders, normalizePhone, parseGeometry,
-    isEditableField, checkPermission, verifyTokenClaims,
+    isEditableField, checkPermission, verifyTokenClaims, diffFields,
   };
 }
