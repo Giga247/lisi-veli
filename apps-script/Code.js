@@ -116,7 +116,9 @@ function verifyToken(idToken) {
   const result = Lib_verifyTokenClaims(claims, CLIENT_ID, nowSec);
   if (!result.ok) return result;
 
-  cache.put(key, result.email, TOKEN_CACHE_SECONDS);
+  // TTL არასდროს სცდება ტოკენის საკუთარ exp-ს — ქეში ვადაგასულ ტოკენს არ განაცხოვრებს.
+  const ttl = Math.max(0, Math.min(TOKEN_CACHE_SECONDS, Number(claims.exp) - nowSec));
+  cache.put(key, result.email, ttl);
   return result;
 }
 
@@ -190,13 +192,24 @@ function readLogs(limit) {
 }
 
 function appendLog(email, action, cad, changes) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOG);
+  if (changes.length === 0) return;
+  // სვეტების პოზიცია სათაურის რუკიდან იკითხება, არა ხისტად — ლოგის სვეტების
+  // გადალაგება/ჩამატება ამ ჩანაწერს არ დაუშლის, ისევე როგორც სხვა ყველა ჩაწერას ამ ფაილში.
+  const data = sheetRows(SHEET_LOG);
+  const width = data.sheet.getLastColumn();
   const now = new Date().toISOString();
   const rows = changes.map(function (change) {
-    return [now, email, action, cad, change.field, change.old, change.new];
+    const row = new Array(width).fill('');
+    row[data.map.at] = now;
+    row[data.map.by] = email;
+    row[data.map.action] = action;
+    row[data.map.cad] = cad;
+    row[data.map.field] = change.field;
+    row[data.map.old] = change.old;
+    row[data.map.new] = change.new;
+    return row;
   });
-  if (rows.length === 0) return;
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+  data.sheet.getRange(data.sheet.getLastRow() + 1, 1, rows.length, width).setValues(rows);
 }
 
 // ── მოქმედებები ─────────────────────────────────────────────────────
@@ -205,6 +218,9 @@ function handleRequestAccess(email, existingUser) {
   if (existingUser) {
     if (existingUser.role === 'pending') {
       return err('PENDING', 'თქვენი მოთხოვნა დამტკიცების პროცესშია');
+    }
+    if (existingUser.role === 'blocked') {
+      return err('BLOCKED', 'წვდომა შეზღუდულია');
     }
     return ok(existingUser);
   }
@@ -290,7 +306,9 @@ function handleUpdatePlot(user, payload) {
     for (const field in clean) {
       data.sheet.getRange(sheetRow, data.map[field] + 1).setValue(clean[field]);
     }
-    data.sheet.getRange(sheetRow, data.map.updated_at + 1).setValue(now);
+    // ტექსტის ფორმატი წინასწარ ეყენება — Sheets ISO-სტრიქონს თარიღად არ გადააქცევს,
+    // წინააღმდეგ შემთხვევაში მომდევნო შედარება expected_updated_at-თან ვერასდროს დაემთხვევა.
+    data.sheet.getRange(sheetRow, data.map.updated_at + 1).setNumberFormat('@').setValue(now);
     data.sheet.getRange(sheetRow, data.map.updated_by + 1).setValue(user.email);
 
     appendLog(user.email, 'update', cad, changes);
@@ -303,7 +321,11 @@ function handleUpdatePlot(user, payload) {
 function handleSetRole(admin, payload) {
   const email = String(payload.email || '').trim().toLowerCase();
   const role = String(payload.role || '').trim();
-  const street = String(payload.street || '').trim();
+  // street იწერება მხოლოდ მაშინ, თუ გამომძახებელმა ის რეალურად გადმოსცა —
+  // წინააღმდეგ შემთხვევაში setRole (მაგ. მხოლოდ როლის შესაცვლელად გამოძახებული)
+  // ჩუმად წაშლიდა მომხმარებლის უკვე არსებულ ქუჩას.
+  const hasStreet = Object.prototype.hasOwnProperty.call(payload, 'street');
+  const street = hasStreet ? String(payload.street || '').trim() : null;
 
   const allowed = ['admin', 'moderator', 'member', 'pending', 'blocked'];
   if (allowed.indexOf(role) === -1) return err('VALIDATION', 'უცნობი როლი');
@@ -320,7 +342,9 @@ function handleSetRole(admin, payload) {
     if (index === -1) return err('NOT_FOUND', 'მომხმარებელი ვერ მოიძებნა');
 
     const before = rowToObject(data.rows[index], data.map);
-    if (before.role === 'admin' && role !== 'admin') {
+    // .trim() აქ სავალდებულოა: Step 1.7-ში ადმინის რიგი ხელით იწერება და
+    // "admin " (ბოლო whitespace-ით) ამ შემოწმებას ჩუმად გვერდს აუვლიდა.
+    if (String(before.role).trim() === 'admin' && role !== 'admin') {
       let admins = 0;
       for (const row of data.rows) {
         if (String(row[data.map.role]).trim() === 'admin') admins++;
@@ -331,13 +355,19 @@ function handleSetRole(admin, payload) {
 
     const sheetRow = index + 2;
     data.sheet.getRange(sheetRow, data.map.role + 1).setValue(role);
-    data.sheet.getRange(sheetRow, data.map.street + 1).setValue(street);
-    data.sheet.getRange(sheetRow, data.map.approved_at + 1).setValue(new Date().toISOString());
+    if (hasStreet) {
+      data.sheet.getRange(sheetRow, data.map.street + 1).setValue(street);
+    }
+    // ტექსტის ფორმატი წინასწარ ეყენება — იგივე მიზეზით, რაც ნაკვეთის განახლდა-ს დროს.
+    data.sheet.getRange(sheetRow, data.map.approved_at + 1).setNumberFormat('@').setValue(new Date().toISOString());
     data.sheet.getRange(sheetRow, data.map.approved_by + 1).setValue(admin.email);
 
-    appendLog(admin.email, 'role_change', email,
-      [{ field: 'role', old: before.role, new: role }]);
-    return ok({ email: email, role: role, street: street });
+    const changes = [{ field: 'role', old: before.role, new: role }];
+    if (hasStreet && String(before.street || '') !== street) {
+      changes.push({ field: 'street', old: before.street, new: street });
+    }
+    appendLog(admin.email, 'role_change', email, changes);
+    return ok({ email: email, role: role, street: hasStreet ? street : before.street });
   } finally {
     lock.releaseLock();
   }
@@ -351,6 +381,7 @@ function smokeTest() {
   console.log('პოლიგონით: ' + plots.filter(function (p) { return p.geometry; }).length);
   console.log('კოორდინატით: ' + plots.filter(function (p) { return p.lat; }).length);
   console.log('პირველი: ' + JSON.stringify(plots[0]).slice(0, 200));
+  console.log('პირველის updated_at: "' + plots[0].updated_at + '" (უნდა იყოს ISO სტრიქონი ან ცარიელი — არა თარიღის ტექსტი "Wed Aug..." სახის)');
 
   const users = readUsers();
   console.log('მომხმარებელი: ' + users.length);
