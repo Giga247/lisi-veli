@@ -54,6 +54,30 @@ function mapHeaders(headerRow) {
   return map;
 }
 
+/**
+ * ტელეფონის ნორმალიზება +995XXXXXXXXX ფორმატში.
+ * მიიღება: 599123456 | 995599123456 | +995599123456 — გამოტოვებებით,
+ * დეფისებით, ფრჩხილებით. ცარიელი ველი დაშვებულია.
+ */
+function normalizePhone(raw) {
+  if (raw == null || String(raw).trim() === '') {
+    return { ok: true, value: '' };
+  }
+  const digits = String(raw).replace(/[\s\-()+.]/g, '');
+  if (!/^[0-9]+$/.test(digits)) {
+    return { ok: false, message: 'ტელეფონი მხოლოდ ციფრებს უნდა შეიცავდეს' };
+  }
+  let local;
+  if (digits.length === 9) {
+    local = digits;
+  } else if (digits.length === 12 && digits.indexOf('995') === 0) {
+    local = digits.slice(3);
+  } else {
+    return { ok: false, message: 'ნომერი უნდა იყოს 9 ციფრი, ან 995 + 9 ციფრი' };
+  }
+  return { ok: true, value: '+995' + local };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { mapHeaders };
+  module.exports = { mapHeaders, normalizePhone };
 }

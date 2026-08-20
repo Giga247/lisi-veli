@@ -35,3 +35,37 @@ test('mapHeaders — უცნობი სვეტი იგნორირდ
   assert.strictEqual(map.cad, 0);
   assert.strictEqual(Object.keys(map).length, 1);
 });
+
+test('normalizePhone — ცხრანიშნა ნომერს კოდი ემატება', () => {
+  assert.deepStrictEqual(lib.normalizePhone('599123456'),
+    { ok: true, value: '+995599123456' });
+});
+
+test('normalizePhone — გამოტოვებები და დეფისები ირეცხება', () => {
+  assert.deepStrictEqual(lib.normalizePhone('+995 599 12-34-56'),
+    { ok: true, value: '+995599123456' });
+});
+
+test('normalizePhone — 995-ით დაწყებული', () => {
+  assert.deepStrictEqual(lib.normalizePhone('995599123456'),
+    { ok: true, value: '+995599123456' });
+});
+
+test('normalizePhone — ცარიელი დაშვებულია', () => {
+  assert.deepStrictEqual(lib.normalizePhone(''), { ok: true, value: '' });
+  assert.deepStrictEqual(lib.normalizePhone(null), { ok: true, value: '' });
+});
+
+test('normalizePhone — ასოები უარყოფილია', () => {
+  const r = lib.normalizePhone('abc');
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.message.length > 0);
+});
+
+test('normalizePhone — მოკლე ნომერი უარყოფილია', () => {
+  assert.strictEqual(lib.normalizePhone('5991234').ok, false);
+});
+
+test('normalizePhone — გრძელი ნომერი უარყოფილია', () => {
+  assert.strictEqual(lib.normalizePhone('5991234567890').ok, false);
+});
