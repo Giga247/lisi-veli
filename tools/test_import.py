@@ -26,5 +26,33 @@ class TestSplitName(unittest.TestCase):
         self.assertEqual(split_name(None), (u'', u''))
 
 
+from import_lib import split_name, dedupe_by_cad
+
+
+class TestDedupe(unittest.TestCase):
+    def test_dublikati_ertdeba_da_ibechdeba(self):
+        rows = [
+            {u'cad': u'99.99.99.003', u'name': u'ხარაძე ქეთევან'},
+            {u'cad': u'99.99.99.002', u'name': u'ბერიძე ზურაბ'},
+            {u'cad': u'99.99.99.003', u'name': u'ხარაძე ქეთევან'},
+        ]
+        result, dups = dedupe_by_cad(rows)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(dups, [u'99.99.99.003'])
+        self.assertEqual(result[u'99.99.99.003'][u'name'], u'ხარაძე ქეთევან')
+
+    def test_carieli_cad_gamoiricxeba(self):
+        rows = [{u'cad': u'', u'name': u'X'}, {u'cad': None, u'name': u'Y'}]
+        result, dups = dedupe_by_cad(rows)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(dups, [])
+
+    def test_dublikatebis_gareshe(self):
+        rows = [{u'cad': u'A', u'name': u'1'}, {u'cad': u'B', u'name': u'2'}]
+        result, dups = dedupe_by_cad(rows)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(dups, [])
+
+
 if __name__ == '__main__':
     unittest.main()
