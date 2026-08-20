@@ -8,6 +8,6 @@
  * იცვლება რეალური მნიშვნელობით — იხ. `docs/setup.md`.
  */
 const CONFIG = {
-  CLIENT_ID: '653432134885-71vbd293jlgrceuujql2gtqf8m0g6iqr.apps.googleusercontent.com',
+  CLIENT_ID: 'ჩასვი-შენი-client-id.apps.googleusercontent.com',
   API_URL: 'https://script.google.com/macros/s/ჩასვი-შენი-id/exec',
 };
