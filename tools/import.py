@@ -15,7 +15,8 @@ import sys
 import openpyxl
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from import_lib import split_name, dedupe_by_cad, geometry_string
+from import_lib import (
+    split_name, dedupe_by_cad, geometry_string, index_features_by_cad)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 XLSX = os.path.join(ROOT, u'კედრის_ქუჩა_ხელმოწერები.xlsx')
@@ -59,7 +60,7 @@ def main():
 
     with io.open(GEOJSON, encoding='utf-8') as fh:
         geo = json.load(fh)
-    geo_index = {f[u'properties'][u'cad']: f for f in geo[u'features']}
+    geo_index, geo_dups, geo_missing = index_features_by_cad(geo[u'features'])
 
     out_rows = []
     no_geometry = []
@@ -110,6 +111,8 @@ def main():
     print(u'ფართობის გარეშე:    %d  %s' % (len(no_area), no_area))
     print(u'ქუჩის გარეშე:       %d  %s' % (len(no_street), no_street))
     print(u'დუბლიკატი კოდი:     %d  %s' % (len(dups), dups))
+    print(u'დუბლიკატი geojson-ში: %d  %s' % (len(geo_dups), geo_dups))
+    print(u'geojson feature კოდის გარეშე: %d' % geo_missing)
     print(u'')
     print(u'ხელით გადასამოწმებელი: სამსიტყვიანი სახელები')
     for cad, sig in sigs.items():

@@ -79,5 +79,51 @@ class TestGeometryString(unittest.TestCase):
         self.assertEqual(geometry_string(feature), u'')
 
 
+from import_lib import (
+    split_name, dedupe_by_cad, geometry_string, index_features_by_cad)
+
+
+class TestIndexFeaturesByCad(unittest.TestCase):
+    def test_dublikatis_gareshe(self):
+        features = [
+            {u'properties': {u'cad': u'A'}},
+            {u'properties': {u'cad': u'B'}},
+        ]
+        index, dups, missing = index_features_by_cad(features)
+        self.assertEqual(len(index), 2)
+        self.assertEqual(dups, [])
+        self.assertEqual(missing, 0)
+
+    def test_erti_dublikati_pirveli_rcheba_da_erti_registrirdeba(self):
+        first = {u'properties': {u'cad': u'X'}, u'tag': u'პირველი'}
+        second = {u'properties': {u'cad': u'X'}, u'tag': u'meore'}
+        third = {u'properties': {u'cad': u'X'}, u'tag': u'mesame'}
+        index, dups, missing = index_features_by_cad([first, second, third])
+        self.assertEqual(len(index), 1)
+        self.assertEqual(dups, [u'X'])
+        self.assertEqual(index[u'X'][u'tag'], u'პირველი')
+        self.assertEqual(missing, 0)
+
+    def test_properties_gareshe_feature_ricxvashi_erteba(self):
+        features = [{u'geometry': {}}]
+        index, dups, missing = index_features_by_cad(features)
+        self.assertEqual(len(index), 0)
+        self.assertEqual(dups, [])
+        self.assertEqual(missing, 1)
+
+    def test_cad_gareshe_properties_ricxvashi_erteba(self):
+        features = [{u'properties': {u'other': u'val'}}]
+        index, dups, missing = index_features_by_cad(features)
+        self.assertEqual(len(index), 0)
+        self.assertEqual(dups, [])
+        self.assertEqual(missing, 1)
+
+    def test_carieli_siachume(self):
+        index, dups, missing = index_features_by_cad([])
+        self.assertEqual(index, {})
+        self.assertEqual(dups, [])
+        self.assertEqual(missing, 0)
+
+
 if __name__ == '__main__':
     unittest.main()
