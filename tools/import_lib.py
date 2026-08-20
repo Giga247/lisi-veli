@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """სუფთა ფუნქციები იმპორტისთვის — ფაილებს არ ეხება, ამიტომ იტესტება."""
+import json
 
 
 def split_name(full):
@@ -31,3 +32,20 @@ def dedupe_by_cad(rows):
             continue
         out[cad] = row
     return (out, dups)
+
+
+def geometry_string(feature):
+    u"""GeoJSON Feature -> coordinates-ის კომპაქტური JSON სტრიქონი.
+
+    ინახება მხოლოდ coordinates, არა სრული Feature — უჯრაში ადგილის
+    დასაზოგად. Polygon-ის გარდა ყველა ტიპი იგნორირდება.
+    """
+    if not feature:
+        return u''
+    geom = feature.get(u'geometry') or {}
+    if geom.get(u'type') != u'Polygon':
+        return u''
+    coords = geom.get(u'coordinates')
+    if not coords:
+        return u''
+    return json.dumps(coords, separators=(u',', u':'))

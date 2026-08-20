@@ -54,5 +54,30 @@ class TestDedupe(unittest.TestCase):
         self.assertEqual(dups, [])
 
 
+from import_lib import split_name, dedupe_by_cad, geometry_string
+
+
+class TestGeometryString(unittest.TestCase):
+    def test_polygon_mxolod_koordinatebs_inaxavs(self):
+        feature = {
+            u'geometry': {
+                u'type': u'Polygon',
+                u'coordinates': [[[44.72, 41.74], [44.73, 41.74],
+                                  [44.73, 41.75], [44.72, 41.74]]]
+            }
+        }
+        out = geometry_string(feature)
+        self.assertTrue(out.startswith(u'[[['))
+        self.assertNotIn(u'Polygon', out)
+        self.assertNotIn(u' ', out)  # კომპაქტური, უჯრაში ადგილის დასაზოგად
+
+    def test_ararsebuli_feature_carielia(self):
+        self.assertEqual(geometry_string(None), u'')
+
+    def test_ucnobi_tipi_carielia(self):
+        feature = {u'geometry': {u'type': u'Point', u'coordinates': [44.7, 41.7]}}
+        self.assertEqual(geometry_string(feature), u'')
+
+
 if __name__ == '__main__':
     unittest.main()
