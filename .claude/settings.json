@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/chatlog-inject.sh\"",
+            "timeout": 15,
+            "statusMessage": "ჩატების ინდექსის ჩატვირთვა"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/chatlog-write.sh\"",
+            "timeout": 20,
+            "statusMessage": "სესიის ლოგის ჩაწერა"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/chatlog-write.sh\"",
+            "timeout": 20,
+            "statusMessage": "სესიის ლოგის checkpoint"
+          }
+        ]
+      }
+    ]
+  }
+}
