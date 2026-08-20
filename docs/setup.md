@@ -94,6 +94,7 @@ Apps Script-ს მოდულები არ აქვს — ყველა
 
 ```javascript
 // Apps Script-ის ერთიან სივრცეში სახელების გამიჯვნა
+const Lib_HEADER_MAP = HEADER_MAP;
 const Lib_mapHeaders = mapHeaders;
 const Lib_normalizePhone = normalizePhone;
 const Lib_parseGeometry = parseGeometry;

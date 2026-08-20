@@ -142,6 +142,33 @@ function sheetRows(name) {
   return { sheet: sheet, map: Lib_mapHeaders(values[0]), rows: values.slice(1) };
 }
 
+/**
+ * კოდის გასაღები -> Sheet-ის ქართული სათაური. `Lib_HEADER_MAP` სათაურების
+ * ერთადერთი წყაროა (`lib.gs`) — აქ ის მხოლოდ შებრუნებით იკითხება, რომ
+ * შეცდომის ტექსტში მომხმარებელმა ზუსტად ის სიტყვა დაინახოს, რაც Sheet-ში
+ * წერია, და არა კოდის შიდა სახელი.
+ */
+function headerTitle(key) {
+  for (const title in Lib_HEADER_MAP) {
+    if (Lib_HEADER_MAP[title] === key) return title;
+  }
+  return key;
+}
+
+/**
+ * პირველი გასაღები, რომლის სვეტიც Sheet-ში არ არის — ან null.
+ *
+ * ყველა write-handler ამას ერთადერთი setValue-ს გაკეთებამდე იძახებს:
+ * ნაწილობრივი ჩაწერა (ნაწილი ველების ჩაიწერა, დანარჩენზე გამონაკლისი
+ * აიგდო) ჩანაწერს დაზიანებულ მდგომარეობაში ტოვებდა.
+ */
+function missingColumn(map, keys) {
+  for (const key of keys) {
+    if (map[key] === undefined) return key;
+  }
+  return null;
+}
+
 function rowToObject(row, map) {
   const out = {};
   for (const key in map) {
@@ -243,6 +270,11 @@ function handleRequestAccess(email, existingUser) {
     } catch (mailError) {
       console.error('მეილი ვერ გაიგზავნა: ' + mailError);
     }
+
+    // ლოკის გათავისუფლებამდე ახალი რიგი უნდა დაჯდეს — თორემ იმავე მეილით
+    // გაგზავნილ პარალელურ მოთხოვნას `findUser` ვერ იპოვის და მეორე
+    // `pending` რიგი დაემატება.
+    SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
   }
@@ -295,10 +327,15 @@ function handleUpdatePlot(user, payload) {
     const changes = Lib_diffFields(before, clean);
     if (changes.length === 0) return ok({ cad: cad, updated_at: current, changed: 0, fields: clean });
 
-    for (const field in clean) {
-      if (data.map[field] === undefined) {
-        return err('VALIDATION', 'Sheet-ში ასეთი სვეტი არ არის: ' + field);
-      }
+    // ჩაწერამდე მოწმდება **ყველა** სვეტი, რომელსაც ეს გამოძახება შეეხება —
+    // რედაქტირებადი ველების გარდა `განახლდა` და `განმაახლებელი`. მათ გარეშე
+    // ველების უჯრები უკვე ჩაწერილი იქნებოდა, `განახლდა`-ზე კი გამონაკლისი
+    // აიგდებოდა: ნაკვეთი შეცვლილი, `განახლდა` ძველი — და ოპტიმისტური
+    // კონკურენტულობის შემოწმება ამ რიგისთვის სამუდამოდ გათიშული.
+    const missing = missingColumn(
+      data.map, Object.keys(clean).concat(['updated_at', 'updated_by']));
+    if (missing) {
+      return err('VALIDATION', 'Sheet-ში ასეთი სვეტი არ არის: ' + headerTitle(missing));
     }
 
     const now = new Date().toISOString();
@@ -312,6 +349,12 @@ function handleUpdatePlot(user, payload) {
     data.sheet.getRange(sheetRow, data.map.updated_by + 1).setValue(user.email);
 
     appendLog(user.email, 'update', cad, changes);
+    // ლოკის გათავისუფლებამდე ჩანაწერი ფიზიკურად უნდა დაჯდეს Sheet-ში.
+    // flush()-ის გარეშე მომდევნო მოთხოვნას შეუძლია ლოკი იმ წამსვე აიღოს
+    // და `sheetRows()`-ით ჯერ კიდევ ძველი `განახლდა` წაიკითხოს — მისი
+    // `expected_updated_at` მაშინ ცრუდ დაემთხვევა, CONFLICT არ დაბრუნდება
+    // და ეს ცვლილება უკვალოდ გადაიწერება.
+    SpreadsheetApp.flush();
     return ok({ cad: cad, updated_at: now, changed: changes.length, fields: clean });
   } finally {
     lock.releaseLock();
@@ -353,6 +396,16 @@ function handleSetRole(admin, payload) {
       if (email === admin.email) return err('FORBIDDEN', 'საკუთარი როლის დაქვეითება არ შეიძლება');
     }
 
+    // იგივე მიზეზი, რაც handleUpdatePlot-ში: `როლი` ჩაწერილიყო და შემდეგ
+    // `დამტკიცების თარიღი`-ს არარსებობას გამონაკლისი აეგდო, როლი შეიცვლებოდა
+    // დამტკიცების შტამპისა და ლოგის ჩანაწერის გარეშე.
+    const needed = ['role', 'approved_at', 'approved_by'];
+    if (hasStreet) needed.push('street');
+    const missing = missingColumn(data.map, needed);
+    if (missing) {
+      return err('VALIDATION', 'Sheet-ში ასეთი სვეტი არ არის: ' + headerTitle(missing));
+    }
+
     const sheetRow = index + 2;
     data.sheet.getRange(sheetRow, data.map.role + 1).setValue(role);
     if (hasStreet) {
@@ -367,6 +420,8 @@ function handleSetRole(admin, payload) {
       changes.push({ field: 'street', old: before.street, new: street });
     }
     appendLog(admin.email, 'role_change', email, changes);
+    // იხ. handleUpdatePlot — ლოკი მხოლოდ ჩაწერის დაჯდომის შემდეგ თავისუფლდება.
+    SpreadsheetApp.flush();
     return ok({ email: email, role: role, street: hasStreet ? street : before.street });
   } finally {
     lock.releaseLock();
