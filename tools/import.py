@@ -10,18 +10,63 @@ import csv
 import io
 import json
 import os
+import re
 import sys
+import zipfile
 
 import openpyxl
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from import_lib import (
-    split_name, dedupe_by_cad, geometry_string, index_features_by_cad)
+    split_name, dedupe_by_cad, geometry_string, index_features_by_cad,
+    normalize_cad, phones_from_rows)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 XLSX = os.path.join(ROOT, u'კედრის_ქუჩა_ხელმოწერები.xlsx')
 GEOJSON = os.path.join(ROOT, u'კედრის_ქუჩა_ნაკვეთები.geojson')
+DOCX = os.path.join(ROOT, u'განცხადება მერიაში.docx')
 OUT = os.path.join(ROOT, u'build')
+
+def read_docx_phones(path):
+    u"""ხელმოწერების დოკუმენტიდან (კოდი, ტელეფონი) წყვილები.
+
+    სია ოთხეულებადაა აგებული: № → სახელი გვარი → საკადასტრო კოდი →
+    ტელეფონი. სწორედ ამ სტრუქტურას ვეყრდნობით და არა ტექსტში ძებნას —
+    დოკუმენტში თარიღიც წერია და ფართობიც, და ბრმა ძებნა მათაც აიღებდა.
+    """
+    if not os.path.exists(path):
+        return []
+    with zipfile.ZipFile(path) as archive:
+        xml = archive.read('word/document.xml').decode('utf8', 'ignore')
+    paragraphs = []
+    for block in re.findall(r'<w:p[ >].*?</w:p>', xml, re.S):
+        text = u''.join(re.findall(r'<w:t[^>]*>(.*?)</w:t>', block, re.S))
+        text = re.sub(r'\s+', u' ', text).strip()
+        if text:
+            paragraphs.append(text)
+    rows = []
+    for i, text in enumerate(paragraphs):
+        is_row = (re.match(r'^\d{1,3}$', text)
+                  and i + 3 < len(paragraphs)
+                  and re.match(r'^[\d.]{8,20}$', paragraphs[i + 2]))
+        if is_row:
+            rows.append((paragraphs[i + 2], paragraphs[i + 3]))
+    return rows
+
+
+def phone_for(cad, phone_by_cad, used):
+    u"""ნაკვეთის ნომერი დოკუმენტიდან, ან ცარიელი.
+
+    `used` მხოლოდ რეზიუმესთვისაა: ის აჩვენებს, დოკუმენტის რომელი
+    ჩანაწერი ვერ დაუკავშირდა ვერცერთ ნაკვეთს — ჩუმად დაკარგული ნომერი
+    მხოლოდ მაშინ აღმოჩნდებოდა, როცა ვიღაცას ვერ დაურეკავდნენ.
+    """
+    key = normalize_cad(cad)
+    phone = phone_by_cad.get(key, u'')
+    if phone:
+        used.add(key)
+    return phone
+
 
 PLOT_HEADERS = [
     u'საკადასტრო კოდი', u'ქუჩა', u'N', u'სრული მისამართი', u'ფართობი კვ.მ',
@@ -62,6 +107,10 @@ def main():
         geo = json.load(fh)
     geo_index, geo_dups, geo_missing = index_features_by_cad(geo[u'features'])
 
+    phone_by_cad, phone_conflicts, phone_skipped = phones_from_rows(
+        read_docx_phones(DOCX))
+    phone_used = set()
+
     out_rows = []
     no_geometry = []
     no_area = []
@@ -88,7 +137,7 @@ def main():
             r[5] or u'',    # დანიშნულება
             first,          # სახელი
             last,           # გვარი
-            u'',            # ტელეფონი — ხელით შესავსები
+            phone_for(cad, phone_by_cad, phone_used),  # ტელეფონი
             r[9] or u'',    # გრძედი
             r[10] or u'',   # განედი
             geom,           # გეომეტრია
@@ -111,6 +160,18 @@ def main():
     print(u'ფართობის გარეშე:    %d  %s' % (len(no_area), no_area))
     print(u'ქუჩის გარეშე:       %d  %s' % (len(no_street), no_street))
     print(u'დუბლიკატი კოდი:     %d  %s' % (len(dups), dups))
+    print(u'ტელეფონით:          %d' % len(phone_used))
+    print(u'ტელეფონის გარეშე:   %d' % (len(out_rows) - len(phone_used)))
+    unused = sorted(set(phone_by_cad) - phone_used)
+    if unused:
+        print(u'დოკუმენტში ნომერი აქვს, ბაზაში ნაკვეთი არ არის: %d  %s'
+              % (len(unused), unused))
+    if phone_skipped:
+        print(u'ნომერი ვერ წაიკითხა (ტიპო ან ცარიელი): %d  %s'
+              % (len(phone_skipped), phone_skipped))
+    if phone_conflicts:
+        print(u'ერთ ნაკვეთზე ორი სხვადასხვა ნომერი: %d  %s'
+              % (len(phone_conflicts), phone_conflicts))
     print(u'დუბლიკატი geojson-ში: %d  %s' % (len(geo_dups), geo_dups))
     print(u'geojson feature კოდის გარეშე: %d' % geo_missing)
     print(u'')

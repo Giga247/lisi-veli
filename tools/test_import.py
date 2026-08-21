@@ -2,7 +2,8 @@
 import unittest
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from import_lib import split_name
+from import_lib import (split_name, normalize_phone, normalize_cad,
+                        phones_from_rows)
 
 
 class TestSplitName(unittest.TestCase):
@@ -127,3 +128,58 @@ class TestIndexFeaturesByCad(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestPhones(unittest.TestCase):
+    def test_qartuli_ombra_prefiqsit(self):
+        self.assertEqual(normalize_phone(u'555123456'), u'+995555123456')
+        self.assertEqual(normalize_phone(u'995555123456'), u'+995555123456')
+
+    def test_gamotovebebi_da_defisebi_irecxeba(self):
+        self.assertEqual(normalize_phone(u'555 12-34-56'), u'+995555123456')
+
+    def test_saertashoriso_uzvlelad_rcheba(self):
+        self.assertEqual(normalize_phone(u'+44 7700 900123'), u'+447700900123')
+
+    def test_arasruli_nomeri_carielia(self):
+        self.assertEqual(normalize_phone(u'12345'), u'')
+        self.assertEqual(normalize_phone(u''), u'')
+        self.assertEqual(normalize_phone(None), u'')
+
+    def test_atnishna_nomeri_plusis_gareshe_uaryofilia(self):
+        # ეს ტიპოა, არა უცხოური ნომერი — იგივე წესი, რაც სერვერზე
+        self.assertEqual(normalize_phone(u'5551234567'), u'')
+
+    def test_kodi_bolo_otxi_segmentit_ertdeba(self):
+        self.assertEqual(normalize_cad(u'01.72.16.097.011'), u'72.16.097.011')
+        self.assertEqual(normalize_cad(u'72.16.097.011'), u'72.16.097.011')
+        self.assertEqual(normalize_cad(u'72.16.21.719'), u'72.16.21.719')
+
+    def test_phones_from_rows_agebs_rukas(self):
+        out, conflicts, skipped = phones_from_rows([
+            (u'01.72.16.097.011', u'555123456'),
+            (u'72.16.21.719', u'+44 7700 900123'),
+        ])
+        self.assertEqual(out[u'72.16.097.011'], u'+995555123456')
+        self.assertEqual(out[u'72.16.21.719'], u'+447700900123')
+        self.assertEqual(conflicts, [])
+
+    def test_ori_sxvadasxva_nomeri_ert_nakvetze_konfliqtia(self):
+        out, conflicts, skipped = phones_from_rows([
+            (u'72.16.21.719', u'555111111'),
+            (u'72.16.21.719', u'555222222'),
+        ])
+        self.assertEqual(out[u'72.16.21.719'], u'+995555111111')
+        self.assertEqual(conflicts, [u'72.16.21.719'])
+
+    def test_igive_nomeri_orjer_konfliqti_araa(self):
+        out, conflicts, skipped = phones_from_rows([
+            (u'72.16.21.719', u'555111111'),
+            (u'72.16.21.719', u'+995 555 11-11-11'),
+        ])
+        self.assertEqual(conflicts, [])
+
+    def test_uknomro_chanaweri_skipped_shia(self):
+        out, conflicts, skipped = phones_from_rows([(u'72.16.21.719', u'')])
+        self.assertEqual(out, {})
+        self.assertEqual(skipped, [u'72.16.21.719'])
