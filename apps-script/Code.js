@@ -1,5 +1,5 @@
 /**
- * კედრის უბანი — სერვერი.
+ * ლისი ველი — სერვერი.
  *
  * განთავსება: Deploy → Web app → Execute as: Me → Who has access: Anyone.
  * უსაფრთხოებას ტოკენის შემოწმება უზრუნველყოფს, არა წვდომის პარამეტრი.
@@ -79,7 +79,7 @@ function doPost(e) {
 }
 
 function doGet() {
-  return ContentService.createTextOutput('კედრის უბანი — API. მოთხოვნები POST-ით მიიღება.');
+  return ContentService.createTextOutput('ლისი ველი — API. მოთხოვნები POST-ით მიიღება.');
 }
 
 // ── ავტორიზაცია ─────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ function handleRequestAccess(email, existingUser) {
     data.sheet.appendRow(row);
 
     try {
-      MailApp.sendEmail(ADMIN_EMAIL, 'კედრის უბანი — ახალი მოთხოვნა',
+      MailApp.sendEmail(ADMIN_EMAIL, 'ლისი ველი — ახალი მოთხოვნა',
         email + ' ითხოვს წვდომას. დაამტკიცეთ ადმინის გვერდიდან.');
     } catch (mailError) {
       console.error('მეილი ვერ გაიგზავნა: ' + mailError);

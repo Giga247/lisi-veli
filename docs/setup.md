@@ -1,6 +1,6 @@
-# კედრის უბანი — განთავსების სახელმძღვანელო
+# ლისი ველი — განთავსების სახელმძღვანელო
 
-ეს დოკუმენტი აღწერს, როგორ გაშვდეს „კედრის უბანი" ნულიდან: მონაცემების
+ეს დოკუმენტი აღწერს, როგორ გაშვდეს „ლისი ველი" ნულიდან: მონაცემების
 მომზადებიდან და Google Sheet-ის შექმნიდან იმ მომენტამდე, როცა საიტი ცოცხალ
 `github.io` მისამართზე იხსნება და მეზობლების მოწვევა შეიძლება. გაიარეთ ნაბიჯები
 თანმიმდევრობით, რეპოზიტორი წინ გქონდეთ გახსნილი.
@@ -99,7 +99,7 @@ ls build/
 
 ## Step 1 — Google Sheet-ის შექმნა და მონაცემების ჩასმა
 
-1. Google Drive → New → Google Sheets. სახელი: `კედრის უბანი — ბაზა`
+1. Google Drive → New → Google Sheets. სახელი: `ლისი ველი — ბაზა`
 2. სამი ფურცელი შეიქმნას ზუსტად ამ სახელებით: `ნაკვეთები`, `მომხმარებლები`, `ლოგი`
 3. `build/plots.csv` (Step 0-ში შექმნილი) → File → Import → Replace current
    sheet → ფურცელი `ნაკვეთები`
@@ -125,7 +125,7 @@ ls build/
 
 1. https://console.cloud.google.com → New Project → `kedris-ubani`
 2. APIs & Services → OAuth consent screen → External → აპლიკაციის სახელი
-   `კედრის უბანი`, support email, developer email → Save
+   `ლისი ველი` (თუ ქართული არ მიიღება: `Lisi Veli`), support email, developer email → Save
 3. Audience → Publish app (თუ Testing-ში დარჩა, მხოლოდ ხელით დამატებული 100
    მომხმარებელი შეძლებს შესვლას)
 4. Credentials → Create Credentials → OAuth client ID → Web application
