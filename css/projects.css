@@ -113,8 +113,11 @@
 .pr-count { color: var(--ink-muted); font-size: .85rem; }
 .pr-by { color: var(--ink-muted); font-size: .82rem; }
 .pr-table td, .pr-streets td { text-align: right; }
+/* სათაური სვეტს მიჰყვება: ტექსტი მარცხნივ, რიცხვი მარჯვნივ.
+   `style.css` ყველა `th`-ს მარჯვნივ წევს — აქ პირველი სვეტები ბრუნდება. */
 .pr-table td:first-child, .pr-table td:nth-child(2),
-.pr-streets td:first-child { text-align: left; }
+.pr-table th:first-child, .pr-table th:nth-child(2),
+.pr-streets td:first-child, .pr-streets th:first-child { text-align: left; }
 .pr-answer { background: none; border: 1px solid var(--line); border-radius: 6px;
   padding: 3px 8px; cursor: pointer; color: var(--ink); }
 

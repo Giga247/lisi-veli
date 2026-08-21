@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ka">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>გადახედვა — პროექტები</title>
+<!--
+  პროექტების ეკრანების ლოკალური გადახედვა.
+
+  არსებობს იმისთვის, რომ განლაგება, ფერები და სიმბოლოები შემოწმდეს
+  ცოცხალ ბაზასთან შეხების გარეშე: `API` და `Auth` აქ ჩანაცვლებულია
+  და ყველა პასუხი ამ ფაილშივე წერია.
+
+  გაშვება პროექტის ფესვიდან:
+      python3 -m http.server 8765
+      open http://localhost:8765/tools/preview/projects.html
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&family=Noto+Serif+Georgian:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="../../css/plan.css">
+<link rel="stylesheet" href="../../css/projects.css">
+<style>
+  body { padding: 20px; }
+  .pv-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .pv-bar strong { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="pv-bar">
+  <strong>გადახედვა</strong>
+  <label>როლი
+    <select id="pv-role">
+      <option value="admin">ადმინი</option>
+      <option value="moderator">მოდერატორი (კედრის ქუჩა)</option>
+      <option value="member">მკითხველი</option>
+    </select>
+  </label>
+  <span>ბაზას არ ეხება — ყველა მონაცემი ამ ფაილშია</span>
+</div>
+
+<div id="error-box" hidden></div>
+<section id="panel-projects"></section>
+
+<script src="../../js/lib.js"></script>
+<script src="../../js/ui.js"></script>
+<script src="../../js/plan.js"></script>
+<script src="../../js/projects.js"></script>
+<script>
+/* ── ფიქტიური მონაცემი ────────────────────────────────────────── */
+
+const DESCRIPTION =
+  'ვაკეთებთ სანიაღვრე არხს ცენტრალურ ქუჩაზე, რათა გვქონდეს წყალარინების ' +
+  'საშუალება. წყალი გავიტანოთ უბნიდან. სამომავლოდ ამ არხზე დავაერთებთ ' +
+  'პატარა ქუჩების სანიაღვრეებსაც.';
+
+let PLAN = null;
+let ROWS = [];
+
+/** გეგმის ნაკვეთებს პასუხები ციკლურად ურიგდება — რომ ოთხივე ფერი ჩანდეს. */
+function buildRows(data) {
+  const cycle = [
+    { status: 'paying', paid: 1 },
+    { status: 'not_contacted', paid: 0 },
+    { status: 'loan', paid: 0 },
+    { status: 'paying', paid: 0 },
+    { status: 'declined', paid: 0 },
+    { status: 'paying', paid: 0.4 },
+  ];
+  const parcels = data.parcels.concat(data.noshape || []);
+  return parcels.map(function (parcel, index) {
+    const pick = cycle[index % cycle.length];
+    const due = 5 * (3 + (index % 9));
+    const paid = Math.round(due * pick.paid / 5) * 5;
+    const color = paid > 0 && paid >= due ? 'paid'
+      : paid > 0 ? 'partial'
+      : pick.status === 'declined' ? 'declined'
+      : pick.status === 'loan' ? 'loan'
+      : pick.status === 'paying' ? 'promised' : 'none';
+    return {
+      cad: parcel.cad,
+      street: data.streets[parcel.si] || '',
+      address: parcel.full || parcel.cad,
+      first_name: ['ზურაბ', 'ელენე', 'ქეთევან', 'ფარიდი'][index % 4],
+      last_name: ['ბერიძე', 'კაპანაძე', 'ხარაძე', 'რეზაევი'][index % 4],
+      phone: '+995599123456',
+      amount_due: due, paid: paid, status: pick.status, color: color,
+      note: '', recorded_by: pick.status === 'not_contacted' ? '' : 'mod@x.ge',
+      recorded_at: '',
+    };
+  });
+}
+
+function totalsOf(rows) {
+  let collected = 0, promised = 0, loan = 0, declined = 0, pending = 0;
+  rows.forEach(function (row) {
+    collected += row.paid;
+    const left = Math.max(0, row.amount_due - row.paid);
+    if (row.status === 'paying') promised += left;
+    else if (row.status === 'loan') loan += left;
+    else if (row.status === 'declined') declined += row.amount_due;
+    else pending += row.amount_due;
+  });
+  return { budget: 1000, collected: collected, promised: promised, loan: loan,
+    declined: declined, pending: pending, remaining: Math.max(0, 1000 - collected) };
+}
+
+/* ── API-ს ჩანაცვლება ─────────────────────────────────────────── */
+
+const API = {
+  async call(action, payload) {
+    if (action === 'projects') {
+      return [{
+        id: 'PRJ-001', name: 'სანიაღვრე კედრის ქუჩაზე', description: DESCRIPTION,
+        streets: '', status: 'active', starts_on: '2026-08-22', ends_on: '',
+        treasurer: '', budget: 1000, totals: totalsOf(ROWS), households: ROWS.length,
+      }];
+    }
+    if (action === 'project') {
+      return {
+        project: { id: 'PRJ-001', name: 'სანიაღვრე კედრის ქუჩაზე',
+          description: DESCRIPTION, status: 'active', budget: 1000,
+          starts_on: '2026-08-22', ends_on: '', streets: '', treasurer: '' },
+        totals: totalsOf(ROWS), rows: ROWS, payments: [],
+      };
+    }
+    if (action === 'setPledge') {
+      ROWS.forEach(function (row) {
+        if (row.cad !== payload.cad) return;
+        row.status = payload.status;
+        row.note = payload.note;
+        row.recorded_by = 'preview@x.ge';
+        row.color = row.paid > 0 && row.paid >= row.amount_due ? 'paid'
+          : row.paid > 0 ? 'partial'
+          : payload.status === 'declined' ? 'declined'
+          : payload.status === 'loan' ? 'loan'
+          : payload.status === 'paying' ? 'promised' : 'none';
+      });
+      return {};
+    }
+    throw new Error('გადახედვაში ეს მოქმედება არ არის: ' + action);
+  },
+};
+
+function currentUser() {
+  const role = document.getElementById('pv-role').value;
+  return { email: 'preview@x.ge', role: role,
+    street: role === 'moderator' ? 'კედრის ქუჩა' : '' };
+}
+
+PlanView.load = (function (original) {
+  return function () {
+    return original().then(function (data) {
+      if (!PLAN) { PLAN = data; ROWS = buildRows(data); }
+      return data;
+    });
+  };
+})(PlanView.load);
+
+// `plan.js` მონაცემს პროექტის ფესვიდან ითხოვს — გადახედვა ორი დონით ღრმაა.
+const originalFetch = window.fetch;
+window.fetch = function (url, init) {
+  if (typeof url === 'string' && url.indexOf('data/plan-page.json') === 0) {
+    return originalFetch('../../' + url, init);
+  }
+  return originalFetch(url, init);
+};
+
+async function boot() {
+  // გეგმა ჯერ იტვირთება: სწორედ მისი ნაკვეთებიდან იგება ფიქტიური
+  // ვალდებულებები, ამიტომ სია მანამდე ცარიელ ჯამებს აჩვენებდა.
+  await PlanView.load();
+  ProjectsView.bind();
+  await ProjectsView.render(currentUser());
+}
+
+document.getElementById('pv-role').addEventListener('change', boot);
+boot();
+</script>
+</body>
+</html>
