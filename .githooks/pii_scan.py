@@ -16,7 +16,7 @@ import sys
 import zipfile
 
 # მფლობელის საკუთარი მონაცემები — მისი repo-ა, მისი სახელი მასში ჩანს
-ALLOW = {'გაბრიაძე', 'ზურაბ', 'g.gabriadze@gmail.com'}
+ALLOW = {'გაბრიაძე', 'გიგა', 'g.gabriadze@gmail.com'}
 
 SOURCES = ('განცხადება მერიაში.docx',
            'კედრის_ქუჩა_ხელმოწერები.xlsx',
