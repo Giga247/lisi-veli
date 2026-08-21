@@ -157,3 +157,104 @@ test('escapeHtml — რეგრესია: & პირველი იცვ
   assert.strictEqual(WebLib.escapeHtml('&amp;'), '&amp;amp;');
   assert.strictEqual(WebLib.escapeHtml('a & b < c'), 'a &amp; b &lt; c');
 });
+
+// ── გეგმის გეომეტრია ────────────────────────────────────────────────
+
+test('projectPoint — ნულოვანი წერტილი კვადრატის ცენტრშია', () => {
+  const p = WebLib.projectPoint(0, 0);
+  assert.ok(Math.abs(p.x - 0.5) < 1e-12);
+  assert.ok(Math.abs(p.y - 0.5) < 1e-12);
+});
+
+test('projectPoint — ლისი ველის კოორდინატი', () => {
+  const p = WebLib.projectPoint(44.72, 41.745);
+  assert.ok(Math.abs(p.x - 0.6242222222) < 1e-9);
+  assert.ok(Math.abs(p.y - 0.3721682906) < 1e-9);
+});
+
+test('projectPoint — y ქვევით იზრდება (SVG-ის მიმართულება)', () => {
+  const north = WebLib.projectPoint(44.72, 41.75);
+  const south = WebLib.projectPoint(44.72, 41.74);
+  assert.ok(north.y < south.y);
+});
+
+test('projectPoint — Mercator ჭიმავს: ამ განედზე მასშტაბი lon-ისა და lat-ის ტოლი არაა', () => {
+  // 0.001° გრძედი vs 0.001° განედი — Mercator-ში განედი ~1.34-ჯერ გრძელია
+  const dx = WebLib.projectPoint(44.721, 41.745).x - WebLib.projectPoint(44.72, 41.745).x;
+  const dy = WebLib.projectPoint(44.745, 41.745).y - WebLib.projectPoint(44.745, 41.746).y;
+  assert.ok(dy / dx > 1.3 && dy / dx < 1.4);
+});
+
+test('flattenCoords — Polygon და LineString', () => {
+  assert.deepStrictEqual(
+    WebLib.flattenCoords({ type: 'LineString', coordinates: [[1, 2], [3, 4]] }),
+    [[1, 2], [3, 4]]);
+  assert.deepStrictEqual(
+    WebLib.flattenCoords({ type: 'Polygon', coordinates: [[[1, 2], [3, 4], [1, 2]]] }),
+    [[1, 2], [3, 4], [1, 2]]);
+  assert.deepStrictEqual(
+    WebLib.flattenCoords({ type: 'Point', coordinates: [5, 6] }), [[5, 6]]);
+  assert.deepStrictEqual(WebLib.flattenCoords(null), []);
+});
+
+test('createProjector — კიდეები padding-ზე ჯდება', () => {
+  const points = [[44.717, 41.743], [44.721, 41.747]];
+  const proj = WebLib.createProjector(points, 1000, 0.05);
+  const pad = 50; // 1000 * 0.05
+  const left = proj.project(44.717, 41.743);
+  const right = proj.project(44.721, 41.747);
+  assert.ok(Math.abs(left.x - pad) < 1e-6);
+  assert.ok(Math.abs(right.x - (1000 + pad)) < 1e-6);
+  // ჩრდილოეთი ზემოთაა: 41.747 ყველაზე პატარა y-ია
+  assert.ok(Math.abs(right.y - pad) < 1e-6);
+  assert.ok(Math.abs(proj.width - 1100) < 1e-6);
+});
+
+test('createProjector — viewBox სიგანესა და სიმაღლეს იმეორებს', () => {
+  const proj = WebLib.createProjector(
+    [[44.717, 41.743], [44.721, 41.747]], 1000, 0.05);
+  assert.strictEqual(proj.viewBox, '0 0 ' + proj.width + ' ' + proj.height);
+});
+
+test('createProjector — ერთი წერტილი არ ტეხს (ნულოვანი გაშლა)', () => {
+  const proj = WebLib.createProjector([[44.72, 41.745]], 1000, 0.05);
+  const p = proj.project(44.72, 41.745);
+  assert.ok(isFinite(p.x) && isFinite(p.y));
+});
+
+test('polygonCentroid — კვადრატის ცენტრი', () => {
+  const c = WebLib.polygonCentroid([
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }]);
+  assert.ok(Math.abs(c.x - 1) < 1e-9);
+  assert.ok(Math.abs(c.y - 1) < 1e-9);
+});
+
+test('polygonCentroid — დახურული რგოლი იმავე პასუხს იძლევა', () => {
+  const c = WebLib.polygonCentroid([
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }, { x: 0, y: 0 }]);
+  assert.ok(Math.abs(c.x - 1) < 1e-9);
+  assert.ok(Math.abs(c.y - 1) < 1e-9);
+});
+
+test('polygonCentroid — გადაგვარებული რგოლი საშუალოს აბრუნებს', () => {
+  const c = WebLib.polygonCentroid([
+    { x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }]);
+  assert.ok(Math.abs(c.x - 1) < 1e-9);
+  assert.ok(Math.abs(c.y - 1) < 1e-9);
+});
+
+test('pathFromRings — დახურული, ორნიშნა სიზუსტით', () => {
+  const d = WebLib.pathFromRings([[
+    { x: 0, y: 0 }, { x: 1.005, y: 0 }, { x: 1, y: 1 }]]);
+  assert.strictEqual(d, 'M0 0 L1.01 0 L1 1 Z');
+});
+
+test('pathFromLine — ღია, Z-ის გარეშე', () => {
+  const d = WebLib.pathFromLine([{ x: 0, y: 0 }, { x: 5, y: 5 }]);
+  assert.strictEqual(d, 'M0 0 L5 5');
+});
+
+test('pathFromLine — ცარიელი შემოსვლა ცარიელ სტრიქონს აბრუნებს', () => {
+  assert.strictEqual(WebLib.pathFromLine([]), '');
+  assert.strictEqual(WebLib.pathFromRings([]), '');
+});
