@@ -1,0 +1,3 @@
+#!/bin/sh
+# მეზობლების პერსონალურ მონაცემებს ჩაკომიტებამდე აჩერებს.
+exec python3 "$(git rev-parse --show-toplevel)/.githooks/pii_scan.py" --staged
