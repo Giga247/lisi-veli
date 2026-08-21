@@ -38,6 +38,34 @@ const HEADER_MAP = {
   'ველი': 'field',
   'ძველი მნიშვნელობა': 'old',
   'ახალი მნიშვნელობა': 'new',
+  // პროექტები
+  'პროექტის ID': 'id',
+  'პროექტის სახელი': 'name',
+  'აღწერა': 'description',
+  'ბიუჯეტი': 'budget',
+  'განაწილების წესი': 'split_method',
+  'ფიქსირებული თანხა': 'fixed_amount',
+  'ქუჩები': 'streets',
+  'ხაზინდარი': 'treasurer',
+  'დაწყება': 'starts_on',
+  'დასრულება': 'ends_on',
+  'სტატუსი': 'status',
+  'შექმნის თარიღი': 'created_at',
+  'შემქმნელი': 'created_by',
+  // ვალდებულებები
+  'პროექტი': 'project_id',
+  'წილი': 'amount_due',
+  // `პასუხი` და `სტატუსი` ერთსა და იმავე გასაღებზე მიდის — ისინი სხვადასხვა
+  // ფურცელზე ცხოვრობენ და ერთ სათაურის რიგში არასდროს ხვდებიან. ორი სხვადასხვა
+  // ქართული სიტყვა იმიტომაა, რომ ფურცელში ადამიანს სწორი სიტყვა ეწეროს.
+  'პასუხი': 'status',
+  'ვინ ჩაწერა': 'recorded_by',
+  'როდის ჩაიწერა': 'recorded_at',
+  // გადახდები
+  'გადახდის ID': 'payment_id',
+  'თანხა': 'amount',
+  'გადახდის თარიღი': 'paid_on',
+  'ფორმა': 'method',
 };
 
 /**
@@ -133,6 +161,17 @@ const PERMISSIONS = {
   users: ['admin'],
   setRole: ['admin'],
   logs: ['admin'],
+  // პროექტები. `recordPayment` აქ `member`-საც უშვებს, რადგან ხაზინდარი
+  // გლობალური როლი არ არის — ის პროექტის ველია. ნამდვილი შემოწმება
+  // `canRecordPayment`-შია: ის ამოწმებს, ამ პროექტის ხაზინდარია თუ არა.
+  projects: ['member', 'moderator', 'admin'],
+  project: ['member', 'moderator', 'admin'],
+  setPledge: ['moderator', 'admin'],
+  recordPayment: ['member', 'moderator', 'admin'],
+  createProject: ['admin'],
+  updateProject: ['admin'],
+  previewSplit: ['admin'],
+  activateProject: ['admin'],
 };
 
 function checkPermission(role, action) {
@@ -473,6 +512,38 @@ function validateProject(project) {
 
   return { ok: true };
 }
+
+/* ══ ალიასები ════════════════════════════════════════════════════════
+ *
+ * Apps Script-ში ყველა `.gs` ერთ გლობალურ სივრცეშია, ამიტომ `Code.gs`
+ * ამ ფუნქციებს `Lib_` პრეფიქსით იძახებს — გამოძახების ადგილას ჩანს,
+ * რომ ლოგიკა სუფთა ფაილიდან მოდის და არა იქვე.
+ *
+ * ეს ბლოკი აქ, repo-ში იმიტომ ცხოვრობს, რომ განთავსებული `lib.gs`
+ * ბაიტ-ბაიტ იმეორებდეს ამ ფაილს. აქამდე ალიასები მხოლოდ რედაქტორში
+ * ეწერა და ორი ვერსია ჩუმად სცილდებოდა ერთმანეთს.
+ */
+const Lib_HEADER_MAP = HEADER_MAP;
+const Lib_mapHeaders = mapHeaders;
+const Lib_normalizePhone = normalizePhone;
+const Lib_parseGeometry = parseGeometry;
+const Lib_isEditableField = isEditableField;
+const Lib_checkPermission = checkPermission;
+const Lib_verifyTokenClaims = verifyTokenClaims;
+const Lib_diffFields = diffFields;
+const Lib_PLEDGE_STATUSES = PLEDGE_STATUSES;
+const Lib_roundToFive = roundToFive;
+const Lib_projectStreets = projectStreets;
+const Lib_plotInProject = plotInProject;
+const Lib_calculateSplit = calculateSplit;
+const Lib_isPledgeStatus = isPledgeStatus;
+const Lib_plotColor = plotColor;
+const Lib_canSetPledge = canSetPledge;
+const Lib_canRecordPayment = canRecordPayment;
+const Lib_validateTeam = validateTeam;
+const Lib_projectTotals = projectTotals;
+const Lib_statusTransition = statusTransition;
+const Lib_validateProject = validateProject;
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {

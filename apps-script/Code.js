@@ -12,6 +12,9 @@ const ADMIN_EMAIL = 'g.gabriadze@gmail.com';
 const SHEET_PLOTS = 'ნაკვეთები';
 const SHEET_USERS = 'მომხმარებლები';
 const SHEET_LOG = 'ლოგი';
+const SHEET_PROJECTS = 'პროექტები';
+const SHEET_PLEDGES = 'ვალდებულებები';
+const SHEET_PAYMENTS = 'გადახდები';
 
 const RATE_LIMIT_PER_MINUTE = 60;
 const TOKEN_CACHE_SECONDS = 300;
@@ -70,6 +73,14 @@ function doPost(e) {
       case 'users': return ok(readUsers());
       case 'setRole': return handleSetRole(user, payload);
       case 'logs': return ok(readLogs(Number(payload.limit) || 200));
+      case 'projects': return handleProjects();
+      case 'project': return handleProject(payload);
+      case 'setPledge': return handleSetPledge(user, payload);
+      case 'recordPayment': return handleRecordPayment(user, payload);
+      case 'createProject': return handleCreateProject(user, payload);
+      case 'updateProject': return handleUpdateProject(user, payload);
+      case 'previewSplit': return handlePreviewSplit(payload);
+      case 'activateProject': return handleActivateProject(user, payload);
       default: return err('VALIDATION', 'უცნობი მოქმედება');
     }
   } catch (fatal) {
@@ -640,4 +651,585 @@ function readDriveCsv_(name) {
   if (!file) throw new Error('Drive-ში ვერ მოიძებნა ' + name);
   console.log('წყარო: ' + file.getName() + ' (' + file.getLastUpdated() + ')');
   return file.getBlob().getDataAsString('UTF-8');
+}
+
+/* ══ პროექტები ═══════════════════════════════════════════════════════
+ *
+ * სამი ფურცელი: `პროექტები` (რას ვაკეთებთ), `ვალდებულებები` (ვის რა
+ * წილი ერგო და რა უპასუხა), `გადახდები` (რა შემოვიდა).
+ *
+ * ვალდებულება და გადახდა განზრახ ცალკეა: პირველს მოდერატორი წერს
+ * ტელეფონით საუბრის შემდეგ, მეორეს ხაზინდარი — როცა ფული ხელში აქვს.
+ * ერთ ჩანაწერად რომ ყოფილიყო, „დამპირდა" და „გადაიხადა" ერთმანეთს
+ * ვერასდროს გადაამოწმებდა.
+ */
+
+/** ფურცელი, რომელიც შეიძლება ჯერ არ არსებობდეს. */
+function optionalSheetRows(name) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  if (!sheet) return null;
+  const values = sheet.getDataRange().getValues();
+  if (values.length === 0) return { sheet: sheet, map: {}, rows: [] };
+  return { sheet: sheet, map: Lib_mapHeaders(values[0]), rows: values.slice(1) };
+}
+
+function readProjects() {
+  const data = optionalSheetRows(SHEET_PROJECTS);
+  if (!data) return [];
+  return data.rows
+    .filter(function (row) { return String(row[data.map.id] || '').trim() !== ''; })
+    .map(function (row) {
+      const project = rowToObject(row, data.map);
+      project.id = String(project.id).trim();
+      project.budget = Number(project.budget) || 0;
+      project.fixed_amount = Number(project.fixed_amount) || 0;
+      project.starts_on = isoDate(project.starts_on);
+      project.ends_on = isoDate(project.ends_on);
+      return project;
+    });
+}
+
+function readPledges(projectId) {
+  const data = optionalSheetRows(SHEET_PLEDGES);
+  if (!data) return [];
+  return data.rows
+    .filter(function (row) {
+      if (String(row[data.map.cad] || '').trim() === '') return false;
+      return !projectId || String(row[data.map.project_id]).trim() === projectId;
+    })
+    .map(function (row) {
+      const pledge = rowToObject(row, data.map);
+      pledge.cad = String(pledge.cad).trim();
+      pledge.project_id = String(pledge.project_id).trim();
+      pledge.amount_due = Number(pledge.amount_due) || 0;
+      pledge.status = String(pledge.status || 'not_contacted').trim();
+      return pledge;
+    });
+}
+
+function readPayments(projectId) {
+  const data = optionalSheetRows(SHEET_PAYMENTS);
+  if (!data) return [];
+  return data.rows
+    .filter(function (row) {
+      if (String(row[data.map.cad] || '').trim() === '') return false;
+      return !projectId || String(row[data.map.project_id]).trim() === projectId;
+    })
+    .map(function (row) {
+      const payment = rowToObject(row, data.map);
+      payment.cad = String(payment.cad).trim();
+      payment.project_id = String(payment.project_id).trim();
+      payment.amount = Number(payment.amount) || 0;
+      payment.paid_on = isoDate(payment.paid_on);
+      return payment;
+    });
+}
+
+/**
+ * Sheet-ის თარიღი ისევ `YYYY-MM-DD` სტრიქონად.
+ *
+ * ცხრილი ISO-სტრიქონს ხანდახან თავად აქცევს `Date`-ად. თუ ასეთი
+ * მნიშვნელობა უცვლელად წავიდოდა კლიენტთან, JSON-ში სრული დროის
+ * ნიშნული აღმოჩნდებოდა და თარიღების შედარება გატყდებოდა.
+ */
+function isoDate(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, 'Etc/GMT', 'yyyy-MM-dd');
+  }
+  return String(value == null ? '' : value).trim();
+}
+
+function findProject(projectId) {
+  const id = String(projectId || '').trim();
+  const all = readProjects();
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].id === id) return all[i];
+  }
+  return null;
+}
+
+/** სია — თითოეულს ჯამებით, რომ ბარათზე პროგრესი მაშინვე ჩანდეს. */
+function handleProjects() {
+  const projects = readProjects();
+  const pledges = readPledges(null);
+  const payments = readPayments(null);
+  return ok(projects.map(function (project) {
+    const mine = pledges.filter(function (p) { return p.project_id === project.id; });
+    const paid = payments.filter(function (p) { return p.project_id === project.id; });
+    const totals = Lib_projectTotals(project, mine, paid);
+    return {
+      id: project.id, name: project.name, description: project.description,
+      streets: project.streets, status: project.status,
+      starts_on: project.starts_on, ends_on: project.ends_on,
+      treasurer: project.treasurer, budget: project.budget,
+      totals: totals, households: mine.length,
+    };
+  }));
+}
+
+/**
+ * ერთი პროექტი სრულად: ვალდებულებები, გადახდები და ნაკვეთის ფერი.
+ *
+ * ფერს სერვერი ითვლის, არა კლიენტი — რუკაც და ცხრილიც ერთსა და იმავე
+ * პასუხს ეყრდნობა და ვერასდროს დაშორდებიან ერთმანეთს.
+ */
+function handleProject(payload) {
+  const project = findProject(payload.id);
+  if (!project) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+
+  const pledges = readPledges(project.id);
+  const payments = readPayments(project.id);
+  const plots = readPlots();
+  const plotByCad = {};
+  plots.forEach(function (plot) { plotByCad[plot.cad] = plot; });
+
+  const paidByCad = {};
+  payments.forEach(function (payment) {
+    paidByCad[payment.cad] = (paidByCad[payment.cad] || 0) + payment.amount;
+  });
+
+  const rows = pledges.map(function (pledge) {
+    const plot = plotByCad[pledge.cad] || {};
+    const paid = paidByCad[pledge.cad] || 0;
+    return {
+      cad: pledge.cad,
+      street: plot.street || '',
+      address: plot.address || '',
+      area: plot.area === '' || plot.area == null ? null : Number(plot.area),
+      first_name: plot.first_name || '',
+      last_name: plot.last_name || '',
+      phone: plot.phone || '',
+      amount_due: pledge.amount_due,
+      status: pledge.status,
+      note: pledge.note || '',
+      recorded_by: pledge.recorded_by || '',
+      recorded_at: pledge.recorded_at || '',
+      paid: paid,
+      color: Lib_plotColor(pledge, pledge.amount_due, paid),
+    };
+  });
+
+  return ok({
+    project: project,
+    totals: Lib_projectTotals(project, pledges, payments),
+    rows: rows,
+    payments: payments,
+  });
+}
+
+function handleSetPledge(user, payload) {
+  const projectId = String(payload.project_id || '').trim();
+  const cad = String(payload.cad || '').trim();
+  const status = String(payload.status || '').trim();
+  const note = String(payload.note == null ? '' : payload.note).trim().slice(0, 500);
+
+  if (!projectId || !cad) return err('VALIDATION', 'პროექტი და ნაკვეთი სავალდებულოა');
+  if (!Lib_isPledgeStatus(status)) return err('VALIDATION', 'უცნობი პასუხი: ' + status);
+
+  const project = findProject(projectId);
+  if (!project) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+
+  const plots = readPlots();
+  let plot = null;
+  for (let i = 0; i < plots.length; i++) {
+    if (plots[i].cad === cad) { plot = plots[i]; break; }
+  }
+  if (!plot) return err('NOT_FOUND', 'ნაკვეთი ვერ მოიძებნა');
+
+  const allowed = Lib_canSetPledge(user, plot, project);
+  if (!allowed.ok) return err(allowed.code, allowed.message);
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return err('SERVER', 'სისტემა დაკავებულია, სცადეთ ხელახლა');
+  try {
+    const data = optionalSheetRows(SHEET_PLEDGES);
+    if (!data) return err('SERVER', 'ფურცელი ვერ მოიძებნა: ' + SHEET_PLEDGES);
+    const missing = missingColumn(data.map, ['project_id', 'cad', 'status', 'recorded_by', 'recorded_at']);
+    if (missing) return err('SERVER', 'ფურცელს სვეტი აკლია: ' + missing);
+
+    let index = -1;
+    for (let i = 0; i < data.rows.length; i++) {
+      if (String(data.rows[i][data.map.project_id]).trim() === projectId &&
+          String(data.rows[i][data.map.cad]).trim() === cad) { index = i; break; }
+    }
+    if (index === -1) return err('NOT_FOUND', 'ამ პროექტში ეს ნაკვეთი არ მონაწილეობს');
+
+    const before = String(data.rows[index][data.map.status] || 'not_contacted').trim();
+    const rowNumber = index + 2;
+    const now = new Date().toISOString();
+
+    data.sheet.getRange(rowNumber, data.map.status + 1).setValue(status);
+    if (data.map.note != null) data.sheet.getRange(rowNumber, data.map.note + 1).setValue(note);
+    data.sheet.getRange(rowNumber, data.map.recorded_by + 1).setValue(user.email);
+    setIsoCell(data.sheet, rowNumber, data.map.recorded_at + 1, now);
+
+    appendLog(user.email, 'pledge', cad,
+      [{ field: projectId, old: before, new: status }]);
+    SpreadsheetApp.flush();
+    return ok({ project_id: projectId, cad: cad, status: status, note: note,
+      recorded_by: user.email, recorded_at: now });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleRecordPayment(user, payload) {
+  const projectId = String(payload.project_id || '').trim();
+  const cad = String(payload.cad || '').trim();
+  const amount = Number(payload.amount);
+  const method = String(payload.method || 'cash').trim();
+  const note = String(payload.note == null ? '' : payload.note).trim().slice(0, 500);
+  const paidOn = String(payload.paid_on || '').trim() ||
+    Utilities.formatDate(new Date(), 'Asia/Tbilisi', 'yyyy-MM-dd');
+
+  if (!projectId || !cad) return err('VALIDATION', 'პროექტი და ნაკვეთი სავალდებულოა');
+  if (!isFinite(amount) || amount === 0) return err('VALIDATION', 'თანხა ნული ვერ იქნება');
+  if (amount < 0 && !note) {
+    return err('VALIDATION', 'უარყოფით ჩანაწერს (storno) შენიშვნა სჭირდება');
+  }
+  if (['cash', 'transfer'].indexOf(method) === -1) {
+    return err('VALIDATION', 'ფორმა: cash ან transfer');
+  }
+  const today = Utilities.formatDate(new Date(), 'Asia/Tbilisi', 'yyyy-MM-dd');
+  if (paidOn > today) return err('VALIDATION', 'გადახდის თარიღი მომავალში ვერ იქნება');
+
+  const project = findProject(projectId);
+  if (!project) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+
+  const allowed = Lib_canRecordPayment(user, project);
+  if (!allowed.ok) return err(allowed.code, allowed.message);
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return err('SERVER', 'სისტემა დაკავებულია, სცადეთ ხელახლა');
+  try {
+    const data = optionalSheetRows(SHEET_PAYMENTS);
+    if (!data) return err('SERVER', 'ფურცელი ვერ მოიძებნა: ' + SHEET_PAYMENTS);
+    const missing = missingColumn(data.map,
+      ['payment_id', 'project_id', 'cad', 'amount', 'paid_on', 'method', 'recorded_by', 'recorded_at']);
+    if (missing) return err('SERVER', 'ფურცელს სვეტი აკლია: ' + missing);
+
+    const id = 'PAY-' + String(data.rows.length + 1).padStart(4, '0');
+    const now = new Date().toISOString();
+    const width = data.sheet.getLastColumn();
+    const row = new Array(width).fill('');
+    row[data.map.payment_id] = id;
+    row[data.map.project_id] = projectId;
+    row[data.map.cad] = cad;
+    row[data.map.amount] = amount;
+    row[data.map.paid_on] = paidOn;
+    row[data.map.method] = method;
+    if (data.map.note != null) row[data.map.note] = note;
+    row[data.map.recorded_by] = user.email;
+    row[data.map.recorded_at] = now;
+
+    const target = data.sheet.getRange(data.sheet.getLastRow() + 1, 1, 1, width);
+    target.setValues([row]);
+    // თარიღები და ID ტექსტად რჩება — თორემ Sheet `2026-08-22`-ს Date-ად
+    // აქცევს და შედარება `paid_on > today` ჩუმად გატყდება.
+    data.sheet.getRange(data.sheet.getLastRow(), data.map.paid_on + 1).setNumberFormat('@');
+    data.sheet.getRange(data.sheet.getLastRow(), data.map.recorded_at + 1).setNumberFormat('@');
+
+    appendLog(user.email, 'payment', cad,
+      [{ field: projectId, old: '', new: String(amount) }]);
+    SpreadsheetApp.flush();
+    return ok({ id: id, project_id: projectId, cad: cad, amount: amount,
+      paid_on: paidOn, method: method, note: note, recorded_by: user.email });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** ISO-სტრიქონი უჯრაში ტექსტად — Sheet-ის ავტომატური Date-ად ქცევის გარეშე. */
+function setIsoCell(sheet, row, column, value) {
+  const cell = sheet.getRange(row, column);
+  cell.setNumberFormat('@');
+  cell.setValue(value);
+}
+
+function handlePreviewSplit(payload) {
+  const draft = payload.project || payload;
+  const valid = Lib_validateProject(draft);
+  if (!valid.ok) return err(valid.code, valid.message);
+  const split = Lib_calculateSplit(readPlots(), draft);
+  const amounts = Object.keys(split.shares).map(function (cad) { return split.shares[cad]; });
+  return ok({
+    households: amounts.length,
+    total: amounts.reduce(function (a, b) { return a + b; }, 0),
+    min: amounts.length ? Math.min.apply(null, amounts) : 0,
+    max: amounts.length ? Math.max.apply(null, amounts) : 0,
+    roundingDiff: split.roundingDiff,
+    noArea: split.noArea,
+    noStreet: split.noStreet,
+    shares: split.shares,
+  });
+}
+
+function handleCreateProject(user, payload) {
+  const draft = payload.project || payload;
+  const valid = Lib_validateProject(draft);
+  if (!valid.ok) return err(valid.code, valid.message);
+
+  const moderators = readUsers().filter(function (u) { return u.role === 'moderator'; });
+  const team = Lib_validateTeam(draft, moderators);
+  if (!team.ok) return err(team.code, team.message);
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return err('SERVER', 'სისტემა დაკავებულია, სცადეთ ხელახლა');
+  try {
+    const data = optionalSheetRows(SHEET_PROJECTS);
+    if (!data) return err('SERVER', 'ფურცელი ვერ მოიძებნა: ' + SHEET_PROJECTS);
+    const missing = missingColumn(data.map, ['id', 'name', 'budget', 'status', 'created_at', 'created_by']);
+    if (missing) return err('SERVER', 'ფურცელს სვეტი აკლია: ' + missing);
+
+    const id = 'PRJ-' + String(data.rows.length + 1).padStart(3, '0');
+    const width = data.sheet.getLastColumn();
+    const row = new Array(width).fill('');
+    const set = function (key, value) { if (data.map[key] != null) row[data.map[key]] = value; };
+    set('id', id);
+    set('name', String(draft.name).trim());
+    set('description', String(draft.description || '').trim());
+    set('budget', Number(draft.budget) || 0);
+    set('split_method', String(draft.split_method || 'area'));
+    set('fixed_amount', Number(draft.fixed_amount) || '');
+    set('streets', String(draft.streets || '').trim());
+    set('treasurer', String(draft.treasurer || '').trim());
+    set('starts_on', String(draft.starts_on || '').trim());
+    set('ends_on', String(draft.ends_on || '').trim());
+    set('status', 'draft');
+    set('created_at', new Date().toISOString());
+    set('created_by', user.email);
+
+    data.sheet.getRange(data.sheet.getLastRow() + 1, 1, 1, width).setValues([row]);
+    const written = data.sheet.getLastRow();
+    ['id', 'starts_on', 'ends_on', 'created_at'].forEach(function (key) {
+      if (data.map[key] != null) {
+        data.sheet.getRange(written, data.map[key] + 1).setNumberFormat('@');
+      }
+    });
+
+    appendLog(user.email, 'project_create', id,
+      [{ field: 'name', old: '', new: String(draft.name).trim() }]);
+    SpreadsheetApp.flush();
+    return ok({ id: id, status: 'draft' });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * გააქტიურება: ქმნის ვალდებულებებს და **ყინავს** წილებს.
+ *
+ * გაყინვა მთელი აღრიცხვის საყრდენია — თუ ხვალ ნაკვეთის ფართობი
+ * შესწორდა, უკვე გადახდილ კომლს თანხა არ უნდა შეეცვალოს.
+ */
+function handleActivateProject(user, payload) {
+  const projectId = String(payload.id || '').trim();
+  const project = findProject(projectId);
+  if (!project) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+  if (!Lib_statusTransition(project.status, 'active')) {
+    return err('VALIDATION', 'ამ სტატუსიდან გააქტიურება არ შეიძლება: ' + project.status);
+  }
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return err('SERVER', 'სისტემა დაკავებულია, სცადეთ ხელახლა');
+  try {
+    if (readPledges(projectId).length > 0) {
+      return err('CONFLICT', 'ამ პროექტს ვალდებულებები უკვე აქვს');
+    }
+    const split = Lib_calculateSplit(readPlots(), project);
+    const cads = Object.keys(split.shares);
+    if (cads.length === 0) return err('VALIDATION', 'პროექტში ვერცერთი ნაკვეთი ვერ მოხვდა');
+
+    const data = optionalSheetRows(SHEET_PLEDGES);
+    if (!data) return err('SERVER', 'ფურცელი ვერ მოიძებნა: ' + SHEET_PLEDGES);
+    const width = data.sheet.getLastColumn();
+    const now = new Date().toISOString();
+    const rows = cads.map(function (cad) {
+      const row = new Array(width).fill('');
+      row[data.map.project_id] = projectId;
+      row[data.map.cad] = cad;
+      row[data.map.amount_due] = split.shares[cad];
+      row[data.map.status] = 'not_contacted';
+      row[data.map.recorded_by] = user.email;
+      row[data.map.recorded_at] = now;
+      return row;
+    });
+    const start = data.sheet.getLastRow() + 1;
+    data.sheet.getRange(start, 1, rows.length, width).setValues(rows);
+    data.sheet.getRange(start, data.map.cad + 1, rows.length, 1).setNumberFormat('@');
+    data.sheet.getRange(start, data.map.recorded_at + 1, rows.length, 1).setNumberFormat('@');
+
+    setProjectStatus(projectId, 'active');
+    appendLog(user.email, 'project_activate', projectId,
+      [{ field: 'households', old: '', new: String(rows.length) }]);
+    SpreadsheetApp.flush();
+    return ok({ id: projectId, status: 'active', households: rows.length,
+      roundingDiff: split.roundingDiff, noArea: split.noArea });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleUpdateProject(user, payload) {
+  const projectId = String(payload.id || '').trim();
+  const project = findProject(projectId);
+  if (!project) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+
+  const fields = payload.fields || {};
+  const editable = ['name', 'description', 'starts_on', 'ends_on', 'treasurer'];
+  const changes = [];
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return err('SERVER', 'სისტემა დაკავებულია, სცადეთ ხელახლა');
+  try {
+    const data = optionalSheetRows(SHEET_PROJECTS);
+    let index = -1;
+    for (let i = 0; i < data.rows.length; i++) {
+      if (String(data.rows[i][data.map.id]).trim() === projectId) { index = i; break; }
+    }
+    if (index === -1) return err('NOT_FOUND', 'პროექტი ვერ მოიძებნა');
+    const rowNumber = index + 2;
+
+    for (const field in fields) {
+      if (!Object.prototype.hasOwnProperty.call(fields, field)) continue;
+      if (editable.indexOf(field) === -1) {
+        return err('FORBIDDEN', 'ველი არ ექვემდებარება რედაქტირებას: ' + field);
+      }
+      if (data.map[field] == null) continue;
+      const before = String(data.rows[index][data.map[field]] || '');
+      const after = String(fields[field] == null ? '' : fields[field]).trim().slice(0, 2000);
+      if (before === after) continue;
+      data.sheet.getRange(rowNumber, data.map[field] + 1).setValue(after);
+      changes.push({ field: field, old: before, new: after });
+    }
+
+    if (payload.status) {
+      const next = String(payload.status).trim();
+      if (!Lib_statusTransition(project.status, next)) {
+        return err('VALIDATION', 'დაუშვებელი გადასვლა: ' + project.status + ' → ' + next);
+      }
+      if (next === 'active') {
+        return err('VALIDATION', 'გააქტიურება ცალკე მოქმედებაა: activateProject');
+      }
+      data.sheet.getRange(rowNumber, data.map.status + 1).setValue(next);
+      changes.push({ field: 'status', old: project.status, new: next });
+    }
+
+    appendLog(user.email, 'project_update', projectId, changes);
+    SpreadsheetApp.flush();
+    return ok({ id: projectId, changed: changes.length });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function setProjectStatus(projectId, status) {
+  const data = optionalSheetRows(SHEET_PROJECTS);
+  for (let i = 0; i < data.rows.length; i++) {
+    if (String(data.rows[i][data.map.id]).trim() === projectId) {
+      data.sheet.getRange(i + 2, data.map.status + 1).setValue(status);
+      return;
+    }
+  }
+}
+
+/* ══ ერთჯერადი დაყენება — რედაქტორიდან ეშვება ═══════════════════════
+ *
+ * ბაზაში ხელით არაფერი იწერება: ფურცლებსაც და პირველ პროექტსაც კოდი
+ * ქმნის, რომ იგივე ვალიდაცია და იგივე ლოგი გაიაროს, რაც ყოველდღიურ
+ * მუშაობას.
+ */
+
+const PROJECT_SHEET_HEADERS = {
+  'პროექტები': ['პროექტის ID', 'პროექტის სახელი', 'აღწერა', 'ბიუჯეტი',
+    'განაწილების წესი', 'ფიქსირებული თანხა', 'ქუჩები', 'ხაზინდარი',
+    'დაწყება', 'დასრულება', 'სტატუსი', 'შექმნის თარიღი', 'შემქმნელი'],
+  'ვალდებულებები': ['პროექტი', 'საკადასტრო კოდი', 'წილი', 'პასუხი',
+    'შენიშვნა', 'ვინ ჩაწერა', 'როდის ჩაიწერა'],
+  'გადახდები': ['გადახდის ID', 'პროექტი', 'საკადასტრო კოდი', 'თანხა',
+    'გადახდის თარიღი', 'ფორმა', 'შენიშვნა', 'ვინ ჩაწერა', 'როდის ჩაიწერა'],
+};
+
+/**
+ * სამი ფურცლის შექმნა. უსაფრთხოა განმეორებით გაშვება — არსებულს არ ეხება.
+ */
+function setupProjectSheets() {
+  const book = SpreadsheetApp.getActiveSpreadsheet();
+  const report = [];
+  Object.keys(PROJECT_SHEET_HEADERS).forEach(function (name) {
+    const headers = PROJECT_SHEET_HEADERS[name];
+    let sheet = book.getSheetByName(name);
+    if (sheet) {
+      report.push(name + ': უკვე არსებობს (' + sheet.getLastRow() + ' რიგი)');
+      return;
+    }
+    sheet = book.insertSheet(name);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    // ID-ები, კოდები და თარიღები ტექსტად რჩება — თორემ Sheet `PRJ-001`-ს
+    // მარცხნივ ტოვებს, ხოლო `2026-08-22`-ს Date-ად აქცევს და შედარებები
+    // ჩუმად ტყდება.
+    headers.forEach(function (title, index) {
+      if (['პროექტის ID', 'პროექტი', 'გადახდის ID', 'საკადასტრო კოდი',
+        'დაწყება', 'დასრულება', 'შექმნის თარიღი', 'გადახდის თარიღი',
+        'როდის ჩაიწერა'].indexOf(title) !== -1) {
+        sheet.getRange(2, index + 1, sheet.getMaxRows() - 1, 1).setNumberFormat('@');
+      }
+    });
+    report.push(name + ': შეიქმნა (' + headers.length + ' სვეტი)');
+  });
+  report.forEach(function (line) { console.log(line); });
+  return report;
+}
+
+const DRAINAGE_DESCRIPTION =
+  'ვაკეთებთ სანიაღვრე არხს ცენტრალურ ქუჩაზე, რათა გვქონდეს წყალარინების ' +
+  'საშუალება. წყალი გავიტანოთ უბნიდან. სამომავლოდ ამ არხზე დავაერთებთ ' +
+  'პატარა ქუჩების სანიაღვრეებსაც.';
+
+/**
+ * პირველი პროექტი — სანიაღვრე კედრის ქუჩაზე, 1000 ლარი.
+ *
+ * ქუჩების სია ცარიელია განზრახ: არხი ცენტრალურ ქუჩაზე კეთდება, მაგრამ
+ * წყალს მთელი უბნიდან გაიყვანს და აღწერაშივე წერია, რომ პატარა ქუჩები
+ * მასზე მოგვიანებით დაერთვება — ანუ სარგებელი საერთოა და წილიც საერთო.
+ */
+function seedDrainageProject() {
+  setupProjectSheets();
+
+  const existing = readProjects();
+  for (let i = 0; i < existing.length; i++) {
+    if (String(existing[i].name).trim() === 'სანიაღვრე კედრის ქუჩაზე') {
+      console.log('პროექტი უკვე არსებობს: ' + existing[i].id +
+        ' (' + existing[i].status + ')');
+      return existing[i];
+    }
+  }
+
+  const admin = { email: ADMIN_EMAIL, role: 'admin' };
+  const created = JSON.parse(handleCreateProject(admin, {
+    project: {
+      name: 'სანიაღვრე კედრის ქუჩაზე',
+      description: DRAINAGE_DESCRIPTION,
+      budget: 1000,
+      split_method: 'area',
+      streets: '',
+      treasurer: '',
+      starts_on: Utilities.formatDate(new Date(), 'Asia/Tbilisi', 'yyyy-MM-dd'),
+      ends_on: '',
+    },
+  }).getContent());
+  if (!created.ok) throw new Error('შექმნა ვერ მოხერხდა: ' + created.message);
+
+  const activated = JSON.parse(
+    handleActivateProject(admin, { id: created.data.id }).getContent());
+  if (!activated.ok) throw new Error('გააქტიურება ვერ მოხერხდა: ' + activated.message);
+
+  console.log('პროექტი: ' + created.data.id);
+  console.log('კომლი: ' + activated.data.households);
+  console.log('დამრგვალების სხვაობა: ' + activated.data.roundingDiff + ' ₾');
+  console.log('ფართობის გარეშე: ' + activated.data.noArea.length +
+    (activated.data.noArea.length ? '  ' + activated.data.noArea.join(', ') : ''));
+  return activated.data;
 }
