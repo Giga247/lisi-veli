@@ -95,24 +95,31 @@ def build_dictionary(root):
 
 
 def scan(text, dictionary):
-    """რას პოულობს ტექსტში. ცალკეულ კანდიდატს ამოწმებს, არა მთელ ფაილს —
-    ისე ციფრები ფაილის ერთი ბოლოდან მეორეში არ იკვრება ცრუ დამთხვევად."""
+    """აბრუნებს (მბლოკავი, საცნობარო).
+
+    ცალკეულ კანდიდატს ამოწმებს, არა მთელ ფაილს — ისე ციფრები ფაილის ერთი
+    ბოლოდან მეორეში არ იკვრება ცრუ დამთხვევად.
+
+    საკადასტრო კოდი არ ბლოკავს: ის საჯარო რეესტრის მონაცემია (tas.ge-ზე
+    ნებისმიერს შეუძლია მოძებნა) და აპლიკაციასაც სჭირდება რუკისთვის.
+    საიდუმლო არის კავშირი კოდი → მფლობელი, ის კი პირად Sheet-ში ცხოვრობს.
+    """
     names, phones, cads, emails = dictionary
-    hits = set()
+    blocking, notes = set(), set()
     for token in names:
         if token in text:
-            hits.add('სახელი: ' + token)
-    for cad in CAD_RE.findall(text):
-        if cad in cads:
-            hits.add('საკადასტრო კოდი: ' + cad)
+            blocking.add('სახელი: ' + token)
     for match in PHONE_RE.findall(text):
         digits = re.sub(r'[^0-9]', '', match)
         if digits in phones:
-            hits.add('ტელეფონი: ' + match.strip())
+            blocking.add('ტელეფონი: ' + match.strip())
     for email in EMAIL_RE.findall(text):
         if email in emails:
-            hits.add('მეილი: ' + email)
-    return sorted(hits)
+            blocking.add('მეილი: ' + email)
+    for cad in CAD_RE.findall(text):
+        if cad in cads:
+            notes.add(cad)
+    return sorted(blocking), sorted(notes)
 
 
 def _git(args):
@@ -149,7 +156,10 @@ def objects_in(revs):
         yield path, data.decode('utf8', 'ignore')
 
 
-def report(findings, what):
+def report(findings, what, cad_count=0):
+    if cad_count:
+        print('ℹ️  საკადასტრო კოდი: %d ცალი (საჯარო რეესტრის მონაცემი, არ ბლოკავს)'
+              % cad_count, file=sys.stderr)
     if not findings:
         return 0
     print('', file=sys.stderr)
@@ -178,22 +188,25 @@ def main(argv):
         return 0
 
     findings = {}
+    cads_seen = set()
     if argv[:1] == ['--staged']:
         for path in staged_files():
-            hits = scan(staged_blob(path), dictionary)
+            hits, notes = scan(staged_blob(path), dictionary)
+            cads_seen |= set(notes)
             if hits:
                 findings[path] = hits
-        return report(findings, 'ჩაკომიტება')
+        return report(findings, 'ჩაკომიტება', len(cads_seen))
 
     if argv[:1] == ['--commits']:
         for path, text in objects_in(argv[1:]):
-            hits = scan(text, dictionary)
+            hits, notes = scan(text, dictionary)
+            cads_seen |= set(notes)
             if hits:
                 findings.setdefault(path, [])
                 for hit in hits:
                     if hit not in findings[path]:
                         findings[path].append(hit)
-        return report(findings, 'ატვირთვა (push)')
+        return report(findings, 'ატვირთვა (push)', len(cads_seen))
 
     print(__doc__, file=sys.stderr)
     return 2
