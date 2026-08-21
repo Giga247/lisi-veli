@@ -1,27 +1,29 @@
+/* პლატფორმის ზედაპირი უბნის გეგმის დიზაინს მიჰყვება: ფერები `css/plan.css`-ის
+   ტოკენებზეა მიბმული (`--pl-*`, `--st-*`), თემასაც ის წყვეტს. აქ მხოლოდ
+   ალიასებია, რომ ძველი სელექტორები (`--surface`, `--line`…) უცვლელი დარჩეს.
+   `plan.css` ამ ფაილის შემდეგ იტვირთება — ცვლადი გამოყენების მომენტში
+   იშლება, ამიტომ რიგს მნიშვნელობა არ აქვს. */
 :root {
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-muted: #52514e;
-  --line: #e1e0d9;
-  --accent: #2a78d6;
+  --surface: var(--pl-paper);
+  --ink: var(--pl-ink);
+  --ink-muted: var(--pl-ink-2);
+  --line: var(--pl-rule-soft);
+  --accent: var(--st-0);
   --danger: #d03b3b;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #1a1a19;
-    --ink: #ffffff;
-    --ink-muted: #c3c2b7;
-    --line: #2c2c2a;
-    --accent: #3987e5;
-    --danger: #e66767;
-  }
+  :root:not([data-theme="light"]) { --danger: #e66767; }
 }
+:root[data-theme="dark"] { --danger: #e66767; }
+
 * { box-sizing: border-box; }
 body {
   margin: 0; padding: 0;
-  font-family: system-ui, "Noto Sans Georgian", sans-serif;
+  font-family: "Noto Sans Georgian", system-ui, sans-serif;
   background: var(--surface); color: var(--ink);
 }
+h1, h2 { font-family: "Noto Serif Georgian", Georgia, serif; text-wrap: balance; }
+code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
 .screen { padding: 24px; max-width: 1200px; margin: 0 auto; }
 header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   border-bottom: 1px solid var(--line); padding-bottom: 12px; }
@@ -39,7 +41,6 @@ nav button.active { border-color: var(--line); color: var(--ink); font-weight: 6
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); }
 th { cursor: pointer; color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
-#map { height: 70vh; border: 1px solid var(--line); border-radius: 8px; }
 .controls { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
 input, select, button { font: inherit; padding: 6px 10px;
   border: 1px solid var(--line); border-radius: 6px;
@@ -47,11 +48,8 @@ input, select, button { font: inherit; padding: 6px 10px;
 /* რედაქტორის dialog-ში დარჩენილი შეცდომა — ტოსტისგან განსხვავებით
    თავად არ ქრება, ამიტომ ვიზუალურადაც შეცდომად უნდა იკითხებოდეს. */
 .dialog-error { color: var(--danger); font-size: 14px; margin: 8px 0 0; }
-#map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; font-size: 13px; }
-.legend-item { display: inline-flex; align-items: center; gap: 6px; }
-.legend-item i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
-#map-missing { color: var(--ink-muted); font-size: 14px; }
-#map-missing code { background: var(--line); padding: 1px 4px; border-radius: 3px; }
+#plan-missing { color: var(--ink-muted); font-size: 14px; margin-top: 16px; }
+#plan-missing code { background: var(--line); padding: 1px 4px; border-radius: 3px; }
 
 /* უბნის გეგმა შესვლის ეკრანზე — სტატიკური SVG, `tools/render_plan.py`-ს
    ნაშენი. ნახაზს საკუთარი ქაღალდისფერი ფონი აქვს, ამიტომ ბნელ თემაზეც
@@ -66,22 +64,19 @@ input, select, button { font: inherit; padding: 6px 10px;
    დესკტოპზე ორი სვეტი: მარცხნივ ვინ ვართ, მარჯვნივ როგორ შემოხვიდე.
    ვიწრო ეკრანზე იმავე რიგით ჩამოიშლება — ჯერ სახელი და ნახაზი, მერე
    ღილაკი, რომ პირველი ეკრანი აზრს ატარებდეს და არა მხოლოდ ფორმას. */
-#screen-signin { max-width: 1080px; padding: 32px 24px 48px; }
+#screen-signin { max-width: 1320px; padding: 32px 24px 48px; }
 .signin-grid { display: grid; gap: 40px; align-items: center;
   min-height: calc(100vh - 80px); }
 @media (min-width: 900px) {
   /* მარჯვენა სვეტს ფიქსირებული სიგანე აქვს — ბარათი ფართო ეკრანზე
      უაზროდ რომ არ გაიწელოს; დარჩენილს მარცხენა იღებს. */
-  .signin-grid { grid-template-columns: auto 360px; gap: 56px;
-    justify-content: center; }
+  .signin-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; }
 }
 
-/* ნახაზი უფრო მაღალია, ვიდრე განიერი (1100×1202) — სიმაღლეზე ვზღუდავთ,
-   რომ დესკტოპზე მთელი ეკრანი ერთ ხედში ეტეოდეს და გვერდი არ გორავდეს. */
-.signin-brand .plan img { max-height: 66vh; width: auto; max-width: 100%; }
-/* figure სურათის სიგანეს იმეორებს — თორემ წარწერა სვეტის მთელ სიგანეზე
-   იჭიმებოდა და ნახაზთან კავშირი ეკარგებოდა. */
-.signin-brand .plan { width: fit-content; max-width: 100%; }
+/* ნახაზი ინტერაქტიულია და სვეტს მთლიანად იკავებს; სიმაღლეს ვზღუდავთ,
+   რომ დესკტოპზე შესვლის ბარათთან ერთად ერთ ეკრანში ეტეოდეს. */
+.signin-brand .plan { width: 100%; max-width: 100%; }
+.signin-brand .plan .plan-svg { height: min(62vh, 560px); }
 
 .signin-brand h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15;
   margin: 0 0 10px; letter-spacing: -.01em; }
@@ -89,7 +84,7 @@ input, select, button { font: inherit; padding: 6px 10px;
   line-height: 1.55; margin: 0 0 24px; max-width: 42ch; }
 
 .signin-card { border: 1px solid var(--line); border-radius: 14px;
-  padding: 28px; background: var(--surface);
+  padding: 28px; background: var(--pl-card);
   box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 32px rgba(0, 0, 0, .06); }
 .signin-card h2 { font-size: 20px; margin: 0 0 8px; }
 .signin-card p { color: var(--ink-muted); font-size: 14px; line-height: 1.55;
@@ -103,3 +98,12 @@ input, select, button { font: inherit; padding: 6px 10px;
   .signin-card { box-shadow: 0 1px 2px rgba(0, 0, 0, .3),
     0 12px 32px rgba(0, 0, 0, .35); }
 }
+
+/* დეტალების პანელის მფლობელის ბლოკი — მხოლოდ „რუკა" ტაბზე. */
+.plan-owner { border-top: 1px solid var(--pl-rule-soft); margin-top: 12px; padding-top: 11px; }
+.plan-owner dl { display: grid; grid-template-columns: auto 1fr;
+  gap: 5px 14px; margin: 0; font-size: 13px; }
+.plan-owner dt { color: var(--pl-ink-3); white-space: nowrap; }
+.plan-owner dd { margin: 0; color: var(--pl-ink); }
+.plan-owner-none { color: var(--pl-ink-3); font-size: 13px; margin: 12px 0 0; }
+.plan-edit { margin-top: 11px; }

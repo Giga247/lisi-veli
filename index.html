@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ლისი ველი</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&family=Noto+Serif+Georgian:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <!-- ?v= ქეშის გამტეხია: build-პროცესი არ გვაქვს, ფაილის სახელი არ
      იცვლება და ბრაუზერი ძველ CSS-ს ინახავდა ახალ HTML-თან ერთად.
      სტილის შეცვლისას ეს ციფრი უნდა გაიზარდოს. -->
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/plan.css?v=1">
 </head>
 <body>
 
@@ -31,12 +34,13 @@
       <h1>ლისი ველი</h1>
       <p class="lede">სამეზობლოს რეესტრი — ნაკვეთები, მფლობელები და
         საკონტაქტო ინფორმაცია ერთ ადგილას.</p>
+      <!-- ინტერაქტიული გეგმა — იგივე რენდერერი, რაც „რუკა" ტაბზე.
+           მფლობელების მონაცემი აქ არ ჩანს: შესვლამდე ის არ არსებობს. -->
       <figure class="plan">
-        <img src="data/plan.svg" width="1100" height="1202"
-             alt="ლისი ველის უბნის გეგმა: რვა ქუჩა, 66 საკადასტრო ნაკვეთი ნაგებობების კონტურებით და მისამართებით.">
+        <div id="plan-hero"></div>
         <figcaption>
-          <span>8 ქუჩა · 66 ნაკვეთი</span>
-          <span>გზები და ნაგებობები: © OpenStreetMap-ის მონაწილეები (ODbL)</span>
+          <span id="plan-hero-count">უბნის გეგმა</span>
+          <span>გზები: © OpenStreetMap-ის მონაწილეები (ODbL)</span>
         </figcaption>
       </figure>
     </div>
@@ -76,12 +80,12 @@
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/config.js"></script>
 <script src="js/lib.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
+<script src="js/plan.js"></script>
 <script src="js/table.js"></script>
 <script src="js/map.js"></script>
 <script src="js/admin.js"></script>

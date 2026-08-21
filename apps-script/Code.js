@@ -448,3 +448,196 @@ function smokeTest() {
   }
   console.log('smokeTest დასრულდა');
 }
+
+// ── იმპორტი Drive-იდან — რედაქტორიდან ხელით გასაშვები ──────────────
+
+/**
+ * Drive-ის `build/plots.csv`-ს ჩაერწყმის `ნაკვეთები` ფურცელს.
+ *
+ * **რატომ არსებობს:** Sheets-ის „File → Import → Replace current sheet"
+ * მთელ ფურცელს გადააწერს და ორ რამეს ტეხს — აპლიკაციიდან შეტანილ
+ * რედაქტირებას და `+995…` ტელეფონებს (Sheets მათ ფორმულად კითხულობს და
+ * უჯრა ცარიელი რჩება). ეს ფუნქცია არც ერთს არ აკეთებს.
+ *
+ * **წესი:** ცარიელი CSV-მნიშვნელობა **არასოდეს** შლის Sheet-ში არსებულს.
+ * იწერება მხოლოდ ის, რაც CSV-ში შევსებულია და Sheet-ისას განსხვავდება.
+ * CSV-ში არარსებული რიგი არ იშლება — მხოლოდ ანგარიშში მოხვდება.
+ *
+ * იდემპოტენტურია: მეორე გაშვება არაფერს ცვლის.
+ *
+ * გაშვება: Apps Script-ის რედაქტორში აირჩიე `importPlotsFromDrive` და Run.
+ */
+/**
+ * კოდის შესწორებები: ძველი (შეცდომით აკრეფილი) -> სწორი.
+ *
+ * კოდი ჩანაწერის გასაღებია — თუ ის შეიცვალა, უბრალო ერწყმა ძველ რიგს
+ * ადგილზე დატოვებდა და ახალს ცალკე დაამატებდა, ანუ ერთი ნაკვეთი ორ
+ * რიგად გაიყოფოდა და მფლობელი ძველთან დარჩებოდა. ამიტომ ერწყმამდე
+ * რიგი გადაერქმევა.
+ *
+ * `01.99.999.999` — გამოტოვებული იყო `16.` სეგმენტი; სწორი კოდით
+ * ნაკვეთი tas.ge-ზე მოიძებნა. იხ. docs/2026-08-21-tas-ge-shedareba.md
+ */
+const CAD_RENAMES = {
+  '01.99.999.999': '01.72.16.097.077',
+};
+
+function importPlotsFromDrive() {
+  const csv = readDriveCsv_('plots.csv');
+  const table = Utilities.parseCsv(csv);
+  if (table.length < 2) throw new Error('plots.csv ცარიელია');
+
+  const csvMap = Lib_mapHeaders(table[0]);
+  if (csvMap.cad === undefined) throw new Error('plots.csv-ს არ აქვს სვეტი „საკადასტრო კოდი"');
+
+  const data = sheetRows(SHEET_PLOTS);
+  const sheet = data.sheet;
+  const width = sheet.getLastColumn();
+
+  // Sheet-ის რიგები კოდით — რიგის ნომერი 1-იანი და სათაურით შეწონილი
+  const rowByCad = {};
+  data.rows.forEach(function (row, index) {
+    const cad = String(row[data.map.cad] || '').trim();
+    if (cad) rowByCad[cad] = { index: index + 2, values: row };
+  });
+
+  // გადარქმევა ერწყმამდე — მხოლოდ მაშინ, თუ ძველი კოდი არსებობს და
+  // ახალი ჯერ არ არის (თორემ დუბლიკატს შევქმნიდით).
+  const renames = [];
+  Object.keys(CAD_RENAMES).forEach(function (from) {
+    const to = CAD_RENAMES[from];
+    if (!rowByCad[from] || rowByCad[to]) return;
+    const entry = rowByCad[from];
+    const cell = sheet.getRange(entry.index, data.map.cad + 1);
+    cell.setNumberFormat('@');
+    cell.setValue(to);
+    entry.values[data.map.cad] = to;
+    rowByCad[to] = entry;
+    delete rowByCad[from];
+    renames.push({ from: from, to: to });
+  });
+
+  // რომელი ველები შეიძლება იმპორტმა შეეხოს. `updated_at`/`updated_by`
+  // მიზანმიმართულად აკლია — მათ თვითონ ვწერთ, CSV-დან არ მოდის.
+  const FIELDS = ['street', 'num', 'address', 'area', 'purpose', 'first_name',
+    'last_name', 'phone', 'lon', 'lat', 'geometry', 'source', 'note'];
+
+  const now = new Date().toISOString();
+  const stamp = 'იმპორტი: plots.csv';
+  const updates = [];      // {index, colIndex, value}
+  const appends = [];
+  const changedCads = {};
+  const logs = [];
+  const seen = {};
+
+  for (let r = 1; r < table.length; r++) {
+    const cad = String(table[r][csvMap.cad] || '').trim();
+    if (!cad) continue;
+    seen[cad] = true;
+    const existing = rowByCad[cad];
+
+    if (!existing) {
+      const row = new Array(width).fill('');
+      row[data.map.cad] = cad;
+      FIELDS.forEach(function (field) {
+        if (data.map[field] === undefined || csvMap[field] === undefined) return;
+        row[data.map[field]] = String(table[r][csvMap[field]] == null ? '' : table[r][csvMap[field]]);
+      });
+      if (data.map.updated_at !== undefined) row[data.map.updated_at] = now;
+      if (data.map.updated_by !== undefined) row[data.map.updated_by] = stamp;
+      appends.push(row);
+      logs.push({ cad: cad, field: '(ახალი რიგი)', old: '', new: cad });
+      continue;
+    }
+
+    FIELDS.forEach(function (field) {
+      if (data.map[field] === undefined || csvMap[field] === undefined) return;
+      const incoming = String(table[r][csvMap[field]] == null ? '' : table[r][csvMap[field]]).trim();
+      if (incoming === '') return;                       // ცარიელი არასოდეს შლის
+      const current = String(existing.values[data.map[field]] == null
+        ? '' : existing.values[data.map[field]]).trim();
+      if (current === incoming) return;
+      updates.push({ index: existing.index, col: data.map[field] + 1, value: incoming });
+      logs.push({ cad: cad, field: headerTitle(field), old: current, new: incoming });
+      changedCads[cad] = true;
+    });
+  }
+
+  // ჩაწერამდე უჯრები ტექსტად ინიშნება — თორემ `+995…` ფორმულად წაიკითხება
+  // და ტელეფონი ისევ დაიკარგება.
+  updates.forEach(function (update) {
+    const cell = sheet.getRange(update.index, update.col);
+    cell.setNumberFormat('@');
+    cell.setValue(update.value);
+  });
+
+  if (appends.length) {
+    const start = sheet.getLastRow() + 1;
+    const range = sheet.getRange(start, 1, appends.length, width);
+    range.setNumberFormat('@');
+    range.setValues(appends);
+  }
+
+  // შეცვლილ რიგებს დროშტამპი ერთხელ ედება, ველების რაოდენობის მიუხედავად
+  Object.keys(changedCads).forEach(function (cad) {
+    const existing = rowByCad[cad];
+    if (!existing) return;
+    if (data.map.updated_at !== undefined) {
+      sheet.getRange(existing.index, data.map.updated_at + 1).setValue(now);
+    }
+    if (data.map.updated_by !== undefined) {
+      sheet.getRange(existing.index, data.map.updated_by + 1).setValue(stamp);
+    }
+  });
+
+  logs.forEach(function (entry) {
+    appendLog(stamp, 'import', entry.cad, [{ field: entry.field, old: entry.old, new: entry.new }]);
+  });
+
+  renames.forEach(function (rename) {
+    appendLog(stamp, 'rename', rename.to,
+      [{ field: headerTitle('cad'), old: rename.from, new: rename.to }]);
+  });
+
+  const orphans = Object.keys(rowByCad).filter(function (cad) { return !seen[cad]; });
+
+  console.log('CSV-ის რიგი:        ' + (table.length - 1));
+  console.log('გადარქმეული კოდი:   ' + renames.length +
+    (renames.length ? '  ' + renames.map(function (r) { return r.from + ' → ' + r.to; }).join(', ') : ''));
+  console.log('ახალი რიგი:         ' + appends.length);
+  console.log('შეცვლილი რიგი:      ' + Object.keys(changedCads).length);
+  console.log('შეცვლილი უჯრა:      ' + updates.length);
+  console.log('CSV-ში აღარ არის:   ' + orphans.length + (orphans.length ? '  ' + orphans.join(', ') : ''));
+  console.log('(არაფერი წაშლილა — ეს რიგები Sheet-ში უცვლელად დარჩა)');
+  return {
+    csvRows: table.length - 1, added: appends.length, renamed: renames.length,
+    changedRows: Object.keys(changedCads).length, changedCells: updates.length,
+    notInCsv: orphans,
+  };
+}
+
+/**
+ * ფაილის პოვნა Drive-ში: ჯერ `4_Kedri_Street/build`-ში, თუ იქ არ არის —
+ * სახელით მთელ Drive-ში, უახლესი.
+ */
+function readDriveCsv_(name) {
+  let file = null;
+  const projects = DriveApp.getFoldersByName('4_Kedri_Street');
+  while (projects.hasNext() && !file) {
+    const builds = projects.next().getFoldersByName('build');
+    while (builds.hasNext() && !file) {
+      const found = builds.next().getFilesByName(name);
+      if (found.hasNext()) file = found.next();
+    }
+  }
+  if (!file) {
+    const any = DriveApp.getFilesByName(name);
+    while (any.hasNext()) {
+      const candidate = any.next();
+      if (!file || candidate.getLastUpdated() > file.getLastUpdated()) file = candidate;
+    }
+  }
+  if (!file) throw new Error('Drive-ში ვერ მოიძებნა ' + name);
+  console.log('წყარო: ' + file.getName() + ' (' + file.getLastUpdated() + ')');
+  return file.getBlob().getDataAsString('UTF-8');
+}

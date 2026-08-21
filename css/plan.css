@@ -1,0 +1,251 @@
+/* უბნის გეგმა — `js/plan.js`-ის სტილი.
+ *
+ * ქუჩების პალიტრა `js/map.js`-ის ვალიდირებული კატეგორიული ნაკრებია, იმავე
+ * რიგით: 8 სლოტი, მე-9 ქუჩა ნაცრისფერში ჩავარდება. light და dark ცალკე
+ * მასივია — light-ის ფერები ბნელ ზედაპირზე Lightness band-ს არღვევენ.
+ *
+ * თემა სამ მდგომარეობაშია: `data-theme` სტამპის გარეშე (სისტემური),
+ * `data-theme="light"` და `data-theme="dark"`. ფერი მხოლოდ ტოკენებში
+ * განისაზღვრება, რომ სამივე მდგომარეობა ერთნაირად მოგვარდეს.
+ */
+:root {
+  --pl-paper: #e9edf0;
+  --pl-card: #f7f9fa;
+  --pl-sunk: #dde3e8;
+  --pl-ink: #14181c;
+  --pl-ink-2: #4d5b66;
+  --pl-ink-3: #7d8b95;
+  --pl-rule: #c4ccd2;
+  --pl-rule-soft: #d8dfe4;
+  --pl-road: #b3bec6;
+  --pl-focus: #1f6f9c;
+  --pl-shadow: 0 1px 2px #14181c14, 0 8px 24px #14181c0f;
+
+  --st-0: #2a78d6;
+  --st-1: #eb6834;
+  --st-2: #1baf7a;
+  --st-3: #eda100;
+  --st-4: #e87ba4;
+  --st-5: #008300;
+  --st-6: #4a3aa7;
+  --st-7: #e34948;
+  --st-x: #898781;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pl-paper: #0f1317;
+    --pl-card: #191f24;
+    --pl-sunk: #12171b;
+    --pl-ink: #e2e8ec;
+    --pl-ink-2: #9fb0bb;
+    --pl-ink-3: #6f8290;
+    --pl-rule: #2b343b;
+    --pl-rule-soft: #222a30;
+    --pl-road: #39444d;
+    --pl-focus: #6fb6e0;
+    --pl-shadow: 0 1px 2px #0006, 0 10px 30px #0007;
+
+    --st-0: #3987e5;
+    --st-1: #d95926;
+    --st-2: #199e70;
+    --st-3: #c98500;
+    --st-4: #d55181;
+    --st-5: #008300;
+    --st-6: #9085e9;
+    --st-7: #e66767;
+    --st-x: #898781;
+  }
+}
+:root[data-theme="dark"] {
+  --pl-paper: #0f1317;
+  --pl-card: #191f24;
+  --pl-sunk: #12171b;
+  --pl-ink: #e2e8ec;
+  --pl-ink-2: #9fb0bb;
+  --pl-ink-3: #6f8290;
+  --pl-rule: #2b343b;
+  --pl-rule-soft: #222a30;
+  --pl-road: #39444d;
+  --pl-focus: #6fb6e0;
+  --pl-shadow: 0 1px 2px #0006, 0 10px 30px #0007;
+
+  --st-0: #3987e5;
+  --st-1: #d95926;
+  --st-2: #199e70;
+  --st-3: #c98500;
+  --st-4: #d55181;
+  --st-5: #008300;
+  --st-6: #9085e9;
+  --st-7: #e66767;
+  --st-x: #898781;
+}
+
+/* ── განლაგება ─────────────────────────────────────────────── */
+.plan-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+  gap: 20px;
+  align-items: start;
+}
+.plan-view.is-hero { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 960px) {
+  .plan-view { grid-template-columns: minmax(0, 1fr); }
+}
+
+.plan-map,
+.plan-detail,
+.plan-list {
+  background: var(--pl-card);
+  border: 1px solid var(--pl-rule-soft);
+  border-radius: 4px;
+  box-shadow: var(--pl-shadow);
+}
+.plan-map { overflow: hidden; }
+.plan-canvas { position: relative; }
+.plan-svg {
+  display: block;
+  width: 100%;
+  height: min(72vh, 660px);
+  touch-action: none;
+  cursor: grab;
+  background: var(--pl-sunk);
+}
+.plan-view.is-hero .plan-svg { height: min(60vh, 520px); }
+.plan-svg.is-drag { cursor: grabbing; }
+
+/* ── ნახაზი ────────────────────────────────────────────────── */
+.road { fill: none; stroke: var(--pl-road); stroke-linecap: round; stroke-linejoin: round; }
+
+.plot { stroke-width: 1.1; cursor: pointer; fill-opacity: .22; }
+.plot:hover { fill-opacity: .48; }
+.plot.is-sel { stroke-width: 2.8; fill-opacity: .55; }
+.plot.is-new { stroke-dasharray: 4 2.5; }
+.plot.is-dim { opacity: .14; }
+.plot:focus { outline: none; }
+
+.tag { text-anchor: middle; pointer-events: none; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.tag.t-num { fill: var(--pl-ink); font-weight: 700; }
+.tag.t-code { fill: var(--pl-ink-3); font-weight: 500; }
+.tag.is-dim { opacity: .1; }
+
+.streetlab {
+  fill: var(--pl-ink-3); text-anchor: middle; pointer-events: none;
+  font-family: "Noto Sans Georgian", sans-serif; letter-spacing: .04em;
+  stroke: var(--pl-sunk); stroke-width: 3px; paint-order: stroke fill; stroke-linejoin: round;
+}
+
+/* ქუჩის ფერები — ნაკვეთის ხაზი და შევსება ერთი ტოკენიდან.
+   სელექტორი `.plot`-ით შემოიფარგლება: იმავე კლასს ლეგენდის ნიმუშიც და
+   სიის ზოლიც ატარებს, სადაც ფერი `color`-ით ედება, არა `fill`-ით. */
+.plot.st-0 { stroke: var(--st-0); fill: var(--st-0); }
+.plot.st-1 { stroke: var(--st-1); fill: var(--st-1); }
+.plot.st-2 { stroke: var(--st-2); fill: var(--st-2); }
+.plot.st-3 { stroke: var(--st-3); fill: var(--st-3); }
+.plot.st-4 { stroke: var(--st-4); fill: var(--st-4); }
+.plot.st-5 { stroke: var(--st-5); fill: var(--st-5); }
+.plot.st-6 { stroke: var(--st-6); fill: var(--st-6); }
+.plot.st-7 { stroke: var(--st-7); fill: var(--st-7); }
+.plot.st-x { stroke: var(--st-x); fill: var(--st-x); }
+
+/* ── ლეგენდა და ღილაკები ───────────────────────────────────── */
+/* ლეგენდა ნახაზის ქვეშ ზოლადაა, არა ზემოდან დაფად — 8 ქუჩა დაფად რვა
+   სტრიქონია და გეგმის მეოთხედს ფარავდა. */
+.plan-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px;
+  padding: 9px 14px 10px; font-size: 12px; color: var(--pl-ink);
+  border-top: 1px solid var(--pl-rule-soft); background: var(--pl-card);
+}
+.plan-legend .lg { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+/* ლეგენდის ნიმუში HTML-ის <i>-ია, არა SVG — `fill`/`stroke` მასზე არ მოქმედებს,
+   ამიტომ ფერი `background`-ითა და `border-color`-ით ედება. */
+.plan-legend .lg i {
+  width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto;
+  border: 1.5px solid currentColor; background: currentColor; opacity: .85;
+}
+.plan-legend .lg i.st-0 { color: var(--st-0); }
+.plan-legend .lg i.st-1 { color: var(--st-1); }
+.plan-legend .lg i.st-2 { color: var(--st-2); }
+.plan-legend .lg i.st-3 { color: var(--st-3); }
+.plan-legend .lg i.st-4 { color: var(--st-4); }
+.plan-legend .lg i.st-5 { color: var(--st-5); }
+.plan-legend .lg i.st-6 { color: var(--st-6); }
+.plan-legend .lg i.st-7 { color: var(--st-7); }
+.plan-legend .lg i.st-x { color: var(--st-x); }
+.plan-legend .lg-note {
+  color: var(--pl-ink-3); font-size: 11px; line-height: 1.45;
+  flex: 1 1 100%; margin-top: 1px;
+}
+
+.plan-tools { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; }
+.plan-tools button {
+  width: 32px; height: 32px; padding: 0; border: 1px solid var(--pl-rule); border-radius: 3px;
+  background: var(--pl-card); color: var(--pl-ink); font-size: 16px; line-height: 1;
+  cursor: pointer; font-family: "JetBrains Mono", ui-monospace, monospace;
+  box-shadow: var(--pl-shadow);
+}
+.plan-tools button:hover { border-color: var(--pl-focus); color: var(--pl-focus); }
+.plan-tools button:focus-visible,
+.plan-view .row:focus-visible,
+.plan-search:focus-visible { outline: 2px solid var(--pl-focus); outline-offset: 2px; }
+
+/* ── გვერდითი პანელი ───────────────────────────────────────── */
+.plan-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 20px; }
+.plan-search {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--pl-rule); border-radius: 3px;
+  background: var(--pl-card); color: var(--pl-ink); font: inherit; font-size: 14px;
+}
+.plan-search::placeholder { color: var(--pl-ink-3); }
+
+.plan-detail { padding: 15px 16px 16px; color: var(--pl-ink); }
+.plan-detail .head { font-size: 16px; font-weight: 700; display: block; }
+.plan-detail dl {
+  display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 12px 0 0; font-size: 13px;
+}
+.plan-detail dt { color: var(--pl-ink-3); white-space: nowrap; }
+.plan-detail dd {
+  margin: 0; color: var(--pl-ink-2);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.plan-detail .hint { color: var(--pl-ink-3); font-size: 13px; margin: 0; }
+
+.plan-list { max-height: min(46vh, 430px); overflow: auto; overscroll-behavior: contain; padding: 0; }
+.plan-list .grouphd {
+  position: sticky; top: 0; z-index: 1; background: var(--pl-sunk); color: var(--pl-ink-3);
+  font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+  padding: 7px 15px; border-bottom: 1px solid var(--pl-rule-soft);
+}
+.plan-view .row {
+  display: grid; grid-template-columns: 5px 1fr auto; gap: 11px; align-items: baseline;
+  padding: 8px 15px 8px 10px; border: 0; border-bottom: 1px solid var(--pl-rule-soft);
+  cursor: pointer; width: 100%; text-align: start; background: none;
+  color: var(--pl-ink); font: inherit; border-radius: 0;
+}
+.plan-view .row:hover,
+.plan-view .row.is-sel { background: var(--pl-sunk); }
+.plan-view .row .bar { align-self: stretch; border-radius: 2px; opacity: .9; }
+.plan-view .row .body { min-width: 0; }
+.plan-view .row .cad { display: block; font-size: 13px; font-weight: 600; }
+.plan-view .row .sub {
+  display: block; font-size: 12px; color: var(--pl-ink-3); margin-top: 1px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.plan-view .row .m2 {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px;
+  color: var(--pl-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* რიგის ფერადი ზოლი იმავე კლასს იყენებს, რასაც ნაკვეთი — მაგრამ აქ
+   მხოლოდ შევსება გვინდა, ხაზი არა. */
+.plan-view .row .bar { background: currentColor; }
+.plan-view .row.st-0 .bar { color: var(--st-0); }
+.plan-view .row.st-1 .bar { color: var(--st-1); }
+.plan-view .row.st-2 .bar { color: var(--st-2); }
+.plan-view .row.st-3 .bar { color: var(--st-3); }
+.plan-view .row.st-4 .bar { color: var(--st-4); }
+.plan-view .row.st-5 .bar { color: var(--st-5); }
+.plan-view .row.st-6 .bar { color: var(--st-6); }
+.plan-view .row.st-7 .bar { color: var(--st-7); }
+.plan-view .row.st-x .bar { color: var(--st-x); }
+
+.plan-empty { padding: 18px 15px; color: var(--pl-ink-3); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) { .plan-view * { transition: none !important; } }

@@ -93,7 +93,29 @@ function configNotFilled() {
     String(CONFIG.API_URL).indexOf('ჩასვი') !== -1;
 }
 
+/**
+ * შესვლის ეკრანის ინტერაქტიული გეგმა.
+ *
+ * ავტორიზაციისგან დამოუკიდებელია — მონაცემი სტატიკური ფაილია და
+ * მფლობელებს არ შეიცავს, ამიტომ ჩატვირთვისთანავე ეშვება. ჩავარდნაზე
+ * ხმას არ იღებს: გეგმა შესვლის ეკრანის ილუსტრაციაა, არა მისი პირობა.
+ */
+function renderHeroPlan() {
+  const host = document.getElementById('plan-hero');
+  if (!host || typeof PlanView === 'undefined') return;
+  PlanView.load().then(function (data) {
+    PlanView.create(host, data, { sidebar: false });
+    const count = document.getElementById('plan-hero-count');
+    if (count) {
+      count.textContent = data.streets.length + ' ქუჩა · ' +
+        (data.parcels.length + data.noshape.length) + ' ნაკვეთი';
+    }
+  }).catch(function () { /* ილუსტრაციის გარეშეც შესვლა მუშაობს */ });
+}
+
 window.addEventListener('load', function () {
+  renderHeroPlan();
+
   if (configNotFilled()) {
     UI.showScreen('signin');
     UI.el('signin-button').textContent =
