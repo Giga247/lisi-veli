@@ -28,3 +28,9 @@ __pycache__/
 docs/chat-logs/
 docs/*-chat-log.md
 .claude/handoff-*.md
+
+# გამონაკლისი: ნახაზის სტატიკური მონაცემი. აქ პირადი ველი არ არის —
+# მხოლოდ საკადასტრო კონტურები, კოდები, მისამართის ნომრები და ქუჩები,
+# ანუ ის, რაც საჯარო საკადასტრო რუკაზე ისედაც ხელმისაწვდომია.
+# იხ. docs/superpowers/specs/2026-08-21-lisi-veli-gegma-design.md §4.2
+!data/plan.geojson
