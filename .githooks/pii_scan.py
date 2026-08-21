@@ -67,7 +67,12 @@ def build_dictionary(root):
     if not found_any:
         return None
 
+    # ხელმოწერების სია: ნომერი → სახელი გვარი → საკადასტრო კოდი → ტელეფონი.
+    # სახელებსაც და ტელეფონებსაც სწორედ ამ სტრუქტურიდან ვიღებთ და არა
+    # მთელი ფაილიდან: თორემ „ტელეფონში" მოხვდება თარიღი, ფართობი და
+    # სარეგისტრაციო ნომერიც, და დამცავი ცრუ განგაშს ატეხავს.
     names = set()
+    row_phones = set()
     docx = os.path.join(root, SOURCES[0])
     if os.path.exists(docx):
         paras = _docx_paragraphs(docx)
@@ -78,6 +83,10 @@ def build_dictionary(root):
                       and NAME_RE.match(paras[i + 1]))
             if is_row:
                 names |= {t for t in paras[i + 1].split() if len(t) >= 4}
+                if i + 3 < len(paras):
+                    digits = re.sub(r'[^0-9]', '', paras[i + 3])
+                    if 9 <= len(digits) <= 15:
+                        row_phones.add(digits)
 
     cads = set(CAD_RE.findall(blob))
     # საკადასტრო კოდი ციფრებად ტელეფონს ჰგავს (99.99.99.002 → 999999002),
@@ -85,10 +94,17 @@ def build_dictionary(root):
     # დამთხვევა ორ სხვადასხვა სახელს მიიღებდა.
     cad_digits = {re.sub(r'[^0-9]', '', c) for c in cads}
 
-    phones = set()
+    # სიის ნომრებს ემატება ის, რაც ცალსახად ტელეფონია: ქართული მობილური
+    # (9 ციფრი, 5-ით) და `+`-ით დაწყებული საერთაშორისო. სხვა რიცხვები —
+    # თარიღი, ფართობი, სარეგისტრაციო № — ლექსიკონში არ შედის.
+    phones = set(row_phones)
     for match in PHONE_RE.findall(blob):
         digits = re.sub(r'[^0-9]', '', match)
-        if 9 <= len(digits) <= 15 and digits not in cad_digits:
+        if digits in cad_digits:
+            continue
+        georgian = len(digits) == 9 and digits.startswith('5')
+        intl = match.strip().startswith('+') and 9 <= len(digits) <= 15
+        if georgian or intl:
             phones.add(digits)
     emails = set(EMAIL_RE.findall(blob))
     return (names - ALLOW, phones, cads, emails - ALLOW)
