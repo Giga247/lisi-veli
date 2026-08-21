@@ -533,6 +533,14 @@ function importPlotsFromDrive() {
   const FIELDS = ['street', 'num', 'address', 'area', 'purpose', 'first_name',
     'last_name', 'phone', 'lon', 'lat', 'geometry', 'source', 'note'];
 
+  // ეს ველები მხოლოდ **ცარიელ** უჯრას ავსებს — არსებულს არ ეხება.
+  //
+  // ტელეფონი ხშირად ხელით სწორდება: მეზობელმა ნომერი შეიცვალა, ან
+  // ხელმოწერების დოკუმენტში ტიპოა. CSV განახლების წყაროა, არა
+  // ჭეშმარიტების — ხელით შეტანილი შესწორება მას არ უნდა წაშალოს.
+  // სხვაობა მაინც ჩანს: ის ლოგში `phone_differs`-ად იწერება.
+  const FILL_IF_EMPTY = ['phone'];
+
   const now = new Date().toISOString();
   const stamp = 'იმპორტი: plots.csv';
   const updates = [];      // {index, colIndex, value}
@@ -568,6 +576,13 @@ function importPlotsFromDrive() {
       const current = String(existing.values[data.map[field]] == null
         ? '' : existing.values[data.map[field]]).trim();
       if (current === incoming) return;
+      if (current !== '' && FILL_IF_EMPTY.indexOf(field) !== -1) {
+        // ხელით შეტანილი მნიშვნელობა რჩება; სხვაობა ლოგში ჩანს, რომ
+        // მფლობელმა თავად გადაწყვიტოს, რომელია სწორი.
+        logs.push({ cad: cad, field: headerTitle(field) + ' (განსხვავდება)',
+          old: current, new: incoming });
+        return;
+      }
       updates.push({ index: existing.index, col: data.map[field] + 1, value: incoming });
       logs.push({ cad: cad, field: headerTitle(field), old: current, new: incoming });
       changedCads[cad] = true;

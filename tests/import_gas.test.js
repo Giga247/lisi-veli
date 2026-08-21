@@ -15,12 +15,17 @@ const vm = require('node:vm');
 const lib = require('../apps-script/lib.js');
 const CODE = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Code.js'), 'utf8');
 
-const HEADERS = ['საკადასტრო კოდი', 'ქუჩა', 'N', 'სრული მისამართი', 'ფართობი კვ.მ',
+const PLOT_HEADERS = ['საკადასტრო კოდი', 'ქუჩა', 'N', 'სრული მისამართი', 'ფართობი კვ.მ',
   'დანიშნულება', 'სახელი', 'გვარი', 'ტელეფონი', 'გრძედი', 'განედი',
   'გეომეტრია', 'წყარო', 'შენიშვნა', 'განახლდა', 'განმაახლებელი'];
 
 /** მინიმალური Sheet — მხოლოდ ის, რასაც იმპორტი იყენებს. */
-function makeSheet(rows) {
+const LOG_HEADERS = ['დრო', 'ვინ', 'მოქმედება', 'საკადასტრო კოდი', 'ველი',
+  'ძველი მნიშვნელობა', 'ახალი მნიშვნელობა'];
+
+/** `headers` გამოტოვებისას ნაკვეთების ფურცელია — ლოგს თავისი სათაურები აქვს. */
+function makeSheet(rows, headers) {
+  const HEADERS = headers || PLOT_HEADERS;
   const grid = [HEADERS.slice()].concat(rows.map(function (r) { return r.slice(); }));
   const formats = [];
   return {
@@ -59,7 +64,7 @@ function toCsv(table) {
 /** Code.js-ის ჩატვირთვა სტაბებით; აბრუნებს sandbox-ს და ფურცლებს. */
 function loadCode(sheetRowsData, csvTable) {
   const plots = makeSheet(sheetRowsData);
-  const log = makeSheet([]);
+  const log = makeSheet([], LOG_HEADERS);
   const sandbox = {
     console: { log() {} },
     Utilities: { parseCsv(text) { return parseCsvSimple(text); } },
@@ -100,7 +105,7 @@ function loadCode(sheetRowsData, csvTable) {
 }
 
 const HEADER_MAP_STUB = {};
-HEADERS.forEach(function (title) {
+PLOT_HEADERS.forEach(function (title) {
   const key = lib.mapHeaders([title]);
   HEADER_MAP_STUB[title] = Object.keys(key)[0];
 });
@@ -124,14 +129,14 @@ function parseCsvSimple(text) {
 
 /** ერთი რიგი სათაურების რიგზე მიბმული. */
 function row(values) {
-  const out = new Array(HEADERS.length).fill('');
+  const out = new Array(PLOT_HEADERS.length).fill('');
   Object.keys(values).forEach(function (title) {
-    out[HEADERS.indexOf(title)] = values[title];
+    out[PLOT_HEADERS.indexOf(title)] = values[title];
   });
   return out;
 }
 
-const CSV_HEADER = HEADERS.slice();
+const CSV_HEADER = PLOT_HEADERS.slice();
 
 test('იმპორტი — ცარიელი CSV-მნიშვნელობა Sheet-ში არსებულს არ შლის', () => {
   const sheet = [row({
@@ -147,8 +152,8 @@ test('იმპორტი — ცარიელი CSV-მნიშვნე�
 
   assert.strictEqual(result.added, 0);
   assert.strictEqual(result.changedCells, 0, 'ცარიელმა ველმა ცვლილება არ უნდა გამოიწვიოს');
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('ტელეფონი')], '+995555111222');
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('შენიშვნა')], 'ხელით დამატებული შენიშვნა');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ტელეფონი')], '+995555111222');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('შენიშვნა')], 'ხელით დამატებული შენიშვნა');
 });
 
 test('იმპორტი — დაკარგული ტელეფონი CSV-იდან აღდგება და ტექსტად ინიშნება', () => {
@@ -157,9 +162,9 @@ test('იმპორტი — დაკარგული ტელეფო�
   const { sandbox, plots } = loadCode(sheet, csv);
   sandbox.importPlotsFromDrive();
 
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('ტელეფონი')], '+995555111222');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ტელეფონი')], '+995555111222');
   const phoneFormat = plots.formats.find(function (f) {
-    return f.col === HEADERS.indexOf('ტელეფონი') + 1;
+    return f.col === PLOT_HEADERS.indexOf('ტელეფონი') + 1;
   });
   assert.ok(phoneFormat && phoneFormat.fmt === '@',
     'ტელეფონის უჯრა ტექსტად უნდა დაინიშნოს, თორემ +995… ფორმულად წაიკითხება');
@@ -175,8 +180,8 @@ test('იმპორტი — ახალი კოდი ემატებ�
 
   assert.strictEqual(result.added, 1);
   assert.strictEqual(plots.grid.length, 3, 'სათაური + ორი რიგი');
-  assert.strictEqual(plots.grid[2][HEADERS.indexOf('საკადასტრო კოდი')], '72.16.21.111');
-  assert.strictEqual(plots.grid[2][HEADERS.indexOf('N')], '11');
+  assert.strictEqual(plots.grid[2][PLOT_HEADERS.indexOf('საკადასტრო კოდი')], '72.16.21.111');
+  assert.strictEqual(plots.grid[2][PLOT_HEADERS.indexOf('N')], '11');
 });
 
 test('იმპორტი — CSV-ში აღარმყოფი რიგი არ იშლება, მხოლოდ ანგარიშშია', () => {
@@ -192,7 +197,7 @@ test('იმპორტი — CSV-ში აღარმყოფი რიგ
   // ამიტომ deepStrictEqual ვერ გამოდგება; შიგთავსს ვადარებთ.
   assert.strictEqual(Array.from(result.notInCsv).join(','), '99.99.99.999');
   assert.strictEqual(plots.grid.length, 3, 'რიგი ადგილზე დარჩა');
-  assert.strictEqual(plots.grid[2][HEADERS.indexOf('შენიშვნა')], 'ხელით შეტანილი');
+  assert.strictEqual(plots.grid[2][PLOT_HEADERS.indexOf('შენიშვნა')], 'ხელით შეტანილი');
 });
 
 test('იმპორტი — იდემპოტენტურია: მეორე გაშვება არაფერს ცვლის', () => {
@@ -230,10 +235,10 @@ test('იმპორტი — შეცვლილი საკადას�
   assert.strictEqual(result.renamed, 1);
   assert.strictEqual(result.added, 0, 'დუბლიკატი არ უნდა დაემატოს');
   assert.strictEqual(plots.grid.length, 2, 'სათაური + ერთი რიგი');
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('საკადასტრო კოდი')], '01.72.16.097.077');
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('ტელეფონი')], '+995599123456',
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('საკადასტრო კოდი')], '01.72.16.097.077');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ტელეფონი')], '+995599123456',
     'გადარქმევისას ტელეფონი რიგთან რჩება');
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('ქუჩა')], 'კედრის I ჩიხი');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ქუჩა')], 'კედრის I ჩიხი');
 });
 
 test('იმპორტი — გადარქმევა არ ხდება, თუ ახალი კოდი უკვე არსებობს', () => {
@@ -246,5 +251,35 @@ test('იმპორტი — გადარქმევა არ ხდე�
   const result = sandbox.importPlotsFromDrive();
 
   assert.strictEqual(result.renamed, 0);
-  assert.strictEqual(plots.grid[1][HEADERS.indexOf('საკადასტრო კოდი')], '01.99.999.999');
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('საკადასტრო კოდი')], '01.99.999.999');
+});
+
+test('იმპორტი — ცარიელ ტელეფონს ავსებს', () => {
+  const sheet = [row({ 'საკადასტრო კოდი': 'C1', 'ტელეფონი': '' })];
+  const csv = [CSV_HEADER, row({ 'საკადასტრო კოდი': 'C1', 'ტელეფონი': '+995555111111' })];
+  const { sandbox, plots } = loadCode(sheet, csv);
+  sandbox.importPlotsFromDrive();
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ტელეფონი')], '+995555111111');
+});
+
+test('იმპორტი — ხელით შეტანილ ტელეფონს არ გადააწერს', () => {
+  // 2026-08-21-ს ბრაუზერის „Replace"-მა 71 ნომერი წაშალა. მას შემდეგ
+  // ტელეფონი ხელით შესწორებადი ველია და CSV მას არ უნდა შლიდეს.
+  const sheet = [row({ 'საკადასტრო კოდი': 'C1', 'ტელეფონი': '+995599000000' })];
+  const csv = [CSV_HEADER, row({ 'საკადასტრო კოდი': 'C1', 'ტელეფონი': '+995555111111' })];
+  const { sandbox, plots, log } = loadCode(sheet, csv);
+  const result = sandbox.importPlotsFromDrive();
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ტელეფონი')], '+995599000000',
+    'ხელით შეტანილი რჩება');
+  assert.strictEqual(result.changedCells, 0);
+  const lines = log.grid.slice(1).map(function (r) { return r.join(' '); }).join('\n');
+  assert.ok(lines.indexOf('განსხვავდება') !== -1, 'სხვაობა ლოგში ჩანს: ' + lines);
+});
+
+test('იმპორტი — სხვა ველებს ისევ გადააწერს', () => {
+  const sheet = [row({ 'საკადასტრო კოდი': 'C1', 'ქუჩა': 'ძველი ქუჩა' })];
+  const csv = [CSV_HEADER, row({ 'საკადასტრო კოდი': 'C1', 'ქუჩა': 'ახალი ქუჩა' })];
+  const { sandbox, plots } = loadCode(sheet, csv);
+  sandbox.importPlotsFromDrive();
+  assert.strictEqual(plots.grid[1][PLOT_HEADERS.indexOf('ქუჩა')], 'ახალი ქუჩა');
 });

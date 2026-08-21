@@ -228,7 +228,7 @@ Deploy → Web app URL დაკოპირდეს (ფორმა: `https:/
 მარშრუტიზაცია და ტოკენის შემოწმება მუშაობს, რეალური ტოკენის გარეშე:
 
 ```bash
-curl -sL -X POST "<WEB_APP_URL>" \
+curl -sL "<WEB_APP_URL>" \
   -H 'Content-Type: text/plain;charset=utf-8' \
   -d '{"idToken":"არასწორი","action":"plots"}'
 ```
@@ -242,7 +242,7 @@ Expected:
 ტოკენის გარეშე:
 
 ```bash
-curl -sL -X POST "<WEB_APP_URL>" \
+curl -sL "<WEB_APP_URL>" \
   -H 'Content-Type: text/plain;charset=utf-8' \
   -d '{"action":"plots"}'
 ```
@@ -256,6 +256,11 @@ Expected:
 **თუ HTML ბრუნდება JSON-ის ნაცვლად** — დეპლოის „Who has access" არ არის
 დაყენებული „Anyone"-ზე. დაუბრუნდი Step 6-ს, Manage deployments → Edit-ში
 შეამოწმე პარამეტრი და გააკეთე New version.
+
+**`-X POST` არ დაწერო.** `-d`-ს თავისით მოაქვს POST, `-X POST` კი მეთოდს
+გადამისამართებაზეც აიძულებს. Apps Script `/exec`-იდან `googleusercontent`-ის
+`echo`-ზე გადაამისამართებს, ის კი POST-ს არ იღებს — პასუხად `405` და Drive-ის
+„გვერდი ვერ მოიძებნა" HTML მოვა. იგივე HTML, სულ სხვა მიზეზით.
 
 ## Step 8 — `js/config.js`-ის შევსება
 
