@@ -52,3 +52,11 @@ input, select, button { font: inherit; padding: 6px 10px;
 .legend-item i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 #map-missing { color: var(--ink-muted); font-size: 14px; }
 #map-missing code { background: var(--line); padding: 1px 4px; border-radius: 3px; }
+
+/* უბნის გეგმა შესვლის ეკრანზე — სტატიკური SVG, `tools/render_plan.py`-ს
+   ნაშენი. ნახაზს საკუთარი ქაღალდისფერი ფონი აქვს, ამიტომ ბნელ თემაზეც
+   ისე იკითხება, როგორც გვერდზე მიმაგრებული ბეჭდური გეგმა. */
+.plan { margin: 20px 0; max-width: 520px; }
+.plan img { display: block; width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 8px; }
+.plan figcaption { color: var(--ink-muted); font-size: 11px; margin-top: 6px; }

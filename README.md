@@ -26,7 +26,7 @@ Sheet არავისთვის არ არის გაზიარე�
 | `index.html`, `css/` | გვერდის ჩონჩხი და სტილი |
 | `js/` | ფრონტენდი — `lib.js` (სუფთა ლოგიკა, ტესტირებადი), `auth.js`, `api.js`, `table.js`, `map.js`, `admin.js`, `main.js`, `ui.js`, `config.js` |
 | `apps-script/` | სერვერის კოდი — `Code.js` და `lib.js` ჩასასმელია Apps Script რედაქტორში, იხ. `docs/setup.md` |
-| `tools/` | ერთჯერადი იმპორტის სკრიპტი: `.xlsx` + `.geojson` → `build/*.csv` (`build/` git-ში არ დევს — იხ. `docs/setup.md`, Step 0) |
+| `tools/` | ერთჯერადი სკრიპტები: `import.py` (`.xlsx` + `.geojson` → `build/*.csv`), `fetch_osm.py` (OSM → `data/plan.geojson`), `render_plan.py` (→ `data/plan.svg`, შესვლის ეკრანის ნახაზი)
 | `tests/` | Node-ის ტესტები `apps-script/lib.js`-ისა და `js/lib.js`-ისთვის |
 | `docs/` | დოკუმენტაცია (იხ. ქვემოთ) |
 
