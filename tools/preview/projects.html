@@ -147,8 +147,10 @@ const API = {
 
 function currentUser() {
   const role = document.getElementById('pv-role').value;
+  // `cad` მიბმულია, რომ „ჩემი კომლი" ბლოკიც ჩანდეს გადახედვაში
   return { email: 'preview@x.ge', role: role,
-    street: role === 'moderator' ? 'კედრის ქუჩა' : '' };
+    street: role === 'moderator' ? 'კედრის ქუჩა' : '',
+    cad: ROWS.length ? ROWS[0].cad : '' };
 }
 
 PlanView.load = (function (original) {
