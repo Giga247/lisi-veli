@@ -181,9 +181,306 @@ function diffFields(oldRow, newFields) {
   return out;
 }
 
+/* ══ პროექტები ═══════════════════════════════════════════════════════
+ *
+ * მოდერატორი ურეკავს მეზობელს და სამი პასუხიდან ერთს წერს. მეოთხე —
+ * `not_contacted` — ნაგულისხმევია და ნიშნავს, რომ საუბარი ჯერ არ ყოფილა.
+ * ისიც ყველას უჩანს: ჩამორჩენა კომუნიკაციაში მოდერატორის საქმეა, არა
+ * მეზობლის, და ეს განზრახ ჩანს.
+ */
+const PLEDGE_STATUSES = {
+  not_contacted: 'ჯერ არ მიველაპარაკე',
+  paying: 'ვდებ თანხას',
+  loan: 'ახლა არ მაქვს — უბნის ვალად ვიღებ, წლის განმავლობაში დავაბრუნებ',
+  declined: 'არ მაინტერესებს, არ ვდებ',
+};
+
+const SPLIT_METHODS = ['area', 'equal', 'fixed', 'free'];
+
+const PROJECT_STATUSES = ['draft', 'active', 'done', 'cancelled'];
+
+/**
+ * უახლოეს ხუთეულამდე. უბანში ხუთლარიან ნაბიჯებში ლაპარაკობენ და ისე
+ * იხდიან; 222.22 ლარი ქაღალდზეც უხერხულია და საუბარშიც.
+ *
+ * ზუსტად შუაზე (47.5) ზემოთ მრგვალდება: `Math.round`-ის ნახევრები
+ * ზემოთ მიდის და შედეგი პროგნოზირებადია.
+ */
+function roundToFive(value) {
+  const number = Number(value);
+  if (!isFinite(number)) return 0;
+  return Math.round(number / 5) * 5;
+}
+
+function projectStreets(project) {
+  return String((project && project.streets) || '')
+    .split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(function (s) { return s.length > 0; });
+}
+
+/**
+ * ნაკვეთი ხვდება თუ არა პროექტში.
+ *
+ * ქუჩების სია ცარიელია = „ყველა ქუჩა", და ეს სიტყვასიტყვით ყველას
+ * ნიშნავს — ქუჩის გარეშე დარჩენილ ნაკვეთსაც. თუ ქუჩები ჩამოთვლილია,
+ * უცნობქუჩიანი ნაკვეთი ვერსად დაემთხვევა.
+ */
+function plotInProject(plot, project) {
+  const streets = projectStreets(project);
+  if (streets.length === 0) return true;
+  const street = String((plot && plot.street) || '').trim();
+  if (!street) return false;
+  return streets.indexOf(street) !== -1;
+}
+
+/**
+ * წილების დაანგარიშება. აბრუნებს:
+ *   `shares`        {cad: თანხა} — მხოლოდ მონაწილეებისთვის
+ *   `roundingDiff`  ჯამი − ბიუჯეტი; პროექტის გვერდზე ცალკე ჩანს
+ *   `noArea`        ფართობის გარეშე დარჩენილი მონაწილეები (`area` წესზე)
+ *   `noStreet`      ქუჩის გარეშე დარჩენილი ნაკვეთები — გასაფრთხილებლად
+ *
+ * ფართობის გარეშე ნაკვეთს `area` წესზე წილი **არ ეწერება**. ნული ჩუმად
+ * რომ ჩაწერილიყო, ის სამი წლის შემდეგ აღმოჩნდებოდა — ისიც შემთხვევით.
+ */
+function calculateSplit(plots, project) {
+  const method = String(project.split_method || 'area');
+  const budget = Number(project.budget) || 0;
+  const rows = (plots || []).filter(function (plot) {
+    return plotInProject(plot, project);
+  });
+
+  const noStreet = (plots || [])
+    .filter(function (plot) { return !String(plot.street || '').trim(); })
+    .map(function (plot) { return plot.cad; });
+
+  const shares = {};
+  const noArea = [];
+
+  if (method === 'free') {
+    rows.forEach(function (plot) { shares[plot.cad] = 0; });
+    return { shares: shares, roundingDiff: 0, noArea: [], noStreet: noStreet };
+  }
+
+  if (method === 'fixed') {
+    const fixed = roundToFive(project.fixed_amount);
+    rows.forEach(function (plot) { shares[plot.cad] = fixed; });
+  } else if (method === 'equal') {
+    const each = rows.length ? roundToFive(budget / rows.length) : 0;
+    rows.forEach(function (plot) { shares[plot.cad] = each; });
+  } else {
+    const withArea = rows.filter(function (plot) {
+      const area = Number(plot.area);
+      if (!isFinite(area) || area <= 0) { noArea.push(plot.cad); return false; }
+      return true;
+    });
+    const total = withArea.reduce(function (sum, plot) {
+      return sum + Number(plot.area);
+    }, 0);
+    withArea.forEach(function (plot) {
+      shares[plot.cad] = total > 0
+        ? roundToFive(budget * Number(plot.area) / total)
+        : 0;
+    });
+  }
+
+  const sum = Object.keys(shares).reduce(function (a, cad) {
+    return a + shares[cad];
+  }, 0);
+  return {
+    shares: shares,
+    roundingDiff: sum - budget,
+    noArea: noArea,
+    noStreet: noStreet,
+  };
+}
+
+function isPledgeStatus(value) {
+  return typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(PLEDGE_STATUSES, value);
+}
+
+/**
+ * რუკის ფერი ერთი ნაკვეთისთვის.
+ *
+ * გადახდა პასუხზე მაღლა დგას: ფული შემოსულია, რაც არ უნდა ეწეროს
+ * ჩანაწერში. „გადახდილად" ითვლება, როცა წილი სრულად დაიფარა — ან,
+ * თუ წილი ნულია (`free` წესი), როცა თანხა საერთოდ შემოვიდა.
+ */
+function plotColor(pledge, amountDue, amountPaid) {
+  const due = Number(amountDue) || 0;
+  const paid = Number(amountPaid) || 0;
+  if (paid > 0 && (due <= 0 || paid >= due)) return 'paid';
+  if (paid > 0) return 'partial';
+  const status = pledge && pledge.status;
+  if (status === 'declined') return 'declined';
+  if (status === 'loan') return 'loan';
+  if (status === 'paying') return 'promised';
+  return 'none';
+}
+
+function deny(code, message) { return { ok: false, code: code, message: message }; }
+
+/**
+ * დაპირების ჩაწერის უფლება. ოთხივე პირობა ცალკე მოწმდება, რომ
+ * უარის მიზეზი ზუსტად ჩანდეს ლოგშიც და მომხმარებელთანაც.
+ */
+function canSetPledge(user, plot, project) {
+  if (!project || project.status !== 'active') {
+    return deny('VALIDATION', 'პროექტი აქტიური არ არის');
+  }
+  const role = user && user.role;
+  if (role === 'admin') return { ok: true };
+  if (role !== 'moderator') {
+    return deny('FORBIDDEN', 'პასუხის ჩაწერა მოდერატორს შეუძლია');
+  }
+  const plotStreet = String((plot && plot.street) || '').trim();
+  if (!plotStreet) {
+    return deny('FORBIDDEN', 'ამ ნაკვეთს ქუჩა არ აქვს — პასუხს ადმინი წერს');
+  }
+  if (plotStreet !== String(user.street || '').trim()) {
+    return deny('FORBIDDEN', 'პასუხის ჩაწერა მხოლოდ თქვენს ქუჩაზე შეგიძლიათ');
+  }
+  return { ok: true };
+}
+
+/**
+ * გადახდის ჩაწერის უფლება.
+ *
+ * მოდერატორი ვერ წერს გადახდას და ხაზინდარი ვერ წერს დაპირებას —
+ * „რას დაპირდა" და „რა შემოვიდა" ორი დამოუკიდებელი ჩანაწერია,
+ * რომლებიც ერთმანეთს ამოწმებს. ერთ ხელში მოქცევა ამ შემოწმებას შლის.
+ */
+function canRecordPayment(user, project) {
+  if (!project || project.status !== 'active') {
+    return deny('VALIDATION', 'პროექტი აქტიური არ არის');
+  }
+  if (user && user.role === 'admin') return { ok: true };
+  const treasurer = String((project && project.treasurer) || '').trim().toLowerCase();
+  const email = String((user && user.email) || '').trim().toLowerCase();
+  if (treasurer && email && treasurer === email) return { ok: true };
+  return deny('FORBIDDEN', 'გადახდას ამ პროექტის ხაზინდარი წერს');
+}
+
+/** ხაზინდარი ვერ იქნება იმავე პროექტის ქუჩების მოდერატორი. */
+function validateTeam(project, moderators) {
+  const treasurer = String((project && project.treasurer) || '').trim().toLowerCase();
+  if (!treasurer) return { ok: true };
+  const streets = projectStreets(project);
+  const clash = (moderators || []).some(function (mod) {
+    if (String(mod.email || '').trim().toLowerCase() !== treasurer) return false;
+    if (streets.length === 0) return true;
+    return streets.indexOf(String(mod.street || '').trim()) !== -1;
+  });
+  if (clash) {
+    return deny('VALIDATION',
+      'ხაზინდარი ვერ იქნება ამავე პროექტის ქუჩის მოდერატორი');
+  }
+  return { ok: true };
+}
+
+/**
+ * პროექტის ჯამები.
+ *
+ * `promised` და `loan` მხოლოდ **ჯერ შემოუსვლელ** ნაწილს ითვლის: თუ
+ * კაცმა დაპირდა და გადაიხადა, თანხა ორჯერ არ უნდა ჩაითვალოს.
+ */
+function projectTotals(project, pledges, payments) {
+  const paidByCad = {};
+  (payments || []).forEach(function (payment) {
+    const cad = String(payment.cad || '').trim();
+    paidByCad[cad] = (paidByCad[cad] || 0) + (Number(payment.amount) || 0);
+  });
+
+  let collected = 0;
+  Object.keys(paidByCad).forEach(function (cad) { collected += paidByCad[cad]; });
+
+  let promised = 0;
+  let loan = 0;
+  let declined = 0;
+  let pending = 0;
+
+  (pledges || []).forEach(function (pledge) {
+    const cad = String(pledge.cad || '').trim();
+    const due = Number(pledge.amount_due) || 0;
+    const paid = paidByCad[cad] || 0;
+    const left = Math.max(0, due - paid);
+    if (pledge.status === 'paying') promised += left;
+    else if (pledge.status === 'loan') loan += left;
+    else if (pledge.status === 'declined') declined += due;
+    else pending += due;
+  });
+
+  const budget = Number(project && project.budget) || 0;
+  return {
+    budget: budget,
+    collected: collected,
+    promised: promised,
+    loan: loan,
+    declined: declined,
+    pending: pending,
+    remaining: Math.max(0, budget - collected),
+  };
+}
+
+/**
+ * პროექტის სტატუსის დასაშვები გადასვლები.
+ *
+ * `active → draft` აკრძალულია: წილები გააქტიურებისას იყინება, და
+ * უკან დაბრუნება ნიშნავდა, რომ უკვე გადახდილ კომლს თანხა შეეცვლებოდა.
+ */
+function statusTransition(from, to) {
+  const allowed = {
+    draft: ['active', 'cancelled'],
+    active: ['done', 'cancelled'],
+    done: [],
+    cancelled: [],
+  };
+  const list = allowed[String(from)];
+  return !!list && list.indexOf(String(to)) !== -1;
+}
+
+function validateProject(project) {
+  const name = String((project && project.name) || '').trim();
+  if (!name) return deny('VALIDATION', 'პროექტს სახელი სჭირდება');
+
+  const method = String((project && project.split_method) || 'area');
+  if (SPLIT_METHODS.indexOf(method) === -1) {
+    return deny('VALIDATION', 'უცნობი განაწილების წესი: ' + method);
+  }
+
+  const budget = Number(project && project.budget);
+  if (!isFinite(budget) || budget < 0) {
+    return deny('VALIDATION', 'ბიუჯეტი რიცხვი უნდა იყოს');
+  }
+  if (budget === 0 && method !== 'free') {
+    return deny('VALIDATION', 'ბიუჯეტი ნულზე მეტი უნდა იყოს');
+  }
+
+  if (method === 'fixed') {
+    const fixed = Number(project.fixed_amount);
+    if (!isFinite(fixed) || fixed <= 0) {
+      return deny('VALIDATION', 'ფიქსირებულ წესს თანხა სჭირდება');
+    }
+  }
+
+  const starts = String((project && project.starts_on) || '').trim();
+  const ends = String((project && project.ends_on) || '').trim();
+  if (starts && ends && ends < starts) {
+    return deny('VALIDATION', 'დასრულება დაწყებაზე ადრე ვერ იქნება');
+  }
+
+  return { ok: true };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     mapHeaders, normalizePhone, parseGeometry,
     isEditableField, checkPermission, verifyTokenClaims, diffFields,
+    PLEDGE_STATUSES, SPLIT_METHODS, PROJECT_STATUSES,
+    roundToFive, projectStreets, plotInProject, calculateSplit,
+    isPledgeStatus, plotColor, canSetPledge, canRecordPayment,
+    validateTeam, projectTotals, statusTransition, validateProject,
   };
 }
