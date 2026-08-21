@@ -25,6 +25,10 @@ async function afterSignIn() {
     window.PLOTS = PLOTS;
     TableView.render(PLOTS, CURRENT_USER);
     MapView.render(PLOTS, CURRENT_USER);
+    // პროექტები საკუთარ შეცდომას თავად წერს პანელში და `await`-ს არ
+    // ელოდება — მისი ჩავარდნა რეესტრის ჩატვირთვას არ უნდა შეაჩეროს.
+    ProjectsView.bind();
+    ProjectsView.render(CURRENT_USER);
     if (CURRENT_USER.role === 'admin') AdminView.render();
   } catch (error) {
     UI.showError(error.message || 'მონაცემების ჩატვირთვა ვერ მოხერხდა');

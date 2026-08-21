@@ -1,0 +1,147 @@
+/*
+  პროექტების ეკრანები.
+
+  ფერები `dataviz`-ის სტატუსის პალიტრიდანაა და სკრიპტით შემოწმებული:
+  ღია რეჟიმში სამივე შემოწმება გადის; მწვანე↔ნარინჯისფერი პროტანოპიით
+  ΔE 6.0-ია — ზუსტად იმ ზღვარზე, სადაც მარტო ფერი აღარ კმარა. ამიტომ
+  ყველგან სიმბოლოა და წარწერაც, და ცხრილიც ყოველთვის ხელმისაწვდომია.
+
+  ბნელ რეჟიმში ნარინჯისფერი ნათდება (#fbbf24): იქ სიკაშკაშის სხვაობა
+  სწორედ ის არხია, რომლითაც მწვანე და ნარინჯისფერი გაირჩევა.
+*/
+:root {
+  --tone-paid: #0ca30c;
+  --tone-promised: #f59e0b;
+  --tone-declined: #d03b3b;
+  --tone-none: #b8b8b2;
+  --tone-ink: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tone-promised: #fbbf24;
+    --tone-declined: #e66767;
+    --tone-none: #63635e;
+  }
+}
+:root[data-theme="dark"] {
+  --tone-promised: #fbbf24;
+  --tone-declined: #e66767;
+  --tone-none: #63635e;
+}
+
+/* ── ნაკვეთის შეღებვა გეგმაზე ─────────────────────────────────── */
+.plot.tint-paid { fill: var(--tone-paid); fill-opacity: .72; }
+.plot.tint-partial { fill: var(--tone-paid); fill-opacity: .34; }
+.plot.tint-promised,
+.plot.tint-loan { fill: var(--tone-promised); fill-opacity: .72; }
+.plot.tint-loan { fill-opacity: .45; }
+.plot.tint-declined { fill: var(--tone-declined); fill-opacity: .72; }
+.plot.tint-none { fill: var(--tone-none); fill-opacity: .3; }
+
+/* ── სია ──────────────────────────────────────────────────────── */
+.pr-list { display: grid; gap: 14px; }
+.pr-list h2 { margin: 0; }
+.pr-empty { color: var(--ink-muted); }
+
+.pr-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  display: grid; gap: 10px; cursor: pointer; background: var(--surface); }
+.pr-card:hover, .pr-card:focus-visible { border-color: var(--ink-muted); outline: none; }
+.pr-card header { display: flex; align-items: baseline; gap: 10px;
+  justify-content: space-between; }
+.pr-card h3 { margin: 0; font-size: 1.05rem; }
+.pr-desc { margin: 0; color: var(--ink-muted); line-height: 1.5; }
+.pr-dates { margin: 0; color: var(--ink-muted); font-size: .85rem; }
+
+.pr-status { font-size: .78rem; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--ink-muted); white-space: nowrap; }
+.pr-status-active { border-color: var(--tone-paid); color: var(--tone-paid); }
+.pr-status-done { opacity: .7; }
+
+/* ── მეტრი ────────────────────────────────────────────────────── */
+.pr-meter { position: relative; height: 8px; border-radius: 999px;
+  background: var(--tone-none); overflow: hidden; }
+.pr-meter span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.pr-meter-pledged { background: var(--tone-promised); }
+.pr-meter-collected { background: var(--tone-paid); }
+
+/* ── ციფრები ──────────────────────────────────────────────────── */
+.pr-figures, .pr-kpi { display: flex; flex-wrap: wrap; gap: 18px 26px; margin: 0; }
+.pr-figures div, .pr-kpi div { display: grid; gap: 2px; }
+.pr-figures dt, .pr-kpi dt { color: var(--ink-muted); font-size: .8rem; }
+.pr-figures dd, .pr-kpi dd { margin: 0; font-variant-numeric: tabular-nums;
+  font-weight: 600; }
+.pr-hero { font-size: 1.9rem; line-height: 1.1; color: var(--tone-paid); }
+
+/* ── გვერდი ───────────────────────────────────────────────────── */
+.pr-page { display: grid; gap: 16px; }
+.pr-back { background: none; border: none; color: var(--ink-muted);
+  padding: 0; cursor: pointer; justify-self: start; }
+.pr-back:hover { color: var(--ink); }
+.pr-head { display: flex; align-items: baseline; gap: 12px; }
+.pr-head h2 { margin: 0; }
+
+#pr-plan { min-height: 420px; }
+
+/* ── ლეგენდისა და ცხრილის სიმბოლოები ─────────────────────────── */
+.plan-legend .lg i[class^="tint-"] {
+  display: inline-grid; place-items: center; width: 16px; height: 16px;
+  border-radius: 4px; color: var(--tone-ink); font-size: 11px; line-height: 1; }
+.plan-legend .lg i.tint-paid { background: var(--tone-paid); }
+.plan-legend .lg i.tint-partial { background: var(--tone-paid); opacity: .55; }
+.plan-legend .lg i.tint-promised,
+.plan-legend .lg i.tint-loan { background: var(--tone-promised); color: #2b2b28; }
+.plan-legend .lg i.tint-declined { background: var(--tone-declined); }
+.plan-legend .lg i.tint-none { background: var(--tone-none); color: #2b2b28; }
+
+.pr-tone { display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border-radius: 4px; color: var(--tone-ink); font-size: 12px; line-height: 1;
+  vertical-align: -3px; }
+.pr-tone.tint-paid { background: var(--tone-paid); }
+.pr-tone.tint-partial { background: var(--tone-paid); opacity: .55; }
+.pr-tone.tint-promised, .pr-tone.tint-loan { background: var(--tone-promised); color: #2b2b28; }
+.pr-tone.tint-declined { background: var(--tone-declined); }
+.pr-tone.tint-none { background: var(--tone-none); color: #2b2b28; }
+
+/* ── ცხრილები ─────────────────────────────────────────────────── */
+.pr-streets summary { cursor: pointer; color: var(--ink-muted); }
+.pr-streets table, .pr-table table { width: 100%; margin-top: 10px; }
+.pr-table { display: grid; gap: 10px; }
+.pr-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.pr-filters input, .pr-filters select { padding: 6px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.pr-filters input { flex: 1 1 220px; }
+.pr-count { color: var(--ink-muted); font-size: .85rem; }
+.pr-by { color: var(--ink-muted); font-size: .82rem; }
+.pr-table td, .pr-streets td { text-align: right; }
+.pr-table td:first-child, .pr-table td:nth-child(2),
+.pr-streets td:first-child { text-align: left; }
+.pr-answer { background: none; border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 8px; cursor: pointer; color: var(--ink); }
+
+/* ── დიალოგი ──────────────────────────────────────────────────── */
+.pr-dialog { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: grid; place-items: center; padding: 16px; z-index: 50; }
+.pr-dialog-box { background: var(--surface); color: var(--ink);
+  border-radius: 12px; padding: 20px; width: min(460px, 100%);
+  display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
+.pr-dialog-box h3 { margin: 0; }
+.pr-dialog-sub { margin: 0; color: var(--ink-muted); font-size: .88rem; }
+.pr-dialog-box fieldset { border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; display: grid; gap: 8px; }
+.pr-dialog-box legend { color: var(--ink-muted); font-size: .85rem; padding: 0 4px; }
+.pr-choice { display: flex; gap: 8px; align-items: flex-start; line-height: 1.4;
+  cursor: pointer; }
+.pr-note { display: grid; gap: 4px; color: var(--ink-muted); font-size: .85rem; }
+.pr-note textarea { border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+  background: var(--surface); color: var(--ink); font: inherit; resize: vertical; }
+.pr-dialog-error { margin: 0; color: var(--danger); }
+.pr-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.pr-dialog-actions button { padding: 8px 16px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; }
+.pr-dialog-actions button[type="submit"] { background: var(--ink); color: var(--surface); }
+
+@media (max-width: 720px) {
+  .pr-hero { font-size: 1.5rem; }
+  .pr-figures, .pr-kpi { gap: 12px 18px; }
+}

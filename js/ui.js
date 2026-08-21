@@ -3,7 +3,7 @@ const UI = (function () {
   function el(id) { return document.getElementById(id); }
 
   function showTab(name) {
-    ['table', 'map', 'admin'].forEach(function (tab) {
+    ['table', 'map', 'projects', 'admin'].forEach(function (tab) {
       const panel = el('panel-' + tab);
       const button = el('tab-' + tab);
       if (!panel || !button) return;
@@ -11,6 +11,7 @@ const UI = (function () {
       button.classList.toggle('active', tab === name);
     });
     if (name === 'map' && window.MapView) MapView.refresh();
+    if (name === 'projects' && window.ProjectsView) ProjectsView.refresh();
   }
 
   function showError(message) {

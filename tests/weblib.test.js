@@ -157,3 +157,74 @@ test('escapeHtml — რეგრესია: & პირველი იცვ
   assert.strictEqual(WebLib.escapeHtml('&amp;'), '&amp;amp;');
   assert.strictEqual(WebLib.escapeHtml('a & b < c'), 'a &amp; b &lt; c');
 });
+
+/* ── პროექტების ხედი ─────────────────────────────────────────────── */
+
+const ROWS = [
+  { cad: 'A', street: 'კედრის ქუჩა', address: 'კედრის ქუჩა 1', first_name: 'ზურაბ',
+    last_name: 'ბერიძე', amount_due: 165, paid: 165, color: 'paid', status: 'paying' },
+  { cad: 'B', street: 'კედრის ქუჩა', address: 'კედრის ქუჩა 2', first_name: 'ელენე',
+    last_name: 'კაპანაძე', amount_due: 500, paid: 0, color: 'loan', status: 'loan' },
+  { cad: 'C', street: 'კედრის I ჩიხი', address: 'კედრის I ჩიხი 3', first_name: 'ქეთევან',
+    last_name: 'ხარაძე', amount_due: 335, paid: 0, color: 'none', status: 'not_contacted' },
+  { cad: 'D', street: '', address: '', first_name: '', last_name: '',
+    amount_due: 50, paid: 0, color: 'declined', status: 'declined' },
+];
+
+test('pledgeView — ყველა პასუხს სიმბოლოც აქვს და წარწერაც', () => {
+  ['not_contacted', 'paying', 'loan', 'declined'].forEach((status) => {
+    const view = WebLib.pledgeView(status);
+    assert.ok(view.label.length > 0, status + ': წარწერა');
+    assert.ok(view.icon.length > 0, status + ': სიმბოლო');
+  });
+});
+
+test('pledgeView — უცნობი სტატუსი ნაგულისხმევზე ვარდება', () => {
+  assert.strictEqual(WebLib.pledgeView('xxx'), WebLib.PLEDGE_VIEW.not_contacted);
+  assert.strictEqual(WebLib.pledgeView(undefined), WebLib.PLEDGE_VIEW.not_contacted);
+});
+
+test('toneView — რუკის ექვსივე მდგომარეობას სიმბოლო აქვს', () => {
+  ['none', 'promised', 'loan', 'partial', 'paid', 'declined'].forEach((tone) => {
+    assert.ok(WebLib.toneView(tone).icon.length > 0, tone);
+  });
+});
+
+test('money — ლარი, წილადის გარეშე', () => {
+  assert.strictEqual(WebLib.money(0), '0 ₾');
+  assert.strictEqual(WebLib.money(1234.7), '1\u202f235 \u20be');
+  assert.strictEqual(WebLib.money(-40), '\u221240 \u20be');
+  assert.strictEqual(WebLib.money(null), '0 ₾');
+});
+
+test('streetBreakdown — ქუჩების ჭრილი ითვლის კომლებსაც და თანხასაც', () => {
+  const out = WebLib.streetBreakdown(ROWS);
+  const kedris = out.filter((s) => s.street === 'კედრის ქუჩა')[0];
+  assert.strictEqual(kedris.total, 2);
+  assert.strictEqual(kedris.due, 665);
+  assert.strictEqual(kedris.paid, 165);
+  assert.strictEqual(kedris.counts.paid, 1, 'მთვლელი ფულის ველს არ ერევა');
+});
+
+test('streetBreakdown — ქუჩის გარეშე ნაკვეთს ცალკე სახელი აქვს', () => {
+  const out = WebLib.streetBreakdown(ROWS);
+  assert.ok(out.some((s) => s.street === 'ქუჩის გარეშე'));
+});
+
+test('streetBreakdown — ცარიელი სია ცარიელს აბრუნებს', () => {
+  assert.deepStrictEqual(WebLib.streetBreakdown([]), []);
+  assert.deepStrictEqual(WebLib.streetBreakdown(null), []);
+});
+
+test('filterPledgeRows — ქუჩით, მდგომარეობით და ძებნით', () => {
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, { street: 'კედრის ქუჩა' }).length, 2);
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, { tone: 'paid' }).length, 1);
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, { query: 'ხარაძე' }).length, 1);
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, {}).length, 4);
+});
+
+test('filterPledgeRows — ძებნა კოდითაც მუშაობს და რეგისტრს არ ითვალისწინებს', () => {
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, { query: 'b' }).length, 1,
+    'კოდი B რეგისტრის მიუხედავად იძებნება');
+  assert.strictEqual(WebLib.filterPledgeRows(ROWS, { query: 'ჩიხი 3' }).length, 1);
+});

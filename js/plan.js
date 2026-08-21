@@ -39,6 +39,10 @@ const PlanView = (function () {
    *   `opts.sidebar`  ნაგულისხმევად true; false — მხოლოდ ნახაზი (ჰერო)
    *   `opts.extra`    fn(record) -> HTML, დეტალების პანელში დამატებით
    *   `opts.onSelect` fn(cad|null)
+   *   `opts.tint`     fn(cad) -> კლასის სუფიქსი ან null. თუ მოცემულია,
+   *                   ნაკვეთი ქუჩის ფერის ნაცვლად ამ კლასს იღებს —
+   *                   პროექტის გვერდზე ფერი პასუხს ნიშნავს, არა ქუჩას.
+   *   `opts.legend`   მზა HTML ლეგენდისთვის; ცვლის ქუჩების ნუსხას.
    */
   function create(root, data, opts) {
     const options = opts || {};
@@ -143,7 +147,8 @@ const PlanView = (function () {
 
     /* ── ლეგენდა ───────────────────────────────────────────── */
     const legend = mapBox.querySelector('.plan-legend');
-    legend.innerHTML = data.streets.map(function (street, index) {
+    legend.innerHTML = options.legend != null ? options.legend :
+      data.streets.map(function (street, index) {
       return '<span class="lg"><i class="st-' + index + '"></i>' +
         WebLib.escapeHtml(street) + '</span>';
     }).join('') +
@@ -317,6 +322,26 @@ const PlanView = (function () {
       box.querySelector('.head').textContent = head;
     }
 
+    /**
+     * ნაკვეთის ფერი პროექტის რეჟიმში.
+     *
+     * ქუჩის კლასი (`st-N`) ჩამოიხსნება და ნაცვლად `tint-*` ედება — თორემ
+     * ორი ფერადი კლასი ერთდროულად იქნებოდა და რომელი მოიგებდა, CSS-ის
+     * რიგზე იქნებოდა დამოკიდებული.
+     */
+    function applyTint() {
+      if (!options.tint) return;
+      for (const cad in nodes) {
+        const path = nodes[cad].path;
+        const parcel = nodes[cad].parcel;
+        path.classList.remove('st-' + (parcel.si >= 0 ? parcel.si : 'x'));
+        Array.prototype.slice.call(path.classList).forEach(function (name) {
+          if (name.indexOf('tint-') === 0) path.classList.remove(name);
+        });
+        path.classList.add('tint-' + (options.tint(cad) || 'none'));
+      }
+    }
+
     function paint() {
       const active = {};
       records.filter(matches).forEach(function (r) { active[r.cad] = true; });
@@ -361,11 +386,12 @@ const PlanView = (function () {
 
     renderList();
     renderDetail();
+    applyTint();
     paint();
     requestAnimationFrame(fit);
     window.addEventListener('resize', fit);
 
-    return { select: select, refresh: fit, records: records };
+    return { select: select, refresh: fit, records: records, recolor: applyTint };
   }
 
   // გეგმის მონაცემი სტატიკურია და ორ ადგილას სჭირდება (შესვლის ეკრანი და

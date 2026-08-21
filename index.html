@@ -13,6 +13,7 @@
      სტილის შეცვლისას ეს ციფრი უნდა გაიზარდოს. -->
 <link rel="stylesheet" href="css/style.css?v=3">
 <link rel="stylesheet" href="css/plan.css?v=1">
+<link rel="stylesheet" href="css/projects.css?v=1">
 </head>
 <body>
 
@@ -68,6 +69,7 @@
     <nav>
       <button id="tab-table" onclick="UI.showTab('table')">ცხრილი</button>
       <button id="tab-map" onclick="UI.showTab('map')">რუკა</button>
+      <button id="tab-projects" onclick="UI.showTab('projects')">პროექტები</button>
       <button id="tab-admin" onclick="UI.showTab('admin')" hidden>ადმინი</button>
     </nav>
     <span id="whoami"></span>
@@ -76,6 +78,7 @@
 
   <section id="panel-table"></section>
   <section id="panel-map" hidden></section>
+  <section id="panel-projects" hidden></section>
   <section id="panel-admin" hidden></section>
 </div>
 
@@ -88,6 +91,7 @@
 <script src="js/plan.js"></script>
 <script src="js/table.js"></script>
 <script src="js/map.js"></script>
+<script src="js/projects.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/main.js"></script>
 </body>

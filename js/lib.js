@@ -103,6 +103,105 @@
     });
   }
 
+  /* ── პროექტები ────────────────────────────────────────────────── */
+
+  /**
+   * პასუხის სახელი, სიმბოლო და ფერი.
+   *
+   * სიმბოლო არჩევითი მორთულობა არ არის: მწვანე და ნარინჯისფერი
+   * პროტანოპიისთვის ΔE 6.0-ით შორდება ერთმანეთს — ზუსტად იმ ზღვარზე,
+   * სადაც ფერი მარტო აღარ კმარა. ამიტომ ფერს ყველგან სიმბოლოც მოსდევს
+   * და წარწერაც: რუკაზე, ლეგენდაში, ცხრილში.
+   */
+  const PLEDGE_VIEW = {
+    not_contacted: { label: 'ჯერ არ მიველაპარაკე', short: 'ჯერ არა', icon: '·', tone: 'none' },
+    paying: { label: 'ვდებ თანხას', short: 'დებს', icon: '↑', tone: 'promised' },
+    loan: { label: 'უბნის ვალად ვიღებ — წლის განმავლობაში დავაბრუნებ',
+      short: 'ვალით', icon: '⟳', tone: 'loan' },
+    declined: { label: 'არ ვდებ', short: 'არ დებს', icon: '✕', tone: 'declined' },
+  };
+
+  const TONE_VIEW = {
+    none: { label: 'პასუხის გარეშე', icon: '·' },
+    promised: { label: 'თანხას დებს', icon: '↑' },
+    loan: { label: 'ვალად იღებს', icon: '⟳' },
+    partial: { label: 'ნაწილობრივ გადახდილი', icon: '◐' },
+    paid: { label: 'გადახდილი', icon: '✓' },
+    declined: { label: 'არ დებს', icon: '✕' },
+  };
+
+  function pledgeView(status) {
+    return PLEDGE_VIEW[status] || PLEDGE_VIEW.not_contacted;
+  }
+
+  function toneView(tone) {
+    return TONE_VIEW[tone] || TONE_VIEW.none;
+  }
+
+  /**
+   * ლარი — ათასეულები ვიწრო შორისით, წილადის გარეშე.
+   *
+   * `toLocaleString`-ს აქ განზრახ არ ვიყენებთ: მისი შედეგი ICU-ს
+   * მონაცემებზეა დამოკიდებული და Node-სა და ბრაუზერში სხვადასხვაა —
+   * ტესტი ერთს ხედავდა, მეზობელი მეორეს.
+   */
+  function money(value) {
+    const number = Math.round(Number(value) || 0);
+    const sign = number < 0 ? '−' : '';
+    const digits = String(Math.abs(number));
+    let out = '';
+    for (let i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 === 0) out += '\u202f';
+      out += digits[i];
+    }
+    return sign + out + ' ₾';
+  }
+
+  /**
+   * ქუჩების ჭრილი — რომელი ქუჩა ჩამორჩება.
+   *
+   * სწორედ ეს ინფორმაცია სჭირდება ადმინს: არა თუ ვინ არ იხდის, არამედ
+   * სად არ ყოფილა საუბარი.
+   */
+  function streetBreakdown(rows) {
+    const byStreet = {};
+    (rows || []).forEach(function (row) {
+      const street = String(row.street || '').trim() || 'ქუჩის გარეშე';
+      if (!byStreet[street]) {
+        // მთვლელები ცალკე ბუდეშია: `paid` ორივეს ერქვა — შემოსულ თანხასაც
+        // და გადახდილი კომლების რიცხვსაც — და ერთმანეთს ემატებოდნენ.
+        byStreet[street] = { street: street, total: 0, due: 0, paid: 0,
+          counts: { none: 0, promised: 0, loan: 0, partial: 0, paid: 0, declined: 0 } };
+      }
+      const bucket = byStreet[street];
+      bucket.total += 1;
+      bucket.due += Number(row.amount_due) || 0;
+      bucket.paid += Number(row.paid) || 0;
+      if (bucket.counts[row.color] !== undefined) bucket.counts[row.color] += 1;
+    });
+    return Object.keys(byStreet)
+      .sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; })
+      .map(function (key) { return byStreet[key]; });
+  }
+
+  /** ცხრილის ფილტრი პროექტის გვერდზე. */
+  function filterPledgeRows(rows, filters) {
+    const street = (filters && filters.street) || '';
+    const tone = (filters && filters.tone) || '';
+    const query = String((filters && filters.query) || '').trim().toLowerCase();
+    return (rows || []).filter(function (row) {
+      if (street && String(row.street || '') !== street) return false;
+      if (tone && row.color !== tone) return false;
+      if (!query) return true;
+      const hay = [row.cad, row.address, row.street, row.first_name, row.last_name]
+        .join(' ').toLowerCase();
+      return hay.indexOf(query) !== -1;
+    });
+  }
+
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
-    streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots };
+    streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
+    PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
+    pledgeView: pledgeView, toneView: toneView, money: money,
+    streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows };
 });
