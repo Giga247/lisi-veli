@@ -22,14 +22,31 @@
 </div>
 
 <div id="screen-signin" class="screen" hidden>
-  <h1>ლისი ველი</h1>
-  <figure class="plan">
-    <img src="data/plan.svg" width="1100" height="1202"
-         alt="ლისი ველის უბნის გეგმა: რვა ქუჩა, 66 საკადასტრო ნაკვეთი ნაგებობების კონტურებით და მისამართებით.">
-    <figcaption>გზები და ნაგებობები: © OpenStreetMap-ის მონაწილეები (ODbL)</figcaption>
-  </figure>
-  <p>სისტემაში შესასვლელად გაიარეთ ავტორიზაცია Google-ით.</p>
-  <div id="signin-button"></div>
+  <div class="signin-grid">
+
+    <div class="signin-brand">
+      <h1>ლისი ველი</h1>
+      <p class="lede">სამეზობლოს რეესტრი — ნაკვეთები, მფლობელები და
+        საკონტაქტო ინფორმაცია ერთ ადგილას.</p>
+      <figure class="plan">
+        <img src="data/plan.svg" width="1100" height="1202"
+             alt="ლისი ველის უბნის გეგმა: რვა ქუჩა, 66 საკადასტრო ნაკვეთი ნაგებობების კონტურებით და მისამართებით.">
+        <figcaption>
+          <span>8 ქუჩა · 66 ნაკვეთი</span>
+          <span>გზები და ნაგებობები: © OpenStreetMap-ის მონაწილეები (ODbL)</span>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="signin-card">
+      <h2>შესვლა</h2>
+      <p>სისტემაში შესასვლელად გაიარეთ ავტორიზაცია Google-ით.</p>
+      <div id="signin-button"></div>
+      <p class="note">წვდომა უბნის მაცხოვრებლებს აქვთ. თუ ანგარიში ჯერ არ
+        გაქვთ, შესვლისთანავე მოთხოვნა ავტომატურად გადაეგზავნება ადმინს.</p>
+    </div>
+
+  </div>
 </div>
 
 <div id="screen-pending" class="screen" hidden>

@@ -56,7 +56,50 @@ input, select, button { font: inherit; padding: 6px 10px;
 /* უბნის გეგმა შესვლის ეკრანზე — სტატიკური SVG, `tools/render_plan.py`-ს
    ნაშენი. ნახაზს საკუთარი ქაღალდისფერი ფონი აქვს, ამიტომ ბნელ თემაზეც
    ისე იკითხება, როგორც გვერდზე მიმაგრებული ბეჭდური გეგმა. */
-.plan { margin: 20px 0; max-width: 520px; }
+.plan { margin: 0; }
 .plan img { display: block; width: 100%; height: auto;
-  border: 1px solid var(--line); border-radius: 8px; }
-.plan figcaption { color: var(--ink-muted); font-size: 11px; margin-top: 6px; }
+  border: 1px solid var(--line); border-radius: 10px; }
+.plan figcaption { display: flex; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; color: var(--ink-muted); font-size: 11px; margin-top: 8px; }
+
+/* ── შესვლის ეკრანი ──────────────────────────────────────────────────
+   დესკტოპზე ორი სვეტი: მარცხნივ ვინ ვართ, მარჯვნივ როგორ შემოხვიდე.
+   ვიწრო ეკრანზე იმავე რიგით ჩამოიშლება — ჯერ სახელი და ნახაზი, მერე
+   ღილაკი, რომ პირველი ეკრანი აზრს ატარებდეს და არა მხოლოდ ფორმას. */
+#screen-signin { max-width: 1080px; padding: 32px 24px 48px; }
+.signin-grid { display: grid; gap: 40px; align-items: center;
+  min-height: calc(100vh - 80px); }
+@media (min-width: 900px) {
+  /* მარჯვენა სვეტს ფიქსირებული სიგანე აქვს — ბარათი ფართო ეკრანზე
+     უაზროდ რომ არ გაიწელოს; დარჩენილს მარცხენა იღებს. */
+  .signin-grid { grid-template-columns: auto 360px; gap: 56px;
+    justify-content: center; }
+}
+
+/* ნახაზი უფრო მაღალია, ვიდრე განიერი (1100×1202) — სიმაღლეზე ვზღუდავთ,
+   რომ დესკტოპზე მთელი ეკრანი ერთ ხედში ეტეოდეს და გვერდი არ გორავდეს. */
+.signin-brand .plan img { max-height: 66vh; width: auto; max-width: 100%; }
+/* figure სურათის სიგანეს იმეორებს — თორემ წარწერა სვეტის მთელ სიგანეზე
+   იჭიმებოდა და ნახაზთან კავშირი ეკარგებოდა. */
+.signin-brand .plan { width: fit-content; max-width: 100%; }
+
+.signin-brand h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15;
+  margin: 0 0 10px; letter-spacing: -.01em; }
+.signin-brand .lede { color: var(--ink-muted); font-size: 15px;
+  line-height: 1.55; margin: 0 0 24px; max-width: 42ch; }
+
+.signin-card { border: 1px solid var(--line); border-radius: 14px;
+  padding: 28px; background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 32px rgba(0, 0, 0, .06); }
+.signin-card h2 { font-size: 20px; margin: 0 0 8px; }
+.signin-card p { color: var(--ink-muted); font-size: 14px; line-height: 1.55;
+  margin: 0 0 20px; }
+/* GSI ღილაკი iframe-ია — ზომას თავად განსაზღვრავს, ჩვენ მხოლოდ ვასწორებთ */
+#signin-button { display: flex; justify-content: center; min-height: 44px; }
+.signin-card .note { font-size: 12.5px; margin: 20px 0 0;
+  padding-top: 16px; border-top: 1px solid var(--line); }
+
+@media (prefers-color-scheme: dark) {
+  .signin-card { box-shadow: 0 1px 2px rgba(0, 0, 0, .3),
+    0 12px 32px rgba(0, 0, 0, .35); }
+}
