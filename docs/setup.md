@@ -1,436 +1,156 @@
 # ლისი ველი — განთავსების სახელმძღვანელო
 
-ეს დოკუმენტი აღწერს, როგორ გაშვდეს „ლისი ველი" ნულიდან: მონაცემების
-მომზადებიდან და Google Sheet-ის შექმნიდან იმ მომენტამდე, როცა საიტი ცოცხალ
-`github.io` მისამართზე იხსნება და მეზობლების მოწვევა შეიძლება. გაიარეთ ნაბიჯები
-თანმიმდევრობით, რეპოზიტორი წინ გქონდეთ გახსნილი.
+როგორ გაშვდეს „ლისი ველი" ნულიდან: Supabase-ის პროექტის შექმნიდან იმ
+მომენტამდე, როცა საიტი ცოცხალ `github.io` მისამართზე იხსნება.
 
-ნაბიჯების რუკა: **Step 0** მონაცემები → **Step 1** Sheet → **Step 2** OAuth →
-**Step 3-5** Apps Script → **Step 6-7** დეპლოი და შემოწმება → **Step 8**
-`js/config.js` → **Step 9** GitHub Pages. Step 8-ის და 9-ის გარეშე გაქვთ მომუშავე
-**სერვერი**, მაგრამ არა **საიტი** — გვერდი, რომელსაც მეზობელი გახსნის, ჯერ არ
-არსებობს.
+**ნაბიჯების რუკა:** Step 1 Supabase → Step 2 სქემა → Step 3 მონაცემები →
+Step 4 Google-ის შესვლა → Step 5 `js/config.js` → Step 6 GitHub Pages →
+Step 7 პირველი შესვლა.
 
 ## რატომ არის აგებული ასე
 
-- **უსაფრთხოება ტოკენით, არა Apps Script-ის წვდომის პარამეტრით.** განთავსება
-  ხდება „Execute as: Me" + „Who has access: Anyone" — ეს ჟღერს არაუსაფრთხოდ, მაგრამ
-  არაა: „Anyone" მხოლოდ იმას ნიშნავს, რომ ნებისმიერს შეუძლია მოთხოვნის გაგზავნა,
-  არა Sheet-ის ნახვა. Sheet კვლავ პირადია — მასთან წვდომა მხოლოდ თავად სკრიპტს
-  აქვს (Execute as: Me), ხოლო სკრიპტი ყოველ მოთხოვნაზე ამოწმებს Google-ის ID
-  token-ს `verifyToken`-ით — თუ ტოკენი არასწორია, ვადაგასულია, ან სხვა
-  აპლიკაციისთვისაა გაცემული (`aud` არ ემთხვევა ჩვენს `CLIENT_ID`-ს), მოთხოვნა
-  `UNAUTHENTICATED`-ით იბლოკება Sheet-თან მისვლამდე. `aud`-ის შემოწმების გარეშე
-  ნებისმიერი Google ანგარიშით შესული ადამიანის ტოკენი — თუნდაც სულ სხვა საიტზე
-  მიღებული — მიღებული იქნებოდა და მთელი ბაზა ყველასთვის ღია გახდებოდა.
-- **ოპტიმისტური კონკურენტულობა.** `updatePlot` მოითხოვს `expected_updated_at`-ს
-  როგორც სტრიქონს (არასდროს-განახლებული რიგისთვის — ცარიელი სტრიქონი `""`).
-  `null`-ი ან ველის არარსებობა `VALIDATION`-ის შეცდომაა — კლიენტს არ შეუძლია ეს
-  შემოწმება „გვერდის ავლით" ჩაუყაროს ცარიელი მნიშვნელობა და ამით სხვისი
-  პარალელური რედაქტირება ჩუმად წაშალოს.
-- **`Content-Type: text/plain;charset=utf-8`, არა `application/json`.** Apps
-  Script-ის Web App არ პასუხობს CORS preflight (`OPTIONS`) მოთხოვნას. თუ
-  კლიენტმა (ბრაუზერმა) `application/json`-ით გაგზავნა მოთხოვნა, ეს
-  „non-simple" request-ად ითვლება და ბრაუზერი წინასწარ `OPTIONS`-ს
-  გააგზავნის, რომელსაც endpoint პასუხს ვერასდროს გასცემს — მოთხოვნა
-  CORS-ის შეცდომით ჩავარდება. `text/plain`-ით გაგზავნილი მოთხოვნა კი
-  „simple request"-ია და preflight საერთოდ არ ხდება; სხეული მაინც
-  ვალიდური JSON-ია და `JSON.parse(e.postData.contents)`-ით იკითხება
-  `doPost`-ში.
+**უფლებებს ბაზა იცავს, არა კლიენტი.** ბრაუზერი პირდაპირ ელაპარაკება
+Supabase-ს `anon` გასაღებით. ეს გასაღები საჯაროდაა განკუთვნილი და
+`js/config.js`-ში ღიად წერია — ის თავისთავად არაფერს იძლევა: ექვსივე
+ცხრილზე ჩართულია RLS და `anon` როლს ცხრილებზე `GRANT`-იც კი არ აქვს.
+ორივე ბარიერი დამოუკიდებელია.
 
-## Step 0 — CSV-ების აწყობა (`build/` საქაღალდე)
+შესული მომხმარებლის უფლებებს პოლიტიკები წყვეტს:
 
-Step 1 სამ ფაილს ითხოვს — `build/plots.csv`, `build/users.csv`, `build/log.csv`.
-**რეპოზიტორიაში ისინი არ დევს:** `build/` `.gitignore`-შია (იმპორტის შედეგი
-Sheet-ში იდება, არა git-ში), ამიტომ ახალ კლონში ეს საქაღალდე საერთოდ არ იქნება.
-ისინი ერთჯერადი სკრიპტით იქმნება `.xlsx`-ისა და `.geojson`-ის საწყისი
-ფაილებიდან, რომლებიც რეპოზიტორიის ძირშია.
+| ვინ | რა შეუძლია |
+|---|---|
+| `pending` | არაფერი — ელოდება დამტკიცებას |
+| `member` | ხედავს რეესტრს, პროექტებს და ვალდებულებებს |
+| `moderator` | + ცვლის საკონტაქტო ველებს და სტატუსებს, ქმნის პროექტს |
+| `admin` | + ამტკიცებს მომხმარებლებს, როლებს და პროექტებს |
+| `blocked` | არაფერი |
 
-1. საჭიროა **Python 3** (macOS-ზე უკვე დაყენებულია) და ერთი პაკეტი —
-   `openpyxl`, რომლითაც სკრიპტი `.xlsx`-ს კითხულობს:
+**ნაკვეთის რედაქტირება სვეტების დონეზეა შეზღუდული.** `GRANT UPDATE`
+მხოლოდ ცხრა ველზეა (სახელი, გვარი, ტელეფონი, ქუჩა, N, მისამართი,
+ფართობი, დანიშნულება, შენიშვნა). `cad`-ის ან `geometry`-ის შეცვლა
+კლიენტისთვის უბრალოდ არ არსებობს.
 
-   ```bash
-   python3 -m pip install --user openpyxl
-   ```
+**`service_role` გასაღები არასოდეს არ უნდა მოხვდეს `js/`-ში.** ის RLS-ს
+გვერდს უვლის.
 
-   ეს ერთადერთი გარე დამოკიდებულებაა მთელ პროექტში და **მხოლოდ ამ ერთჯერად
-   იმპორტს სჭირდება** — თავად საიტს, სერვერს და `node --test` ტესტებს არანაირი
-   პაკეტი არ სჭირდება.
+---
 
-2. რეპოზიტორიის ძირიდან:
+## Step 1 — Supabase-ის პროექტი
 
-   ```bash
-   python3 tools/import.py
-   ```
+1. [supabase.com](https://supabase.com) → ანგარიში → ორგანიზაცია → პროექტი
+2. რეგიონი: **eu-central-1** (თბილისთან ყველაზე ახლოს)
+3. შეინახეთ DB პაროლი
+4. Account → Access Tokens → ახალი ტოკენი (`sbp_...`)
 
-Expected (რეზიუმე ტერმინალში):
+შექმენით `.env.local` პროექტის ფესვში — ის `.gitignore`-შია:
 
 ```
---- იმპორტის რეზიუმე ---
-ნაკვეთი:            71
-მფლობელით:          71
-პოლიგონით:          66
-პოლიგონის გარეშე:   5  ['01.99.999.999', '99.99.99.001', ...]
-ფართობის გარეშე:    1  ['01.99.999.999']
-ქუჩის გარეშე:       5  ['01.99.999.999', '99.99.99.001', ...]
-დუბლიკატი კოდი:     1  ['99.99.99.003']
-დუბლიკატი geojson-ში: 0  []
-geojson feature კოდის გარეშე: 0
+SUPABASE_ACCESS_TOKEN=sbp_...
+SUPABASE_PROJECT_REF=<20 ასო პროექტის URL-იდან>
+GOOGLE_CLIENT_SECRET=GOCSPX-...
 ```
 
-შემდეგ `build/` საქაღალდეში სამივე ფაილი უნდა იყოს:
+## Step 2 — სქემა
 
-```bash
-ls build/
-# log.csv  plots.csv  users.csv
+მიგრაციები `supabase/migrations/`-შია და თანმიმდევრობით უნდა გაეშვას:
+
+```sh
+for f in supabase/migrations/*.sql; do tools/sbsql.sh "$f"; done
 ```
 
-`users.csv` და `log.csv` განზრახ მხოლოდ სათაურების რიგს შეიცავს — ისინი
-ფურცლების სვეტებს აწყობს, მონაცემი მოგვიანებით ივსება (ადმინის რიგი Step 1.7-ში,
-ლოგი — თავად აპლიკაციით).
+`tools/sbsql.sh` SQL-ს Management API-ით უშვებს და ტოკენს `.env.local`-იდან
+კითხულობს. შემოწმება:
 
-**სკრიპტი იდემპოტენტურია** — ხელახლა გაშვება იმავე შედეგს იძლევა, ამიტომ თუ
-გაუგებრობა მოხდა, უბრალოდ ხელახლა გაუშვი.
-
-**თუ `ModuleNotFoundError: No module named 'openpyxl'`** — 1-ლი პუნქტის `pip`
-ბრძანება არ გაშვებულა ან სხვა Python-ში დაინსტალირდა; სცადე
-`python3 -m pip install --user openpyxl` ზუსტად ამ ფორმით (`python3 -m pip`,
-არა `pip`).
-
-## Step 1 — Google Sheet-ის შექმნა და მონაცემების ჩასმა
-
-1. Google Drive → New → Google Sheets. სახელი: `ლისი ველი — ბაზა`
-2. სამი ფურცელი შეიქმნას ზუსტად ამ სახელებით: `ნაკვეთები`, `მომხმარებლები`, `ლოგი`
-3. `build/plots.csv` (Step 0-ში შექმნილი) → File → Import → Replace current
-   sheet → ფურცელი `ნაკვეთები`
-4. `build/users.csv` → იგივე, ფურცელი `მომხმარებლები`
-5. `build/log.csv` → იგივე, ფურცელი `ლოგი`
-6. **გაზიარება: არავისთვის.** არც „Publish to web", არც ბმულით წვდომა.
-7. `მომხმარებლები` ფურცელში ხელით ჩაიწეროს **პირველი მონაცემთა რიგი — ანუ მე-2
-   რიგი, სათაურების ქვემოთ.** სათაურები უკვე დევს 1-ლ რიგში (Step 1.4-ის CSV
-   import-იდან) — **ისინი არ გადაიწეროს**, ადმინის ჩანაწერი მათ ქვემოთ, მე-2
-   რიგში დაემატოს:
-
-   | მეილი | როლი | ქუჩა | სახელი გვარი | საკადასტრო კოდი | მოთხოვნის თარიღი | დამტკიცების თარიღი | დამამტკიცებელი |
-   |---|---|---|---|---|---|---|---|
-   | `g.gabriadze@gmail.com` | `admin` | | გიგა გაბრიაძე | | | | |
-
-   **ამის გარეშე ადმინი არავინ იქნება და სისტემაში ვერავინ შევა.** ხოლო თუ
-   შეცდომით 1-ლი რიგის სათაურები წაიშალა/გადაიწერა — `mapHeaders` ვეღარ
-   ცნობს სვეტებს, `readUsers()` ცარიელს დააბრუნებს და **არავინ ვერასდროს
-   შევა** (მათ შორის ადმინიც). ასეთ შემთხვევაში საჭირო იქნება სათაურის
-   რიგის ხელახლა ჩასმა `build/users.csv`-იდან.
-
-## Step 2 — Google Cloud პროექტი და OAuth Client ID
-
-1. https://console.cloud.google.com → New Project → `kedris-ubani`
-2. APIs & Services → OAuth consent screen → External → აპლიკაციის სახელი
-   `ლისი ველი` (თუ ქართული არ მიიღება: `Lisi Veli`), support email, developer email → Save
-3. Audience → Publish app (თუ Testing-ში დარჩა, მხოლოდ ხელით დამატებული 100
-   მომხმარებელი შეძლებს შესვლას)
-4. Credentials → Create Credentials → OAuth client ID → Web application
-5. **Authorized JavaScript origins:**
-   - `https://<შენი-github-username>.github.io`
-   - `http://localhost:8080` (ლოკალური ტესტირებისთვის; პროდაქშენში წაიშლება)
-6. Client ID დაკოპირდეს — ის საჯაროა და კოდში იწერება
-
-**Client ID:** `<ჩასვი აქ Step 2-ის შემდეგ>`
-ეს ერთი და იგივე მნიშვნელობა **ორ ადგილას** იწერება: `apps-script/Code.js`-ის
-`CLIENT_ID` ცვლადში (Step 3) და `js/config.js`-ის `CLIENT_ID`-ში (Step 8).
-სერვერი მას ტოკენის `aud`-თან შესადარებლად იყენებს, ფრონტენდი — Google
-Sign-In-ის ინიციალიზაციისთვის; თუ ორი მნიშვნელობა ერთმანეთს არ დაემთხვა,
-შესვლა `UNAUTHENTICATED`-ით ჩავარდება.
-
-## Step 3 — Apps Script პროექტის შექმნა და კოდის ჩასმა
-
-1. Sheet-ში: Extensions → Apps Script
-2. `Code.gs` ფაილში ჩაისვას `apps-script/Code.js`-ის მთელი შიგთავსი
-3. `CLIENT_ID` შეივსოს Step 2-ის მნიშვნელობით (თავიდანვე `ჩასვი-შენი-client-id...`
-   წერია — ის სპეციალურად აჩერებს `smokeTest()`-ს, სანამ არ შეცვლი)
-4. ახალი ფაილი `lib.gs` — იხილეთ Step 4
-5. Save
-
-## Step 4 — `lib.js`-ის ჩასმა `lib.gs`-ად და `Lib_` alias-ები
-
-Apps Script-ს მოდულები არ აქვს — ყველა ფაილი ერთ სივრცეშია. Apps Script-ის
-რედაქტორში შეიქმნას ახალი ფაილი სახელით **`lib.gs`** და მასში ჩაისვას
-`apps-script/lib.js`-ის მთელი შიგთავსი უცვლელად (ეს ფაილი Node-ის ტესტებითაცაა
-დაფარული — ტესტირებადი ლოგიკა ცალკეა).
-
-`lib.gs`-ის **ბოლოში** დამატებით ჩაისვას ეს ბლოკი — Apps Script-ის ერთიან
-სივრცეში სახელების კონფლიქტის (`lib.js`-ის ფუნქციები Code.gs-ის ფუნქციებთან) თავიდან
-ასაცილებლად:
-
-```javascript
-// Apps Script-ის ერთიან სივრცეში სახელების გამიჯვნა
-const Lib_HEADER_MAP = HEADER_MAP;
-const Lib_mapHeaders = mapHeaders;
-const Lib_normalizePhone = normalizePhone;
-const Lib_parseGeometry = parseGeometry;
-const Lib_isEditableField = isEditableField;
-const Lib_checkPermission = checkPermission;
-const Lib_verifyTokenClaims = verifyTokenClaims;
-const Lib_diffFields = diffFields;
+```sh
+echo "select count(*) from public.plots;" | tools/sbsql.sh
 ```
 
-**ეს ბლოკი მხოლოდ Apps Script-ის რედაქტორის `lib.gs`-შია** — რეპოზიტორიის
-`apps-script/lib.js`-ს ნუ დაუმატებ, რადგან ის Node-ის ტესტებში ჩართულია
-(`node --test tests/*.test.js`) და Apps Script-ის გლობალები (`const mapHeaders`
-და ა.შ. უკვე გამოცხადებული Node-ის `require`-ის კონტექსტში) იქ არ არსებობს.
+## Step 3 — მონაცემები
 
-## Step 5 — `smokeTest`-ის გაშვება რედაქტორიდან
+`build/*.csv` აეწყობა `.xlsx`-იდან და `.geojson`-იდან:
 
-Apps Script-ის რედაქტორში: ფუნქციის ჩამონათვალიდან `smokeTest` → Run. პირველ
-ჯერზე მოითხოვს ავტორიზაციას (Sheet-თან წვდომაზე) — დაეთანხმე.
-
-Expected (Execution log):
-
-```
-ნაკვეთი: 71
-პოლიგონით: 66
-კოორდინატით: 66
-პირველი: {"cad":"01.99.999.999",...}
-მომხმარებელი: 1
-ადმინი ნაპოვნია: admin
-smokeTest დასრულდა
+```sh
+python3 -m pip install --user openpyxl
+python3 tools/import.py
+python3 tools/seed_supabase.py | tools/sbsql.sh
 ```
 
-**თუ „ადმინი ნაპოვნია: არა"** — დაბრუნდი Step 1-ის მე-7 პუნქტზე: `მომხმარებლები`
-ფურცელში ადმინის რიგი არასწორადაა ჩაწერილი ან საერთოდ არ არის.
+გენერირებული SQL ფაილად არსად არ ინახება — ტელეფონები და სახელები
+დისკზე მხოლოდ იქ რჩება, სადაც უკვე იყო.
 
-## Step 6 — განთავსება (Deploy)
+## Step 4 — Google-ის შესვლა
 
-Deploy → New deployment → Type: **Web app**
-- Description: `v1`
-- Execute as: **Me**
-- Who has access: **Anyone**
+Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID.
+**Authorized redirect URIs**-ში დაამატეთ:
 
-Deploy → Web app URL დაკოპირდეს (ფორმა: `https://script.google.com/macros/s/…/exec`).
-
-**Web App URL:** `<ჩასვი აქ Deploy-ის შემდეგ>`
-ეს მისამართი Step 8-ში `js/config.js`-ის `API_URL`-ში ჩაიწერება — ფრონტენდი
-ყველა მოთხოვნას სწორედ აქ აგზავნის.
-
-### ყველაზე ხშირი შეცდომა — კოდის განახლება
-
-**კოდის ცვლილების შემდეგ Save საკმარისი არაა.** Apps Script-ის Save მხოლოდ
-რედაქტორში ინახავს ცვლილებას — ცოცხალ (`.../exec`) URL-ს ის არაფერს ეხება, რადგან
-დეპლოი „გაყინული" ვერსიაა. ცოცხალი endpoint-ის განახლებისთვის საჭიროა:
-
-**Deploy → Manage deployments → Edit (✎) → Version: New version → Deploy.**
-
-წინააღმდეგ შემთხვევაში მუშაობ ძველ, გაუნახლებელ კოდზე და ვერ მიხვდები, რატომ არ
-სჩანს შენი ცვლილება.
-
-## Step 7 — endpoint-ის შემოწმება `curl`-ით
-
-არასწორი ტოკენით — უნდა დაბრუნდეს `UNAUTHENTICATED`. ეს ამტკიცებს, რომ
-მარშრუტიზაცია და ტოკენის შემოწმება მუშაობს, რეალური ტოკენის გარეშე:
-
-```bash
-curl -sL "<WEB_APP_URL>" \
-  -H 'Content-Type: text/plain;charset=utf-8' \
-  -d '{"idToken":"არასწორი","action":"plots"}'
+```
+https://<project-ref>.supabase.co/auth/v1/callback
 ```
 
-Expected:
+შემდეგ ჩართეთ provider Supabase-ში:
 
-```json
-{"ok":false,"error":"UNAUTHENTICATED","message":"ტოკენი არასწორია"}
+```sh
+. ./.env.local
+curl -X PATCH "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config/auth" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"external_google_enabled":true,
+       "external_google_client_id":"<client id>",
+       "external_google_secret":"'"$GOOGLE_CLIENT_SECRET"'",
+       "site_url":"https://<user>.github.io/<repo>/",
+       "uri_allow_list":"https://<user>.github.io/<repo>/**,http://localhost:8000/**"}'
 ```
 
-ტოკენის გარეშე:
+`uri_allow_list`-ში localhost იმისთვის რჩება, რომ ლოკალურად ტესტირება
+შეიძლებოდეს. მის გარეშე შესვლა მხოლოდ ცოცხალ საიტზე იმუშავებდა.
 
-```bash
-curl -sL "<WEB_APP_URL>" \
-  -H 'Content-Type: text/plain;charset=utf-8' \
-  -d '{"action":"plots"}'
-```
+## Step 5 — `js/config.js`
 
-Expected:
+ორივე მნიშვნელობა საჯაროა:
 
-```json
-{"ok":false,"error":"UNAUTHENTICATED","message":"გთხოვთ შეხვიდეთ Google-ით"}
-```
-
-**თუ HTML ბრუნდება JSON-ის ნაცვლად** — დეპლოის „Who has access" არ არის
-დაყენებული „Anyone"-ზე. დაუბრუნდი Step 6-ს, Manage deployments → Edit-ში
-შეამოწმე პარამეტრი და გააკეთე New version.
-
-**`-X POST` არ დაწერო.** `-d`-ს თავისით მოაქვს POST, `-X POST` კი მეთოდს
-გადამისამართებაზეც აიძულებს. Apps Script `/exec`-იდან `googleusercontent`-ის
-`echo`-ზე გადაამისამართებს, ის კი POST-ს არ იღებს — პასუხად `405` და Drive-ის
-„გვერდი ვერ მოიძებნა" HTML მოვა. იგივე HTML, სულ სხვა მიზეზით.
-
-## Step 8 — `js/config.js`-ის შევსება
-
-აქამდე მუშა **სერვერი** გვაქვს. საიტს ჯერ არ იცის, სად უნდა დარეკოს და რომელი
-Google აპლიკაციით შევიდეს — ეს ორი მნიშვნელობა ერთადერთ ფაილში წერია.
-
-გახსენი `js/config.js`. ის ასე გამოიყურება:
-
-```javascript
+```js
 const CONFIG = {
-  CLIENT_ID: 'ჩასვი-შენი-client-id.apps.googleusercontent.com',
-  API_URL: 'https://script.google.com/macros/s/ჩასვი-შენი-id/exec',
+  SUPABASE_URL: 'https://<project-ref>.supabase.co',
+  SUPABASE_ANON_KEY: '<anon key>',
 };
 ```
 
-ჩაანაცვლე **ორივე სტრიქონი მთლიანად**:
+გასაღები **publishable** ტიპისაა (`sb_publishable_...`), არა ძველი JWT.
+Project Settings → API Keys, ან
 
-| ველი | საიდან | ფორმა |
-|---|---|---|
-| `CLIENT_ID` | Step 2, Google Cloud Console → Credentials → OAuth client ID | `1234…-abc….apps.googleusercontent.com` |
-| `API_URL` | Step 6, Apps Script → Deploy → Web app URL | `https://script.google.com/macros/s/AKfyc…/exec` |
-
-შედეგი (მნიშვნელობები შენი იქნება):
-
-```javascript
-const CONFIG = {
-  CLIENT_ID: '1234567890-abcdefghij.apps.googleusercontent.com',
-  API_URL: 'https://script.google.com/macros/s/AKfycbx.../exec',
-};
+```sh
+. ./.env.local
+curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys"
 ```
 
-ორივე მნიშვნელობა **საჯაროა** და repo-ში ჩაწერა უსაფრთხოა: Client ID Google-ის
-დიზაინითვე ღიაა, Web App URL კი სწორი ტოკენის გარეშე `UNAUTHENTICATED`-ის მეტს
-არაფერს აბრუნებს (სწორედ ეს შეამოწმა Step 7-მა).
+## Step 6 — GitHub Pages
 
-**სიტყვა `ჩასვი` მარკერია, არა შემთხვევითი ტექსტი.** სანამ ის რომელიმე
-მნიშვნელობაში რჩება, საიტი შესვლას საერთოდ არ ცდილობს და ეკრანზე წერს, რომ
-კონფიგურაცია არ არის შევსებული — ეს იმის ნაცვლად, რომ Google-ის ღილაკი ჩუმად
-გაფუჭებული იყოს. ანალოგიურად სერვერზე: `smokeTest()` პლეისჰოლდერზე
-გამონაკლისს აგდებს (Step 5).
+Settings → Pages → Source: **Deploy from a branch** → `main` / `/ (root)`.
 
-## Step 8.5 — პროექტების ფურცლები და პირველი პროექტი
+**ქეშირება:** `index.html`-ში ყველა `js/` და `css/` მისამართს `?v=N` აქვს.
+ფაილის შეცვლისას ეს რიცხვი უნდა გაიზარდოს — თორემ ბრაუზერი ძველ ასლს
+გამოიყენებს. `js/vendor/supabase.js` გამონაკლისია: მას ვერსია სახელშივე აქვს.
 
-**ეს ერთხელ კეთდება.** ბაზაში ხელით არაფერს წერ — ყველაფერს კოდი ქმნის,
-რომ იგივე ვალიდაცია და იგივე ლოგი გაიაროს, რაც ყოველდღიურ მუშაობას.
+## Step 7 — პირველი შესვლა
 
-1. Apps Script-ის რედაქტორში აირჩიე ფაილი **`setup.gs`**
-2. „Run"-ის ჩამონათვალი თავისით აჩვენებს `setupEverything`-ს
-   (ფაილში ერთადერთი ფუნქციაა — სწორედ ამიტომაა ცალკე ფაილში)
-3. დააჭირე **Run**
-4. პირველად Google ნებართვას მოითხოვს → **Review permissions** →
-   აირჩიე შენი ანგარიში → **Allow**. Drive-ის წვდომა `build/plots.csv`-ს
-   წასაკითხად სჭირდება.
-5. Execution log-ში უნდა დაინახო:
+გახსენით საიტი და შედით Google-ით.
 
-   ```
-   ── ფურცლები ──
-     პროექტები: შეიქმნა (13 სვეტი)
-     ვალდებულებები: შეიქმნა (7 სვეტი)
-     გადახდები: შეიქმნა (9 სვეტი)
-   ── ნაკვეთები და ტელეფონები Drive-ის CSV-დან ──
-     ტელეფონით: 54 / 86
-   ── პირველი პროექტი ──
-     კომლი: 86
-     დამრგვალების სხვაობა: … ₾
-   ```
+**პირველი ოდესმე შემსვლელი ავტომატურად ხდება `admin`** — ვიღაცას ხომ
+უნდა შეეძლოს დანარჩენების დამტკიცება. ყველა შემდეგი `pending`-ია და
+ადმინის დადასტურებას ელოდება („ადმინი" → როლის შეცვლა).
 
-   რიგი შემთხვევითი არაა: გააქტიურება თითოეულ ნაკვეთს წილს **უყინავს**,
-   ამიტომ ნაკვეთების სია მანამდე უნდა იყოს საბოლოო. თუ იმპორტი შემდეგ
-   დაამატებდა ნაკვეთს, იმ კომლს ვალდებულების ჩანაწერი არ გაუჩნდებოდა.
+შემდეგ გაიარეთ `docs/qa-checklist.md`.
 
-**განმეორებით გაშვება უსაფრთხოა** — არსებულ ფურცელს არ ეხება და
-პროექტს მეორედ არ ქმნის.
+## ლოკალურად გაშვება
 
-> ტელეფონები `build/plots.csv`-დან მოდის. თუ დოკუმენტში ნომრები
-> შეიცვალა, ჯერ `python3 tools/import.py` გაუშვი — CSV Drive-ში
-> ავტომატურად სინქრონდება — და მერე `setupEverything`.
+```sh
+python3 -m http.server 8000
+```
 
-## Step 9 — GitHub repo და GitHub Pages
+npm-პაკეტები არსად არ არის საჭირო. ტესტები:
 
-> ✅ **ისტორია გასუფთავებულია (2026-08-22).** 57-ვე commit გადაიწერა —
-> მეზობლების ნამდვილი სახელები ძველ ვერსიებშიც აღარაა. ორიგინალი
-> `backup/istoria-pre-pii-2026-08-22.bundle`-შია, ლოკალურად.
->
-> `git push` ავტომატურად მოწმდება `.githooks/pre-push`-ით: თუ სადმე
-> მეზობლის სახელი, ტელეფონი ან მეილი გაჩნდება, ატვირთვა შეჩერდება.
-
-
-**ეს ნაბიჯი შენ თავად უნდა შეასრულო** — რეპოზიტორის შექმნა და push შენი
-ანგარიშის ქვეშ ხდება.
-
-1. https://github.com/new → Repository name: `kedris-ubani` (ან სხვა სახელი,
-   მაგრამ დაიმახსოვრე — ის მისამართში გამოჩნდება) → **Public** → Create.
-   Public აუცილებელია: უფასო GitHub Pages პირად რეპოზიტორიაზე არ მუშაობს.
-   საიდუმლო აქ არაფერია — იხ. Step 8.
-2. ლოკალურ საქაღალდეში (Step 8-ის ცვლილება ჯერ დაკომიტე):
-
-   ```bash
-   git add js/config.js
-   git commit -m "config: რეალური Client ID და Web App URL"
-
-   git remote add origin https://github.com/<შენი-username>/kedris-ubani.git
-   git push -u origin main
-   ```
-
-   თუ ბრანჩი `main` არ ჰქვია, გამოიყენე შენი ბრანჩის სახელი; Pages-ს Step 9.3-ში
-   იმავე ბრანჩს მიუთითებ.
-3. რეპოზიტორიაში: **Settings → Pages** → Source: **Deploy from a branch** →
-   Branch: `main`, საქაღალდე `/ (root)` → Save. build-პროცესი არ არის — საიტი
-   სტატიკურია და `index.html` ძირშივე დევს.
-4. დაელოდე 1-2 წუთს (პირველი გამოქვეყნება ნელია), შემდეგ გახსენი:
-
-   ```
-   https://<შენი-username>.github.io/kedris-ubani/
-   ```
-
-**შეამოწმე, რომ Step 2-ის origin ზუსტად ემთხვევა.** Google-ის „Authorized
-JavaScript origins" ველში უნდა ეწეროს **მხოლოდ სქემა და ჰოსტი** —
-`https://<შენი-username>.github.io`, **გზის (`/kedris-ubani`) გარეშე.** თუ იქ
-გზაც მიაწერე, Google ორიგინს არ ცნობს და შესვლის ღილაკი ჩუმად ვერაფერს
-გააკეთებს. origin-ის შეცვლის შემდეგ ცვლილებას რამდენიმე წუთი სჭირდება.
-
-**თუ გვერდი 404-ს აბრუნებს** — Pages ჯერ არ გამოქვეყნებულა (Settings → Pages
-გვერდის თავში აჩვენებს სტატუსს), ან რეპოზიტორი Private-ია, ან ბრანჩი/საქაღალდე
-არასწორად აირჩა.
-
-**თუ გვერდი იხსნება, მაგრამ „კონფიგურაცია ჯერ არ არის შევსებული" წერია** —
-Step 8 არ დაკომიტებულა ან არ დაიპუშა; `js/config.js` GitHub-ზე ჯერ კიდევ
-პლეისჰოლდერებით დევს.
-
-ამის შემდეგ გაიარე `docs/qa-checklist.md` — **სწორედ ამ `github.io`
-მისამართზე**, არა localhost-ზე.
-
-## შემაჯამებელი ცხრილი — რა სად წერია
-
-| მნიშვნელობა | სად მიიღება | სად იწერება |
-|---|---|---|
-| Client ID | Step 2, Google Cloud Console | `apps-script/Code.js` → `CLIENT_ID` (Step 3) **და** `js/config.js` → `CLIENT_ID` (Step 8) |
-| Web App URL | Step 6, Apps Script Deploy | `js/config.js` → `API_URL` (Step 8) |
-| `github.io` origin | Step 9, GitHub Pages | Step 2-ის „Authorized JavaScript origins" (გზის გარეშე) |
-
-დასრულების ნიშანი: `https://<შენი-username>.github.io/<repo>/` იხსნება, Google-ით
-შესვლა მუშაობს და ცხრილში 71 ნაკვეთი ჩანს. შემდეგი — `docs/qa-checklist.md`.
-
-## Sheet-ის განახლება — `importPlotsFromDrive()`
-
-**„File → Import → Replace current sheet" აღარ გამოვიყენოთ.** ის ორ რამეს ტეხს:
-
-1. აპლიკაციიდან შეტანილ რედაქტირებას — მთელ ფურცელს გადააწერს;
-2. **ტელეფონებს** — `+995…` Sheets-ისთვის ფორმულის დასაწყისია
-   („Convert text to numbers, dates, and formulas" ჩართულია ნაგულისხმევად)
-   და უჯრა ცარიელი რჩება.
-
-ამის ნაცვლად:
-
-1. ლოკალურად: `python3 tools/import.py` → `build/plots.csv`
-   (საქაღალდე Drive-ზე სინქრონდება).
-2. Apps Script-ის რედაქტორში აირჩიე ფუნქცია **`importPlotsFromDrive`** → **Run**.
-
-რას აკეთებს:
-
-- პოულობს `4_Kedri_Street/build/plots.csv`-ს Drive-ში;
-- **ერწყმის** ფურცელს საკადასტრო კოდით — არ გადააწერს;
-- **ცარიელი CSV-მნიშვნელობა არსებულს არასოდეს შლის**;
-- უჯრას ჩაწერამდე ტექსტად ნიშნავს (`@`) — ტელეფონი ფორმულად აღარ იკითხება;
-- ახალ კოდს ამატებს, CSV-ში აღარმყოფს **არ შლის** (მხოლოდ ანგარიშში წერს);
-- ყველა ცვლილებას `ლოგი` ფურცელში აწერს;
-- **იდემპოტენტურია** — მეორე გაშვება არაფერს ცვლის.
-
-ლოგი Execution log-ში გამოჩნდება: რამდენი დაემატა, რამდენი შეიცვალა,
-რომელი კოდი აღარ არის CSV-ში.
-
-ტესტები: `node --test tests/import_gas.test.js` (5 ტესტი, Sheets-ის სტაბებით).
+```sh
+node --test tests/*.test.js
+python3 tools/test_import.py -v
+```

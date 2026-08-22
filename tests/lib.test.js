@@ -1,40 +1,16 @@
+/**
+ * `js/lib.js` — სუფთა ლოგიკა, რომელიც Apps Script-იდან გადმოვიდა.
+ *
+ * ტელეფონის ნორმალიზება, რედაქტირებადი ველების თეთრი სია და
+ * დამრგვალება ადრე სერვერზე ცხოვრობდნენ და იქ იტესტებოდნენ. სერვერი
+ * აღარ არსებობს — ლოგიკა ბრაუზერშია, ტესტებიც მას მიჰყვა უცვლელად.
+ *
+ * `plotColor` და `projectTotals` ხელახლა დაიწერა: ნაწილობრივი გადახდა
+ * აღარ არსებობს და სტატუსი თავად არის ფერი.
+ */
 const test = require('node:test');
 const assert = require('node:assert');
-const lib = require('../apps-script/lib.js');
-
-test('mapHeaders — ქართული სათაურები გასაღებებად', () => {
-  const headers = ['საკადასტრო კოდი', 'ქუჩა', 'ტელეფონი'];
-  const map = lib.mapHeaders(headers);
-  assert.strictEqual(map.cad, 0);
-  assert.strictEqual(map.street, 1);
-  assert.strictEqual(map.phone, 2);
-});
-
-test('mapHeaders — არეული თანმიმდევრობა მაინც მუშაობს', () => {
-  const map = lib.mapHeaders(['ტელეფონი', 'საკადასტრო კოდი']);
-  assert.strictEqual(map.phone, 0);
-  assert.strictEqual(map.cad, 1);
-});
-
-test('mapHeaders — ზედმეტი გამოტოვება ირეცხება', () => {
-  const map = lib.mapHeaders(['  საკადასტრო კოდი  ']);
-  assert.strictEqual(map.cad, 0);
-});
-
-test('mapHeaders — ლოგის „ვინ" და მომხმარებლის „მეილი" არ ერევა', () => {
-  const log = lib.mapHeaders(['დრო', 'ვინ', 'მოქმედება']);
-  assert.strictEqual(log.by, 1);
-  assert.strictEqual(log.email, undefined);
-  const users = lib.mapHeaders(['მეილი', 'როლი']);
-  assert.strictEqual(users.email, 0);
-  assert.strictEqual(users.by, undefined);
-});
-
-test('mapHeaders — უცნობი სვეტი იგნორირდება, არ აგდებს შეცდომას', () => {
-  const map = lib.mapHeaders(['საკადასტრო კოდი', 'რაღაც ახალი სვეტი']);
-  assert.strictEqual(map.cad, 0);
-  assert.strictEqual(Object.keys(map).length, 1);
-});
+const lib = require('../js/lib.js');
 
 test('normalizePhone — ცხრანიშნა ნომერს კოდი ემატება', () => {
   assert.deepStrictEqual(lib.normalizePhone('599123456'),
@@ -72,6 +48,7 @@ test('normalizePhone — გრძელი ნომერი უარყო�
 
 // უბანში უცხოელი მფლობელებიც არიან. `+`-ით დაწყებული ნომერი საერთაშორისოდ
 // ითვლება და უცვლელად ინახება. ქვემოთ ნომრები გამოგონილია.
+
 test('normalizePhone — +-ით დაწყებული უცხოური ნომერი მიიღება', () => {
   assert.deepStrictEqual(lib.normalizePhone('+989001234567'),
     { ok: true, value: '+989001234567' });
@@ -84,6 +61,7 @@ test('normalizePhone — უცხოური ნომრის გამო�
 
 // `+`-ის გარეშე ისევ მხოლოდ ქართული ფორმატია — ათნიშნა ნომერი ტიპოა,
 // არა საერთაშორისო ნომერი, და ჩუმად არ უნდა გაიაროს.
+
 test('normalizePhone — +-ის გარეშე ათნიშნა ნომერი უარყოფილია', () => {
   assert.strictEqual(lib.normalizePhone('5991234567').ok, false);
 });
@@ -94,29 +72,6 @@ test('normalizePhone — ძალიან მოკლე საერთა�
 
 test('normalizePhone — E.164-ის ზღვარზე გრძელი ნომერი უარყოფილია', () => {
   assert.strictEqual(lib.normalizePhone('+1234567890123456').ok, false);
-});
-
-test('parseGeometry — სწორი პოლიგონი', () => {
-  const cell = '[[[44.72,41.74],[44.73,41.74],[44.73,41.75],[44.72,41.74]]]';
-  const out = lib.parseGeometry(cell);
-  assert.strictEqual(out.length, 1);
-  assert.strictEqual(out[0].length, 4);
-  assert.deepStrictEqual(out[0][0], [44.72, 41.74]);
-});
-
-test('parseGeometry — ცარიელი უჯრა -> null', () => {
-  assert.strictEqual(lib.parseGeometry(''), null);
-  assert.strictEqual(lib.parseGeometry(null), null);
-});
-
-test('parseGeometry — დაზიანებული JSON -> null, არა გამონაკლისი', () => {
-  assert.strictEqual(lib.parseGeometry('[[[44.72,'), null);
-});
-
-test('parseGeometry — არასწორი სტრუქტურა -> null', () => {
-  assert.strictEqual(lib.parseGeometry('"რაღაც ტექსტი"'), null);
-  assert.strictEqual(lib.parseGeometry('[]'), null);
-  assert.strictEqual(lib.parseGeometry('[[[44.72,41.74]]]'), null); // 1 წერტილი
 });
 
 test('isEditableField — თეთრი სია', () => {
@@ -141,106 +96,138 @@ test('isEditableField — უცნობი ველი უარყოფი�
   assert.strictEqual(lib.isEditableField('რაღაც_ახალი'), false);
 });
 
-test('checkPermission — member მხოლოდ კითხულობს', () => {
-  assert.strictEqual(lib.checkPermission('member', 'plots'), true);
-  assert.strictEqual(lib.checkPermission('member', 'updatePlot'), false);
-  assert.strictEqual(lib.checkPermission('member', 'setRole'), false);
+test('roundToFive — უახლოეს ხუთეულამდე ამრგვალებს', () => {
+  assert.strictEqual(lib.roundToFive(46.71), 45);
+  assert.strictEqual(lib.roundToFive(48), 50);
+  assert.strictEqual(lib.roundToFive(53.72), 55);
+  assert.strictEqual(lib.roundToFive(100), 100);
 });
 
-test('checkPermission — moderator რედაქტირებს, ადმინობს ვერა', () => {
-  assert.strictEqual(lib.checkPermission('moderator', 'updatePlot'), true);
-  assert.strictEqual(lib.checkPermission('moderator', 'setRole'), false);
-  assert.strictEqual(lib.checkPermission('moderator', 'logs'), false);
+test('roundToFive — ზუსტად შუაში ზემოთ მრგვალდება', () => {
+  // 47.5 თანაბრად შორსაა 45-სა და 50-საგან. ზემოთ მრგვალდება, რომ
+  // შედეგი პროგნოზირებადი იყოს და ბანკირის დამრგვალებაზე არ იყოს
+  // დამოკიდებული — უბანში ასე ითვლიან.
+  assert.strictEqual(lib.roundToFive(47.5), 50);
+  assert.strictEqual(lib.roundToFive(42.5), 45);
 });
 
-test('checkPermission — admin ყველაფერს', () => {
-  assert.strictEqual(lib.checkPermission('admin', 'updatePlot'), true);
-  assert.strictEqual(lib.checkPermission('admin', 'setRole'), true);
-  assert.strictEqual(lib.checkPermission('admin', 'logs'), true);
+test('roundToFive — ნული და უარყოფითი', () => {
+  assert.strictEqual(lib.roundToFive(0), 0);
+  assert.strictEqual(lib.roundToFive(1), 0);
+  assert.strictEqual(lib.roundToFive(3), 5);
 });
 
-test('checkPermission — pending და blocked ვერაფერს', () => {
-  assert.strictEqual(lib.checkPermission('pending', 'plots'), false);
-  assert.strictEqual(lib.checkPermission('blocked', 'plots'), false);
-  assert.strictEqual(lib.checkPermission('', 'plots'), false);
+/* ── calculateSplit ──────────────────────────────────────────────── */
+
+const PLOTS = [
+  { cad: 'A', street: 'კედრის ქუჩა', area: 500 },
+  { cad: 'B', street: 'კედრის ქუჩა', area: 1000 },
+  { cad: 'C', street: 'კედრის I ჩიხი', area: 500 },
+  { cad: 'D', street: '', area: 250 },
+  { cad: 'E', street: 'კედრის ქუჩა', area: '' },
+];
+
+/* ── plotColor ────────────────────────────────────────────────── */
+
+test('plotColor — ექვსივე სტატუსი საკუთარ ფერს აბრუნებს', () => {
+  for (const status of Object.keys(lib.PLEDGE_VIEW)) {
+    assert.strictEqual(lib.plotColor({ status: status }), status);
+  }
 });
 
-const CID = '123456789-abc.apps.googleusercontent.com';
-const NOW = 1800000000;
-
-function claims(extra) {
-  return Object.assign({
-    aud: CID,
-    iss: 'https://accounts.google.com',
-    email: 'Neighbor@Gmail.com',
-    email_verified: 'true',
-    exp: String(NOW + 3600),
-  }, extra || {});
-}
-
-test('verifyTokenClaims — სწორი ტოკენი, მეილი lowercase-ში', () => {
-  const r = lib.verifyTokenClaims(claims(), CID, NOW);
-  assert.strictEqual(r.ok, true);
-  assert.strictEqual(r.email, 'neighbor@gmail.com');
+test('plotColor — უცნობი სტატუსი ნაგულისხმევზე ვარდება', () => {
+  assert.strictEqual(lib.plotColor({ status: 'რაღაც' }), 'not_contacted');
+  assert.strictEqual(lib.plotColor({}), 'not_contacted');
+  assert.strictEqual(lib.plotColor(null), 'not_contacted');
 });
 
-test('verifyTokenClaims — სხვისი aud უარყოფილია', () => {
-  const r = lib.verifyTokenClaims(claims({ aud: 'სხვა-აპლიკაცია' }), CID, NOW);
-  assert.strictEqual(r.ok, false);
-  assert.strictEqual(r.error, 'UNAUTHENTICATED');
+test('plotColor — თანხა ფერზე აღარ მოქმედებს', () => {
+  // ადრე ფუნქცია გადახდილ თანხას ადარებდა წილს და „ნაწილობრივს"
+  // აბრუნებდა. ასეთი მდგომარეობა უბანში არ არსებობს — ან დებს, ან არა.
+  assert.strictEqual(lib.plotColor({ status: 'paying' }, 1000, 400), 'paying');
+  assert.strictEqual(lib.plotColor({ status: 'paid' }, 0, 0), 'paid');
 });
 
-test('verifyTokenClaims — არასწორი iss უარყოფილია', () => {
-  const r = lib.verifyTokenClaims(claims({ iss: 'evil.example.com' }), CID, NOW);
-  assert.strictEqual(r.ok, false);
+/* ── projectTotals ────────────────────────────────────────────── */
+
+const PLEDGES = [
+  { cad: 'a', amount_due: 1000, status: 'paid' },
+  { cad: 'b', amount_due: 1000, status: 'paying' },
+  { cad: 'c', amount_due: 1000, status: 'loan' },
+  { cad: 'd', amount_due: 1000, status: 'declined' },
+  { cad: 'e', amount_due: 1000, status: 'not_contacted' },
+  { cad: 'f', amount_due: 1000, status: 'unreachable' },
+];
+
+test('projectTotals — თითო სტატუსი თავის სვეტში ჯდება', () => {
+  const totals = lib.projectTotals({ budget: 6000 }, PLEDGES,
+    [{ cad: 'a', amount: 1000 }]);
+  assert.strictEqual(totals.collected, 1000);
+  assert.strictEqual(totals.promised, 1000);   // paying
+  assert.strictEqual(totals.loan, 1000);
+  assert.strictEqual(totals.declined, 1000);
+  // not_contacted + unreachable — ორივე „პასუხის გარეშეა"
+  assert.strictEqual(totals.pending, 2000);
+  assert.strictEqual(totals.remaining, 5000);
 });
 
-test('verifyTokenClaims — accounts.google.com სქემის გარეშეც ვარგისია', () => {
-  const r = lib.verifyTokenClaims(claims({ iss: 'accounts.google.com' }), CID, NOW);
-  assert.strictEqual(r.ok, true);
+test('projectTotals — „გადახდილი" პასუხის გარეშედ აღარ ითვლება', () => {
+  // რეგრესია: სანამ `paid` სტატუსი გაჩნდებოდა, ის `else`-ში ვარდებოდა
+  // და გადახდილი კომლი ორჯერ ჩანდა — `collected`-შიც და `pending`-შიც.
+  const totals = lib.projectTotals({ budget: 1000 },
+    [{ cad: 'a', amount_due: 1000, status: 'paid' }],
+    [{ cad: 'a', amount: 1000 }]);
+  assert.strictEqual(totals.pending, 0);
+  assert.strictEqual(totals.collected, 1000);
 });
 
-test('verifyTokenClaims — დაუდასტურებელი მეილი უარყოფილია', () => {
-  const r = lib.verifyTokenClaims(claims({ email_verified: 'false' }), CID, NOW);
-  assert.strictEqual(r.ok, false);
+test('projectTotals — ნამეტი ცალკე ჩანს, არ იკარგება', () => {
+  // 31 000-იან პროექტში შემოსული 56 000 ადრე „აკლია 0 ₾"-ად ჩანდა და
+  // ნამეტი ეკრანიდან ქრებოდა. ნამეტი უბნის ფონდში რჩება.
+  const totals = lib.projectTotals({ budget: 31000 },
+    [{ cad: 'a', amount_due: 56000, status: 'paid' }],
+    [{ cad: 'a', amount: 56000 }]);
+  assert.strictEqual(totals.remaining, 0);
+  assert.strictEqual(totals.surplus, 25000);
 });
 
-test('verifyTokenClaims — გასული ტოკენი უარყოფილია', () => {
-  const r = lib.verifyTokenClaims(claims({ exp: String(NOW - 1) }), CID, NOW);
-  assert.strictEqual(r.ok, false);
+test('projectTotals — აკლია და ნამეტი ერთდროულად ვერასდროს იქნება', () => {
+  for (const paid of [0, 15000, 31000, 40000]) {
+    const totals = lib.projectTotals({ budget: 31000 },
+      [{ cad: 'a', amount_due: 31000, status: 'paid' }],
+      [{ cad: 'a', amount: paid }]);
+    assert.ok(totals.remaining === 0 || totals.surplus === 0,
+      'paid=' + paid + ' -> ორივე არანულოვანია');
+  }
 });
 
-test('verifyTokenClaims — მეილის გარეშე უარყოფილია', () => {
-  const r = lib.verifyTokenClaims(claims({ email: '' }), CID, NOW);
-  assert.strictEqual(r.ok, false);
+test('projectTotals — ნაწილობრივ გადახდილს დარჩენილი ეწერება, არა სრული წილი', () => {
+  const totals = lib.projectTotals({ budget: 1000 },
+    [{ cad: 'a', amount_due: 1000, status: 'paying' }],
+    [{ cad: 'a', amount: 400 }]);
+  assert.strictEqual(totals.collected, 400);
+  assert.strictEqual(totals.promised, 600);
 });
 
-test('verifyTokenClaims — ცარიელი claims უარყოფილია', () => {
-  assert.strictEqual(lib.verifyTokenClaims(null, CID, NOW).ok, false);
-  assert.strictEqual(lib.verifyTokenClaims({}, CID, NOW).ok, false);
+test('projectTotals — ცარიელი პროექტი ნულებს აბრუნებს', () => {
+  const totals = lib.projectTotals({ budget: 0 }, [], []);
+  assert.strictEqual(totals.collected, 0);
+  assert.strictEqual(totals.pending, 0);
+  assert.strictEqual(totals.remaining, 0);
+  assert.strictEqual(totals.surplus, 0);
 });
 
-test('diffFields — მხოლოდ შეცვლილი ველები', () => {
-  const oldRow = { phone: '+995599111111', first_name: 'ზურაბ' };
-  const out = lib.diffFields(oldRow, { phone: '+995599222222', first_name: 'ზურაბ' });
-  assert.strictEqual(out.length, 1);
-  assert.deepStrictEqual(out[0], {
-    field: 'phone', old: '+995599111111', new: '+995599222222',
+/* ── streetBreakdown ──────────────────────────────────────────── */
+
+test('streetBreakdown — მთვლელები ექვსივე სტატუსს ფარავს', () => {
+  // რეგრესია: მთვლელების სია ხელით იყო ჩამოწერილი ძველი ფერების
+  // სახელებით და ახალი სტატუსები ჩუმად არსად არ ითვლებოდა.
+  const rows = Object.keys(lib.PLEDGE_VIEW).map(function (status, i) {
+    return { street: 'ა', amount_due: 100, paid: 0, color: status };
   });
-});
-
-test('diffFields — უცვლელი ველი არ იწერება', () => {
-  const out = lib.diffFields({ phone: 'X' }, { phone: 'X' });
-  assert.strictEqual(out.length, 0);
-});
-
-test('diffFields — ცარიელიდან შევსებამდე ჩაიწერება', () => {
-  const out = lib.diffFields({ phone: '' }, { phone: '+995599111111' });
+  const out = lib.streetBreakdown(rows);
   assert.strictEqual(out.length, 1);
-  assert.strictEqual(out[0].old, '');
-});
-
-test('diffFields — რიცხვი და ტექსტი ერთნაირად ედრება', () => {
-  const out = lib.diffFields({ area: 599 }, { area: '599' });
-  assert.strictEqual(out.length, 0);
+  for (const status of Object.keys(lib.PLEDGE_VIEW)) {
+    assert.strictEqual(out[0].counts[status], 1, status + ' არ დაითვალა');
+  }
 });
