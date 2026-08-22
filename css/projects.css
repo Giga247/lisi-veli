@@ -298,7 +298,7 @@
   cursor: pointer; }
 .pc-chip::before { content: ''; width: 10px; height: 10px; border-radius: 50%;
   flex: 0 0 auto; background: currentColor; opacity: .85; }
-.pc-chip.tint-not_contacted { color: var(--tone-not_contacted); }
+.pc-chip.tint-not_contacted { color: var(--tone-not-contacted); }
 .pc-chip.tint-unreachable { color: var(--tone-unreachable); }
 .pc-chip.tint-paying { color: var(--tone-paying); }
 .pc-chip.tint-loan { color: var(--tone-loan); }

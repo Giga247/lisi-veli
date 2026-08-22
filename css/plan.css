@@ -107,6 +107,9 @@
   width: 100%;
   height: min(72vh, 660px);
   touch-action: none;
+  /* მაუსით წაწევა ნაკვეთების ნომრებს ტექსტივით მონიშნავდა და რუკა
+     ლურჯი ლაქებით იფარებოდა. */
+  user-select: none; -webkit-user-select: none;
   cursor: grab;
   background: var(--pl-sunk);
 }

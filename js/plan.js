@@ -128,11 +128,15 @@ const PlanView = (function () {
     data.parcels.forEach(function (parcel) {
       const cls = 'plot st-' + (parcel.si >= 0 ? parcel.si : 'x') +
         (parcel.state === 'added' ? ' is-new' : '');
-      const path = el('path', { d: parcel.d, class: cls, 'vector-effect': 'non-scaling-stroke' });
+      // კოდი თვითონ ელემენტზე: `pointerup`-ს ნაკვეთი ატრიბუტით უნდა
+      // ცნობდეს, რადგან ჩაკეტილი ფუნქცია აღარ ახსოვს.
+      const path = el('path', {
+        d: parcel.d, class: cls, 'data-cad': parcel.cad,
+        'vector-effect': 'non-scaling-stroke',
+      });
       const title = el('title');
       title.textContent = parcel.cad + (parcel.full ? ' · ' + parcel.full : '');
       path.appendChild(title);
-      path.addEventListener('click', function () { select(parcel.cad); });
       gPlot.appendChild(path);
 
       const tag = el('text', {
@@ -208,22 +212,66 @@ const PlanView = (function () {
       zoomAt(event.deltaY > 0 ? 1.16 : 1 / 1.16, point.x, point.y);
     }, { passive: false });
 
+    /*
+     * გადათრევას ზღურბლი აქვს და არჩევა `pointerup`-ზე ხდება.
+     *
+     * აქამდე ნაკვეთი `click`-ით ირჩეოდა, გადათრევა კი პირველივე
+     * `pointermove`-ზე იწყებოდა. თითით ეს მუშაობდა — შეხებას მოძრაობა
+     * არ ახლავს. მაუსით კი დაჭერასა და აშვებას შორის ხელი ყოველთვის
+     * ირხევა ერთი-ორი პიქსელით: რუკა ოდნავ იწევდა, ნაკვეთი თითის
+     * ქვეშიდან იძვროდა და ბრაუზერი `click`-ს უკვე საერთო წინაპარს —
+     * თვითონ `svg`-ს — უგზავნიდა. ღილაკი დესკტოპზე მკვდარი იყო.
+     *
+     * `setPointerCapture`-იც ზღურბლის შემდეგაა: დაჭერისთანავე რომ
+     * ვიჭერდეთ, `pointerup`-ის სამიზნე ისევ `svg` იქნებოდა და ნაკვეთს
+     * ვერ ვიცნობდით.
+     */
+    const DRAG_SLOP = 4;
     let drag = null;
+    let pressed = null;
+
     svg.addEventListener('pointerdown', function (event) {
+      const path = event.target.closest && event.target.closest('path.plot');
+      pressed = {
+        x: event.clientX, y: event.clientY,
+        cad: path ? path.getAttribute('data-cad') : null,
+        moved: false,
+      };
       drag = toUser(event);
-      svg.setPointerCapture(event.pointerId);
-      svg.classList.add('is-drag');
     });
+
     svg.addEventListener('pointermove', function (event) {
-      if (!drag) return;
+      if (!drag || !pressed) return;
+      if (!pressed.moved) {
+        const far = Math.abs(event.clientX - pressed.x) > DRAG_SLOP ||
+          Math.abs(event.clientY - pressed.y) > DRAG_SLOP;
+        if (!far) return;
+        pressed.moved = true;
+        svg.setPointerCapture(event.pointerId);
+        svg.classList.add('is-drag');
+      }
       const point = toUser(event);
       view.x -= point.x - drag.x;
       view.y -= point.y - drag.y;
       apply();
     });
-    function endDrag() { if (drag) { svg.classList.remove('is-drag'); drag = null; } }
-    svg.addEventListener('pointerup', endDrag);
-    svg.addEventListener('pointercancel', endDrag);
+
+    svg.addEventListener('pointerup', function () {
+      const clicked = pressed && !pressed.moved;
+      endDrag();
+      // გადათრევის შემდეგ არჩევანს არ ვცვლით: რუკის წაწევა ნაკვეთის
+      // დახურვას არ უნდა ნიშნავდეს. ცარიელ ადგილას დაჭერა კი ხსნის.
+      if (clicked) select(pressed.cad);
+      pressed = null;
+    });
+
+    function endDrag() {
+      if (drag) { svg.classList.remove('is-drag'); drag = null; }
+    }
+    svg.addEventListener('pointercancel', function () {
+      endDrag();
+      pressed = null;
+    });
 
     mapBox.querySelector('.plan-tools').addEventListener('click', function (event) {
       const kind = event.target.getAttribute('data-zoom');
