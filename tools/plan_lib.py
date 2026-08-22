@@ -75,55 +75,36 @@ def distance_point_to_line_m(p, coords, lat0):
                for i in range(len(coords) - 1))
 
 
-def assign_street_names(roads, plots, radius_m=40.0, min_votes=3, min_share=0.6):
-    u"""გზებს ქუჩის სახელს აწერს ახლომდებარე ნაკვეთების ხმებით.
+def densify(coords, step_m, lat0):
+    u"""მტეხილ ხაზს თანაბარი ბიჯით ავსებს — გრძელი მონაკვეთი მოკლეს
+    ტოლფასი რომ არ იყოს გადაფარვის დათვლისას."""
+    if len(coords) < 2:
+        return list(coords)
+    lon_m = meters_per_deg_lon(lat0)
+    points = []
+    for i in range(len(coords) - 1):
+        a, b = coords[i], coords[i + 1]
+        span = math.hypot((b[0] - a[0]) * lon_m, (b[1] - a[1]) * M_PER_DEG_LAT)
+        steps = max(1, int(span / step_m))
+        for k in range(steps):
+            points.append([a[0] + (b[0] - a[0]) * k / steps,
+                           a[1] + (b[1] - a[1]) * k / steps])
+    points.append(list(coords[-1]))
+    return points
 
-    OSM-ის საკუთარი სახელი ყოველთვის იმარჯვებს (`name_src='osm'`).
-    დანარჩენებზე: `radius_m`-ში მოხვედრილი ნაკვეთები ხმას აძლევენ თავიანთ
-    `street`-ს; გამარჯვებულს სჭირდება `min_votes` ხმა **და** ხმების
-    `min_share` წილი. ვერ გადალახა — გზა უსახელო რჩება.
 
-    მცდარი ქუჩის სახელი ნახაზზე უარესია, ვიდრე ცარიელი გზა: მეზობელი მას
-    ენდობა. ამიტომ ზღვარი მკაცრია და ეჭვის შემთხვევაში არაფერი იწერება.
+def overlap_share(coords, lines, lat0, tol_m=6.0, step_m=4.0):
+    u"""ხაზის რა წილი მიუყვება `lines`-იდან რომელიმეს `tol_m`-ის ფარგლებში.
 
-    შემომავალ სიას არ ცვლის — ახალ სიას აბრუნებს.
+    ორივე მხრიდან სინჯვა საჭირო არაა: გვაინტერესებს, ჩვენი გზა სრულად
+    ხომ არ დევს რეესტრის ქუჩაზე — ანუ დუბლიკატი ხომ არაა.
     """
-    voters = []
-    for plot in plots:
-        street = (plot.get(u'street') or u'').strip()
-        ring = plot.get(u'ring') or []
-        if street and ring:
-            voters.append((ring_centroid(ring), street))
-
-    lat0 = (sum(c[1] for c, _ in voters) / len(voters)) if voters else 41.745
-
-    result = []
-    for source in roads:
-        road = dict(source)
-        name = (road.get(u'name') or u'').strip()
-        if name:
-            road[u'name'] = name
-            road[u'name_src'] = u'osm'
-            result.append(road)
-            continue
-
-        votes = {}
-        for centroid, street in voters:
-            if distance_point_to_line_m(centroid, road.get(u'coords') or [],
-                                        lat0) <= radius_m:
-                votes[street] = votes.get(street, 0) + 1
-
-        road[u'name'] = u''
-        road[u'name_src'] = u''
-        total = sum(votes.values())
-        if total:
-            # ხმების რაოდენობით, ტოლობისას სახელით — რომ შედეგი
-            # გაშვებიდან გაშვებამდე ერთი და იგივე იყოს
-            best, count = sorted(votes.items(),
-                                 key=lambda kv: (-kv[1], kv[0]))[0]
-            if count >= min_votes and count >= min_share * total:
-                road[u'name'] = best
-                road[u'name_src'] = u'დაშვებული'
-        result.append(road)
-
-    return result
+    if not lines:
+        return 0.0
+    points = densify(coords, step_m, lat0)
+    if not points:
+        return 0.0
+    hits = sum(1 for p in points
+               if min(distance_point_to_line_m(p, line, lat0)
+                      for line in lines) <= tol_m)
+    return hits / float(len(points))

@@ -6,6 +6,10 @@ u"""ერთჯერადი მოქაჩვა: OSM + ჩვენი ნ
 
 შედეგი რეპოში იკომიტება — ეს სნეპშოტია, არა ცოცხალი წყარო. განახლება
 ნიშნავს ამ სკრიპტის ხელახლა გაშვებას.
+
+გზები აქედან **უსახელოა** — ფონის გეომეტრიაა (შესასვლელები, ბილიკები).
+ქუჩის სახელი და ღერძი სამისამართო რეესტრიდან მოდის:
+`tools/fetch_streets.py` -> `data/streets.geojson`.
 """
 import io
 import json
@@ -20,9 +24,6 @@ try:
 except ImportError:  # Python 2
     from urllib2 import urlopen, Request, HTTPError, URLError
     from urllib import urlencode
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from plan_lib import assign_street_names
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLOTS_GEOJSON = os.path.join(ROOT, u'კედრის_ქუჩა_ნაკვეთები.geojson')
@@ -127,7 +128,6 @@ def split_osm(elements):
             if road_class in SKIP_ROAD_CLASSES:
                 continue
             roads.append({u'osm_id': element[u'id'],
-                          u'name': tags.get(u'name', u''),
                           u'class': road_class,
                           u'coords': points})
     return buildings, roads
@@ -150,8 +150,7 @@ def build(plots, buildings, roads):
                                 u'Polygon', [item[u'ring']]))
     for road in roads:
         features.append(feature(u'road', {
-            u'osm_id': road[u'osm_id'], u'name': road[u'name'],
-            u'name_src': road[u'name_src'], u'class': road[u'class'],
+            u'osm_id': road[u'osm_id'], u'class': road[u'class'],
         }, u'LineString', road[u'coords']))
     return {u'type': u'FeatureCollection',
             u'attribution': u'გზები და ნაგებობები: © OpenStreetMap-ის '
@@ -161,13 +160,6 @@ def build(plots, buildings, roads):
 
 def main():
     dry_run = u'--dry-run' in sys.argv
-    # 40 მ სცადეს დროებით — ამ მჭიდრო უბანში ერთ სახელს რამდენიმე
-    # ცალკეულ service-გზაზე აწერდა ("კედრის I გასასვლელი" x3 დამატებით
-    # საკუთარ osm-ტეგიან სეგმენტს). 25 მ სუფთა 1:1 შესატყვისობას იძლევა.
-    radius_m = 25.0
-    for arg in sys.argv[1:]:
-        if arg.startswith(u'--radius='):
-            radius_m = float(arg.split(u'=', 1)[1])
 
     plots = load_plots()
     print(u'ნაკვეთი: %d' % len(plots))
@@ -176,17 +168,6 @@ def main():
     buildings, roads = split_osm(osm.get(u'elements') or [])
     print(u'შენობა: %d' % len(buildings))
     print(u'გზა: %d' % len(roads))
-
-    vote_plots = [{u'cad': p[u'props'][u'cad'],
-                   u'street': p[u'props'][u'street'],
-                   u'ring': p[u'rings'][0]} for p in plots]
-    roads = assign_street_names(roads, vote_plots, radius_m=radius_m)
-
-    named = [r for r in roads if r[u'name']]
-    print(u'\nსახელიანი გზა (radius_m=%s): %d / %d' % (radius_m, len(named), len(roads)))
-    for road in named:
-        print(u'  %-10s %s  (%s)' % (road[u'class'], road[u'name'],
-                                     road[u'name_src']))
 
     if dry_run:
         print(u'\n--dry-run — ფაილი არ ჩაწერილა')

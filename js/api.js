@@ -484,13 +484,15 @@ const API = (function () {
     if (!isFinite(amount) || amount <= 0) fail('VALIDATION', 'თანხა დადებითი უნდა იყოს');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) fail('VALIDATION', 'გადახდის თარიღი არასწორია');
 
-    const { data, error } = await sb.from('payments').insert({
-      project_id: projectId, cad: cad, amount: amount,
-      paid_on: paidOn,
-      note: String((payload && payload.note) || '').trim().slice(0, 200) || null,
-    }).select().single();
+    // `insert`-ის ნაცვლად RPC: ის ძველ ჩანაწერს ცვლის და არა ამატებს,
+    // ანუ შეცდომით აკრეფილი თანხის გასწორება იმავე გზით ხდება, რითაც
+    // ჩაწერა — ხაზინდარს ორი სხვადასხვა მოქმედება არ უნდა ახსოვდეს.
+    const { data, error } = await sb.rpc('set_payment', {
+      p_project_id: projectId, p_cad: cad,
+      p_amount: amount, p_paid_on: paidOn,
+    });
     if (error) fromPostgrest(error);
-    return data;
+    return { amount: data };
   }
 
   /**

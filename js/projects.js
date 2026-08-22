@@ -591,8 +591,14 @@ const ProjectsView = (function () {
           '<label class="pc-paid' + (wasPaid ? ' is-on' : '') + '">' +
           '<input type="checkbox" name="paid"' + (wasPaid ? ' checked' : '') + '>' +
           '<span class="pc-paid-sw" aria-hidden="true"></span>' +
-          '<span class="pc-paid-t">გადახდილია · ' +
-          esc(WebLib.money(row.amount_due)) + '</span></label>'
+          '<span class="pc-paid-t">გადახდილია</span></label>' +
+          // თანხა ცალკე ველია და არა ღილაკზე დაწერილი რიცხვი: მეზობელი
+          // ხან ნაკლებს დებს, ხან მეტს, და ხაზინდარმა ის უნდა ჩაწეროს,
+          // რაც ხელში მიიღო.
+          '<label class="pc-sum"' + (wasPaid ? '' : ' hidden') +
+          '>შემოსული თანხა, ₾' +
+          '<input type="number" name="amount" step="any" min="1" value="' +
+          esc(String(wasPaid ? row.paid : row.amount_due)) + '"></label>'
         : '') +
       '<p class="pr-dialog-error" hidden></p>' +
       (mayAnswer || mayPay
@@ -634,12 +640,14 @@ const ProjectsView = (function () {
     }
 
     const paidBox = form.elements.paid || null;
+    const sumBox = form.querySelector('.pc-sum');
     const revert = form.querySelector('.pc-status.is-revert');
 
     // ხაზინდარს სტატუსი მხოლოდ მაშინ სჭირდება, როცა გადახდას თიშავს.
     if (paidBox) {
       paidBox.addEventListener('change', function () {
         paidBox.closest('.pc-paid').classList.toggle('is-on', paidBox.checked);
+        if (sumBox) sumBox.hidden = !paidBox.checked;
         if (revert) revert.hidden = paidBox.checked || !wasPaid;
       });
     }
@@ -652,6 +660,12 @@ const ProjectsView = (function () {
         errorBox.hidden = true;
 
         const wantPaid = paidBox ? paidBox.checked : wasPaid;
+        const sum = wantPaid && form.elements.amount
+          ? Number(form.elements.amount.value) : 0;
+        if (wantPaid && (!isFinite(sum) || sum <= 0)) {
+          fail('შემოსული თანხა დადებითი უნდა იყოს');
+          return;
+        }
         const picked = form.querySelector('input[name="status"]:checked');
         // სტატუსი მაშინაა სავალდებულო, როცა მართლა ვწერთ: პასუხის
         // შეცვლისას ან გადახდის გაუქმებისას.
@@ -665,7 +679,11 @@ const ProjectsView = (function () {
           lines.push('სტატუსი: ' + WebLib.pledgeView(picked.value).label);
         }
         if (wantPaid && !wasPaid) {
-          lines.push('გადახდა ჩაიწერება: ' + WebLib.money(row.amount_due));
+          lines.push('გადახდა ჩაიწერება: ' + WebLib.money(sum));
+        }
+        if (wantPaid && wasPaid && sum !== Number(row.paid)) {
+          lines.push('თანხა შესწორდება: ' + WebLib.money(row.paid) +
+            ' → ' + WebLib.money(sum));
         }
         if (!wantPaid && wasPaid) {
           lines.push('გადახდა უქმდება და ბრუნდება: ' +
@@ -690,10 +708,10 @@ const ProjectsView = (function () {
               note: form.elements.note.value,
             });
           }
-          if (wantPaid && !wasPaid) {
+          // ჩაწერაც და შესწორებაც ერთი გზაა — RPC ძველ ჩანაწერს ცვლის.
+          if (wantPaid && (!wasPaid || sum !== Number(row.paid))) {
             await API.call('recordPayment', {
-              project_id: current.project.id, cad: cad,
-              amount: Number(row.amount_due),
+              project_id: current.project.id, cad: cad, amount: sum,
               paid_on: new Date().toISOString().slice(0, 10),
             });
           }

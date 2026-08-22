@@ -11,8 +11,10 @@ u"""უბნის გეგმის მონაცემი და ცალ
   `tools/plan_page/kedri-plan.html`  ცალკე მდგომი გვერდი (არტიფაქტი) — თვითკმარი
 
 წყარო: `კედრის_ქუჩა_ნაკვეთები.geojson` (კონტურები, მისამართები, ქუჩები),
-`data/plan.geojson` (ქუჩების ღერძები OSM-იდან), `კედრის_ქუჩა_ხელმოწერები.xlsx`
-(შეიპის გარეშე დარჩენილი კოდების მისამართი და ფართობი).
+`data/streets.geojson` (ქუჩების ღერძი და სახელი სამისამართო რეესტრიდან),
+`data/plan.geojson` (OSM-ის უსახელო ფონური გზები და ნაგებობები),
+`კედრის_ქუჩა_ხელმოწერები.xlsx` (შეიპის გარეშე დარჩენილი კოდების მისამართი
+და ფართობი).
 
 ცალკე მდგომი გვერდი იმავე `css/plan.css`-სა და `js/plan.js`-ს ინლაინავს,
 რასაც საიტი იყენებს — დიზაინი ერთ ადგილას ცხოვრობს.
@@ -24,11 +26,15 @@ import os
 import pathlib
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from plan_lib import overlap_share  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HERE = pathlib.Path(__file__).resolve().parent
 
 PARCELS = ROOT / u'კედრის_ქუჩა_ნაკვეთები.geojson'
 PLAN = ROOT / 'data' / 'plan.geojson'
+STREETS = ROOT / 'data' / 'streets.geojson'
 XLSX = ROOT / u'კედრის_ქუჩა_ხელმოწერები.xlsx'
 CSS = ROOT / 'css' / 'plan.css'
 LIB = ROOT / 'js' / 'lib.js'
@@ -47,6 +53,11 @@ ADDED_MARKS = (u'tas.ge', u'უახლოესი მეზობლის �
 
 # ამაზე დიდი ნაკვეთი ნაგულისხმევ ხედს არ განსაზღვრავს (პარკი, სასოფლო მასივი)
 CORE_MAX_M2 = 5000
+
+# OSM-ის გზა, რომელიც ამ წილზე მეტად რეესტრის ქუჩას მიუყვება, დუბლიკატია —
+# ნახაზზე ორი თითქმის დამთხვეული ხაზი გამოვიდოდა
+DUPLICATE_SHARE = 0.8
+DUPLICATE_TOL_M = 6.0
 
 
 def read_json(path):
@@ -137,11 +148,31 @@ def build():
             'purpose': entry.get('purpose') or '', 'state': 'noshape',
         })
 
-    roads = [{
-        'name': f['properties'].get('name') or '',
-        'cls': f['properties'].get('class') or '',
-        'd': 'M' + ' L'.join('%.2f %.2f' % prj(p) for p in f['geometry']['coordinates']),
-    } for f in plan['features'] if f['properties'].get('layer') == 'road']
+    # ქუჩის ღერძი და სახელი — სამისამართო რეესტრიდან; OSM აქ მხოლოდ ფონია
+    # (შესასვლელები, ბილიკები), ამიტომ უსახელოა და დუბლიკატები ეცლება.
+    registry = []
+    for feature in read_json(STREETS)['features']:
+        geometry = feature['geometry']
+        lines = ([geometry['coordinates']] if geometry['type'] == 'LineString'
+                 else geometry['coordinates'])
+        registry.append((feature['properties']['name'],
+                         feature['properties'].get('class') or '', lines))
+    registry_lines = [line for _, _, lines in registry for line in lines]
+
+    roads = []
+    for f in plan['features']:
+        if f['properties'].get('layer') != 'road':
+            continue
+        coords = f['geometry']['coordinates']
+        if overlap_share(coords, registry_lines, lat0,
+                         tol_m=DUPLICATE_TOL_M) >= DUPLICATE_SHARE:
+            continue
+        roads.append({'name': '', 'cls': f['properties'].get('class') or '',
+                      'd': 'M' + ' L'.join('%.2f %.2f' % prj(p) for p in coords)})
+    for name, cls, lines in registry:
+        for line in lines:
+            roads.append({'name': name, 'cls': cls,
+                          'd': 'M' + ' L'.join('%.2f %.2f' % prj(p) for p in line)})
 
     projected = [prj(p) for p in pts]
     xs = [p[0] for p in projected]
@@ -182,6 +213,8 @@ def build():
                                format(len(html), ',')))
     print(u'ნაკვეთი: %d · მისამართით: %d · უმისამართოდ: %d · ქუჩა: %d · შეიპის გარეშე: %d'
           % (len(parcels), with_num, len(parcels) - with_num, len(streets), len(noshape)))
+    print(u'გზა ნახაზზე: %d (მათგან რეესტრის ქუჩა %d)'
+          % (len(roads), sum(1 for r in roads if r['name'])))
     no_street = [p['cad'] for p in parcels if p['si'] < 0]
     if no_street:
         print(u'ქუჩის გარეშე (ნაცრისფერი): %s' % ', '.join(no_street))
