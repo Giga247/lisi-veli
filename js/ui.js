@@ -49,10 +49,6 @@ const UI = (function () {
     ['loading', 'signin', 'pending', 'app'].forEach(function (screen) {
       el('screen-' + screen).hidden = (screen !== name);
     });
-    // ფონის გეგმა დამალულ ეკრანზე იხატება — იქ სიგანე ნულია და ნახაზი
-    // ვერ ჯდება. `window.HeroPlan` აშკარა მინიჭებაა და არა top-level
-    // `const`, ამიტომ აქედან ჩანს.
-    if (name === 'signin' && window.HeroPlan) window.HeroPlan.refresh();
   }
 
   return { el: el, showView: showView, showError: showError, showScreen: showScreen };

@@ -11,7 +11,7 @@
 <!-- ?v= ქეშის გამტეხია: build-პროცესი არ გვაქვს, ფაილის სახელი არ
      იცვლება და ბრაუზერი ძველ CSS-ს ინახავდა ახალ HTML-თან ერთად.
      სტილის შეცვლისას ეს ციფრი უნდა გაიზარდოს. -->
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 <link rel="stylesheet" href="css/plan.css?v=4">
 <link rel="stylesheet" href="css/projects.css?v=12">
 <link rel="stylesheet" href="css/home.css?v=5">
@@ -32,10 +32,12 @@
 
 <div id="screen-signin" class="screen" hidden>
 
-  <!-- გეგმა აქ ილუსტრაციაა და არა ხელსაწყო: `aria-hidden` და
-       `pointer-events: none` მას სრულიად მკვდარს ხდის — არც ეკრანის
-       წამკითხველი დაითვლის ოთხმოცდაათ ნაკვეთს, არც თითი წასწევს. -->
-  <div id="plan-hero" class="signin-bg" aria-hidden="true"></div>
+  <!-- გეგმა აქ ილუსტრაციაა და არა ხელსაწყო. ის სტატიკური სურათია
+       (`assets/plan-backdrop.svg`, იგება `tools/make_backdrop.py`-ით):
+       ფონად დადებული სურათი თავისთავად მკვდარია — არც კლიკი აქვს, არც
+       ფოკუსი, არც ეკრანის წამკითხველი დაითვლის ოთხმოცდაათ ნაკვეთს
+       შესვლის ღილაკამდე. -->
+  <div class="signin-bg" aria-hidden="true"></div>
   <div class="signin-veil" aria-hidden="true"></div>
 
   <div class="signin-mid">
@@ -93,7 +95,7 @@
 <script src="js/vendor/supabase.js"></script>
 <script src="js/config.js?v=3"></script>
 <script src="js/lib.js?v=6"></script>
-<script src="js/ui.js?v=5"></script>
+<script src="js/ui.js?v=6"></script>
 <script src="js/auth.js?v=3"></script>
 <script src="js/api.js?v=11"></script>
 <script src="js/plan.js?v=3"></script>
@@ -103,6 +105,6 @@
 <script src="js/project-form.js?v=5"></script>
 <script src="js/projects.js?v=11"></script>
 <script src="js/admin.js?v=5"></script>
-<script src="js/main.js?v=6"></script>
+<script src="js/main.js?v=7"></script>
 </body>
 </html>

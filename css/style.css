@@ -66,10 +66,6 @@ input, select, button { font: inherit; padding: 6px 10px;
 .plan figcaption { display: flex; justify-content: space-between; gap: 12px;
   flex-wrap: wrap; color: var(--ink-muted); font-size: 11px; margin-top: 8px; }
 
-/* ── შესვლის ეკრანი ──────────────────────────────────────────────────
-   დესკტოპზე ორი სვეტი: მარცხნივ ვინ ვართ, მარჯვნივ როგორ შემოხვიდე.
-   ვიწრო ეკრანზე იმავე რიგით ჩამოიშლება — ჯერ სახელი და ნახაზი, მერე
-   ღილაკი, რომ პირველი ეკრანი აზრს ატარებდეს და არა მხოლოდ ფორმას. */
 /* ── შესვლის ეკრანი ───────────────────────────────────────────────
    უბნის გეგმა მთელ ეკრანს იკავებს ფონად, ჩამქრალი; ზემოდან მხოლოდ
    სახელი და შესვლის ღილაკი. ადრე ორსვეტიანი იყო — ნახაზი მარცხნივ,
@@ -78,27 +74,20 @@ input, select, button { font: inherit; padding: 6px 10px;
    როგორ შემოხვალ. */
 #screen-signin { position: relative; max-width: none; padding: 0;
   min-height: 100vh; min-height: 100dvh; display: grid; place-items: center;
-  overflow: hidden; }
+  overflow: hidden;
+  /* ფონი ორივე თემაზე მუქია, ამიტომ ტექსტიც ღიაა ფიქსირებულად —
+     `var(--ink)` ღია თემაზე მუქს დაბრუნებდა და წარწერა ჩაიკარგებოდა. */
+  color: #f2f5f7; }
 
-.signin-bg { position: absolute; inset: 0; pointer-events: none; }
-.signin-bg .plan-view { height: 100%; }
-.signin-bg .plan-map { height: 100%; }
-.signin-bg .plan-svg { height: 100%; cursor: default; }
-/* ხელსაწყოები და ლეგენდა ფონს არ სჭირდება — ისინი წასაკითხად არიან,
-   აქ კი ნახაზი მხოლოდ ფაქტურაა. */
-.signin-bg .plan-tools, .signin-bg .plan-legend { display: none; }
+.signin-bg { position: absolute; inset: 0; pointer-events: none;
+  background: url("../assets/plan-backdrop.svg") center / cover no-repeat; }
 
-/* ორი ფენა ერთ საქმეს აკეთებს: ფერს ჩააქრობს და კონტრასტს ჩამოაგდებს,
-   რომ თეთრი ტექსტი ნაკვეთების ჭრელ ფერებზეც იკითხებოდეს. */
-.signin-bg .plan-svg { filter: saturate(.45) brightness(.85); }
+/* ფარდა ფერს ჩააქრობს და კონტრასტს ჩამოაგდებს, რომ თეთრი ტექსტი
+   ნაკვეთების ჭრელ ფერებზეც იკითხებოდეს. */
 .signin-veil { position: absolute; inset: 0; pointer-events: none;
-  /* `color-mix`-ის გარეშე ბრაუზერი მთელ დეკლარაციას აგდებს — ამიტომ
-     მარტივი ფენა ცალკე სტრიქონად წინ დგას. */
-  background: rgba(0, 0, 0, .55);
   background:
-    radial-gradient(120% 80% at 50% 45%,
-      rgba(0, 0, 0, .18) 0%, rgba(0, 0, 0, .62) 70%),
-    color-mix(in srgb, var(--surface) 58%, transparent); }
+    radial-gradient(120% 85% at 50% 45%,
+      rgba(8, 11, 14, .42) 0%, rgba(8, 11, 14, .82) 72%); }
 
 .signin-mid { position: relative; z-index: 1; width: min(420px, calc(100% - 40px));
   text-align: center; display: grid; gap: 14px; justify-items: center;
@@ -106,19 +95,19 @@ input, select, button { font: inherit; padding: 6px 10px;
 .signin-mid h1 { font-size: clamp(30px, 7vw, 44px); line-height: 1.1;
   margin: 0; letter-spacing: -.01em;
   text-shadow: 0 2px 18px rgba(0, 0, 0, .55); }
-.signin-mid .lede { color: var(--ink); opacity: .82; font-size: 15px;
+.signin-mid .lede { opacity: .84; font-size: 15px;
   line-height: 1.55; margin: 0; max-width: 34ch;
   text-shadow: 0 1px 12px rgba(0, 0, 0, .5); }
 /* GSI ღილაკი iframe-ია — ზომას თავად განსაზღვრავს, ჩვენ მხოლოდ ვასწორებთ */
 #signin-button { display: flex; justify-content: center; min-height: 44px;
   margin-top: 6px; }
-.signin-mid .note { font-size: 12.5px; color: var(--ink); opacity: .68;
+.signin-mid .note { font-size: 12.5px; opacity: .66;
   line-height: 1.5; margin: 6px 0 0; max-width: 36ch;
   text-shadow: 0 1px 10px rgba(0, 0, 0, .5); }
 
 .signin-cred { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0;
   margin: 0; padding: 0 16px calc(10px + env(safe-area-inset-bottom));
-  text-align: center; font-size: 11px; color: var(--ink); opacity: .5; }
+  text-align: center; font-size: 11px; opacity: .45; }
 
 /* დეტალების პანელის მფლობელის ბლოკი — მხოლოდ „რუკა" ტაბზე. */
 .plan-owner { border-top: 1px solid var(--pl-rule-soft); margin-top: 12px; padding-top: 11px; }

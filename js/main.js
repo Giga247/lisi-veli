@@ -128,28 +128,7 @@ function configNotFilled() {
     String(CONFIG.SUPABASE_ANON_KEY).indexOf('ჩასვი') !== -1;
 }
 
-/**
- * შესვლის ეკრანის ფონი.
- *
- * ავტორიზაციისგან დამოუკიდებელია — მონაცემი სტატიკური ფაილია და
- * მფლობელებს არ შეიცავს, ამიტომ ჩატვირთვისთანავე ეშვება. ჩავარდნაზე
- * ხმას არ იღებს: გეგმა შესვლის ეკრანის ილუსტრაციაა, არა მისი პირობა.
- *
- * ინსტანცია `window`-ზე ინახება, რომ `UI.showScreen`-მა გამოჩენისას
- * ჩასმა დაავალოს — დამალულ ელემენტს ნულოვანი სიგანე აქვს და გეგმა
- * ეკრანში არ ჯდება.
- */
-function renderHeroPlan() {
-  const host = document.getElementById('plan-hero');
-  if (!host || typeof PlanView === 'undefined') return;
-  PlanView.load().then(function (data) {
-    window.HeroPlan = PlanView.create(host, data, { sidebar: false });
-  }).catch(function () { /* ილუსტრაციის გარეშეც შესვლა მუშაობს */ });
-}
-
 window.addEventListener('load', function () {
-  renderHeroPlan();
-
   if (configNotFilled()) {
     UI.showScreen('signin');
     UI.el('signin-button').textContent =
