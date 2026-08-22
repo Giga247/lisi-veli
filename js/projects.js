@@ -328,9 +328,14 @@ const ProjectsView = (function () {
       '<span>წილი <b>' + esc(WebLib.money(row.amount_due)) + '</b></span>' +
       '<span>გადახდილი <b>' + esc(WebLib.money(row.paid)) + '</b></span>' +
       '</div>' +
-      (mayPay && Number(row.paid) < Number(row.amount_due)
-        ? '<button type="button" class="pc-pay" data-pay="1">გადაიხადა · ' +
-          esc(WebLib.money(row.amount_due)) + '</button>'
+      (mayPay
+        ? (Number(row.paid) > 0
+            // შეცდომით დაჭერილი „გადაიხადა" გასასწორებელი უნდა იყოს —
+            // სხვა კომლს რომ დააჭირო, სხვა გზა არ რჩებოდა.
+            ? '<button type="button" class="pc-pay is-undo" data-cancel-pay="1">' +
+              'გადახდის გაუქმება</button>'
+            : '<button type="button" class="pc-pay" data-pay="1">გადაიხადა · ' +
+              esc(WebLib.money(row.amount_due)) + '</button>')
         : '') +
 
       '<p class="pr-dialog-error" hidden></p>' +
@@ -378,15 +383,63 @@ const ProjectsView = (function () {
       });
     }
 
-    form.addEventListener('submit', async function (event) {
-      event.preventDefault();
-      const picked = form.querySelector('input[name="status"]:checked');
-      if (!picked) return fail('აირჩიეთ სტატუსი');
+    /**
+     * ორნაბიჯიანი დადასტურება.
+     *
+     * `confirm()` განზრახ არ გამოიყენება: ბრაუზერის მოდალი ინგლისურ
+     * ჩარჩოში სვამს ქართულ ტექსტს და გვერდს კეტავს. მეორე დაჭერა იმავეს
+     * აკეთებს გვერდის ენაზე. ხუთ წამში ღილაკი თავად ბრუნდება საწყისში,
+     * რომ შემთხვევით შეიარაღებული არ დარჩეს.
+     */
+    function armed(button, prompt, run) {
+      const original = button.textContent;
+      let timer = null;
+      const disarm = function () {
+        if (!button.isConnected) return;
+        button.removeAttribute('data-armed');
+        button.classList.remove('is-armed');
+        button.textContent = original;
+      };
+      button.addEventListener('click', async function (event) {
+        event.preventDefault();
+        if (button.getAttribute('data-armed') !== '1') {
+          button.setAttribute('data-armed', '1');
+          button.classList.add('is-armed');
+          button.textContent = prompt;
+          clearTimeout(timer);
+          timer = setTimeout(disarm, 5000);
+          return;
+        }
+        clearTimeout(timer);
+        button.disabled = true;
+        button.textContent = 'ინახება…';
+        try {
+          await run();
+        } catch (error) {
+          fail(error.message || 'ვერ მოხერხდა');
+          button.disabled = false;
+          disarm();
+        }
+      });
+      return button;
+    }
 
-      const save = form.querySelector('.pc-save');
-      save.disabled = true;
-      save.textContent = 'ინახება…';
-      try {
+    const cancelPay = form.querySelector('[data-cancel-pay]');
+    if (cancelPay) {
+      armed(cancelPay, 'დარწმუნებული ხარ? დააჭირე ისევ', async function () {
+        await API.call('cancelPayment', {
+          project_id: current.project.id, cad: cad,
+        });
+        close();
+        await openProject(current.project.id);
+      });
+    }
+
+    const save = form.querySelector('.pc-save');
+    if (save) {
+      armed(save, 'დაადასტურე შენახვა', async function () {
+        const picked = form.querySelector('input[name="status"]:checked');
+        if (!picked) throw new Error('აირჩიეთ სტატუსი');
         await API.call('setPledge', {
           project_id: current.project.id, cad: cad,
           status: picked.value,
@@ -394,12 +447,12 @@ const ProjectsView = (function () {
         });
         close();
         await openProject(current.project.id);
-      } catch (error) {
-        fail(error.message || 'შენახვა ვერ მოხერხდა');
-        save.disabled = false;
-        save.textContent = 'შენახვა';
-      }
-    });
+      });
+    }
+
+    // ფორმის ნაგულისხმევი გაგზავნა (Enter ველში) ღილაკს გვერდს
+    // აუვლიდა და დადასტურების გარეშე შეინახავდა.
+    form.addEventListener('submit', function (event) { event.preventDefault(); });
   }
 
   /* ── ნაკადი ──────────────────────────────────────────────────── */

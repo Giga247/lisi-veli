@@ -351,6 +351,7 @@ const API = (function () {
     createProject: actionCreateProject,
     approveProject: actionApproveProject,
     recordPayment: actionRecordPayment,
+    cancelPayment: actionCancelPayment,
   };
 
   /**
@@ -381,6 +382,26 @@ const API = (function () {
     }).select().single();
     if (error) fromPostgrest(error);
     return data;
+  }
+
+  /**
+   * გადახდის გაუქმება.
+   *
+   * ჩანაწერი იშლება და სტატუსს ბაზის ტრიგერი აბრუნებს „არ დარეკილაზე" —
+   * კლიენტი ორივეს ცალკე რომ აკეთებდეს, შუაში ჩავარდნა ვალდებულებას
+   * „გადახდილად" დატოვებდა უკვე წაშლილი ფულით.
+   */
+  async function actionCancelPayment(payload) {
+    await active(ROLES_MEMBER);
+    const projectId = String((payload && payload.project_id) || '').trim();
+    const cad = String((payload && payload.cad) || '').trim();
+    if (!projectId || !cad) fail('VALIDATION', 'პროექტი ან ნაკვეთი არ არის მითითებული');
+
+    const { error, count } = await sb.from('payments').delete({ count: 'exact' })
+      .eq('project_id', projectId).eq('cad', cad);
+    if (error) fromPostgrest(error);
+    if (!count) fail('NOT_FOUND', 'გასაუქმებელი გადახდა ვერ მოიძებნა');
+    return { cancelled: count };
   }
 
   /**

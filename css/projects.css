@@ -319,3 +319,12 @@
   .pr-card-box { width: 100%; border-radius: 20px 20px 0 0;
     padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
+
+/* შეიარაღებული ღილაკი — მეორე დაჭერის მოლოდინში ფერს იცვლის, რომ
+   შემთხვევით არავინ გაიაროს ორივე ნაბიჯი შეუმჩნევლად. */
+.pc-save.is-armed, .pc-pay.is-armed {
+  background: var(--danger); border-color: var(--danger); color: #fff; }
+/* გაუქმება არ არის ჩვეულებრივი მოქმედება — ის შეცდომას ასწორებს,
+   ამიტომ ვიზუალურად მეორეხარისხოვანია და არა მთავარი ღილაკი. */
+.pc-pay.is-undo { background: var(--surface); color: var(--danger);
+  border-color: var(--line); }
