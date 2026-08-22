@@ -99,10 +99,10 @@ const TableView = (function () {
   const EDITABLE = [
     { key: 'first_name', label: 'სახელი' },
     { key: 'last_name', label: 'გვარი' },
-    { key: 'phone', label: 'ტელეფონი' },
-    { key: 'address', label: 'სრული მისამართი' },
-    { key: 'num', label: 'N' },
-    { key: 'note', label: 'შენიშვნა' },
+    { key: 'phone', label: 'ტელეფონი', type: 'tel', wide: true },
+    { key: 'address', label: 'სრული მისამართი', wide: true },
+    { key: 'num', label: 'ნომერი' },
+    { key: 'note', label: 'შენიშვნა', wide: true },
   ];
 
   /**
@@ -117,20 +117,27 @@ const TableView = (function () {
     if (!plot || !canEdit()) return;
 
     const fields = EDITABLE.map(function (field) {
-      return '<label>' + field.label +
-        '<input data-field="' + field.key + '" value="' +
-        WebLib.escapeHtml(plot[field.key]) +
-        '"></label>';
+      return '<label class="pe-f' + (field.wide ? ' pe-wide' : '') + '">' +
+        WebLib.escapeHtml(field.label) +
+        '<input data-field="' + field.key + '"' +
+        (field.type ? ' type="' + field.type + '" inputmode="' + field.type + '"' : '') +
+        ' value="' + WebLib.escapeHtml(plot[field.key]) + '"></label>';
     }).join('');
 
     const dialog = document.createElement('dialog');
+    dialog.className = 'pe';
     dialog.innerHTML =
-      '<form method="dialog">' +
-      '<h3>' + WebLib.escapeHtml(plot.address || plot.cad) + '</h3>' + fields +
+      '<form method="dialog" class="pe-box">' +
+      '<header class="pe-h"><div>' +
+      '<h3>' + WebLib.escapeHtml(plot.address || plot.cad) + '</h3>' +
+      '<p class="pe-cad mono">' + WebLib.escapeHtml(plot.cad) + '</p></div>' +
+      '<button type="button" class="pe-x" data-cancel ' +
+      'aria-label="დახურვა">✕</button></header>' +
+      '<div class="pe-grid">' + fields + '</div>' +
       '<p class="dialog-error" data-error hidden></p>' +
-      '<div class="controls">' +
-      '<button data-save>შენახვა</button>' +
+      '<div class="pe-act">' +
       '<button type="button" data-cancel>გაუქმება</button>' +
+      '<button data-save class="pe-go">შენახვა</button>' +
       '</div></form>';
     document.body.appendChild(dialog);
     dialog.showModal();
@@ -146,8 +153,9 @@ const TableView = (function () {
     // ყველა დახურვის გზაზე ისვლება: Escape, „გაუქმება" და წარმატებული
     // შენახვა. ასე ვერცერთ ტოტზე ვერ დარჩება მიტოვებული <dialog>.
     dialog.addEventListener('close', function () { dialog.remove(); });
-    dialog.querySelector('[data-cancel]').addEventListener('click', function () {
-      dialog.close();
+    // `[data-cancel]` ორია — ✕ სათაურში და ღილაკი ბოლოში.
+    dialog.querySelectorAll('[data-cancel]').forEach(function (button) {
+      button.addEventListener('click', function () { dialog.close(); });
     });
 
     dialog.querySelector('form').addEventListener('submit', async function (event) {

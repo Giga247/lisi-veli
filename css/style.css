@@ -113,3 +113,62 @@ input, select, button { font: inherit; padding: 6px 10px;
 .plan-owner dd { margin: 0; color: var(--pl-ink); }
 .plan-owner-none { color: var(--pl-ink-3); font-size: 13px; margin: 12px 0 0; }
 .plan-edit { margin-top: 11px; }
+
+/* ── ნაკვეთის რედაქტორი ───────────────────────────────────────────
+   ერთადერთი ეკრანი, რომელიც ბრაუზერის ნაგულისხმევი `<dialog>`-ით იყო
+   დარჩენილი: თეთრი ფონი მუქ თემაზე და ველები ერთ ხაზზე გაწყობილი.
+   `<dialog>` რჩება — Escape და ფოკუსის ხაფანგი მისგან უფასოდ მოდის —
+   მაგრამ იერს ბარათების ენას მიჰყვება. */
+.pe {
+  border: none; padding: 0; background: none; color: var(--ink);
+  width: min(560px, 100%); max-width: 100%;
+  max-height: 90vh; overflow: visible;
+}
+.pe::backdrop { background: rgba(0, 0, 0, .45); }
+.pe-box {
+  display: grid; gap: 16px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 16px;
+  padding: 18px; max-height: 90vh; overflow: auto;
+}
+
+.pe-h { display: flex; align-items: flex-start; gap: 10px; }
+.pe-h > div { flex: 1 1 auto; min-width: 0; }
+.pe-h h3 { margin: 0; font-size: 17px; line-height: 1.25; }
+.pe-cad { margin: 3px 0 0; font-size: 11.5px; color: var(--ink-muted);
+  letter-spacing: .02em; }
+.pe-x { flex: 0 0 auto; width: 32px; height: 32px; padding: 0;
+  border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink-muted); cursor: pointer; }
+
+/* ორი სვეტი: სახელი და გვარი ერთმანეთის გვერდით ბუნებრივი წყვილია,
+   მისამართი და შენიშვნა კი მთელ სიგანეს ითხოვს. */
+.pe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pe-f { display: grid; gap: 5px; font-size: 12px; color: var(--ink-muted); }
+.pe-wide { grid-column: 1 / -1; }
+.pe-f input {
+  width: 100%; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--ink); font-size: 15px;
+}
+.pe-f input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent;
+}
+
+.pe-act { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pe-act button {
+  min-height: 46px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-size: 14px; cursor: pointer;
+}
+.pe-go { background: var(--ink); border-color: var(--ink);
+  color: var(--surface); font-weight: 500; }
+.pe-go[disabled] { opacity: .6; cursor: default; }
+
+@media (max-width: 560px) {
+  /* ტელეფონზე ქვედა ფურცელი: ცერა თითი ეკრანის ბოლოშია და ღილაკებამდე
+     ხელის გაწვდენა არ სჭირდება. */
+  .pe { width: 100%; margin: auto auto 0; }
+  .pe-box { border-radius: 18px 18px 0 0; border-bottom: none;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .pe-grid { grid-template-columns: 1fr; }
+}
