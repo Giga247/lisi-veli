@@ -17,6 +17,12 @@
 :root[data-theme="dark"] { --danger: #e66767; }
 
 * { box-sizing: border-box; }
+/* `[hidden]`-ის UA-წესს ერთი კლასის სპეციფიკურობა აქვს და id-სელექტორი მას
+   ჯაბნის: `#view-home { display: grid }` დესკტოპზე დამალულ მთავარ ხედსაც
+   ტოვებდა ბადედ და ის 114px-ს იკავებდა ადმინის პანელის თავზე. ხედების
+   გადართვა მთელს აპში `hidden`-ზე დგას, ამიტომ წესს აქ ვამაგრებთ.
+   `!important` აქ არა ხრიკია, არამედ ის, რომ `hidden` ყოველთვის მალავს. */
+[hidden] { display: none !important; }
 body {
   margin: 0; padding: 0;
   font-family: "Noto Sans Georgian", system-ui, sans-serif;

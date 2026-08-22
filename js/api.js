@@ -171,12 +171,22 @@ const API = (function () {
     if (allowed.indexOf(role) === -1) fail('VALIDATION', 'უცნობი როლი: ' + role);
     if (email === me.email) fail('VALIDATION', 'საკუთარ როლს ვერ შეცვლით');
 
+    // ქუჩა იმავე მოთხოვნაში მიდის. ადრე `admin.js` მას აგზავნიდა, აქ კი
+    // ჩუმად იკარგებოდა: ადმინი ირჩევდა ქუჩას, „შენახვას" აჭერდა, შეცდომას
+    // ვერ ხედავდა — და ველი მაინც ძველი რჩებოდა.
+    const street = payload && payload.street !== undefined
+      ? String(payload.street || '').trim() : null;
+
     const approving = role !== 'pending' && role !== 'blocked';
-    const { data, error } = await sb.from('profiles').update({
+    const fields = {
       role: role,
       approved_at: approving ? new Date().toISOString() : null,
       approved_by: approving ? me.email : null,
-    }).eq('email', email).select();
+    };
+    if (payload && payload.street !== undefined) fields.street = street || null;
+
+    const { data, error } = await sb.from('profiles').update(fields)
+      .eq('email', email).select();
     if (error) fromPostgrest(error);
     if (!data || data.length === 0) fail('NOT_FOUND', 'მომხმარებელი ვერ მოიძებნა');
     return data[0];

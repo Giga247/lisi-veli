@@ -22,13 +22,17 @@ const UI = (function () {
       if (box) box.hidden = (view !== name);
     });
 
+    // შემოწმება `typeof`-ით და არა `window.X`-ით: მოდულები top-level
+    // `const`-ებია და ასეთი დეკლარაცია `window`-ის თვისებად არ იქცევა.
+    // `window.AdminView` ყოველთვის undefined იყო — ადმინის პანელი
+    // არასდროს იხატებოდა, ხოლო რუკა მთავარზე დაბრუნებისას არ ჯდებოდა.
     if (name === 'home') {
       window.scrollTo(0, homeScroll);
-      if (window.MapView) MapView.refresh();
+      if (typeof MapView !== 'undefined') MapView.refresh();
     } else {
       window.scrollTo(0, 0);
     }
-    if (name === 'admin' && window.AdminView) AdminView.render();
+    if (name === 'admin' && typeof AdminView !== 'undefined') AdminView.render();
   }
 
   function showError(message) {
