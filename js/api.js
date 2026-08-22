@@ -157,7 +157,7 @@ const API = (function () {
   /**
    * მომხმარებლები ადმინის პანელისთვის.
    *
-   * ხაზინდრობა პროფილში არ წერია — ის `projects.treasurer` ველია, ამიტომ
+   * ხაზინდრობა პროფილში არ წერია — ის `projects.treasurers` ველია, ამიტომ
    * პროექტებსაც ვკითხულობთ და თითო მომხმარებელს ვამაგრებთ იმ პროექტების
    * სახელებს, სადაც ის ხაზინდარია. ეს მხოლოდ საჩვენებელია: შეცვლა
    * პროექტის ფორმაში ხდება და `setRole` მას არ ეხება.
@@ -166,15 +166,15 @@ const API = (function () {
     await active(['admin']);
     const [profiles, projects] = await Promise.all([
       sb.from('profiles').select('*').order('requested_at', { ascending: false }),
-      sb.from('projects').select('id, name, treasurer, moderator, status'),
+      sb.from('projects').select('id, name, treasurers, moderators, status'),
     ]);
     if (profiles.error) fromPostgrest(profiles.error);
     // პროექტების ჩავარდნა მომხმარებლების სიას არ აჩერებს — ხაზინდრობა
     // დამატებითი ინფორმაციაა, დამტკიცება კი მთავარი სამუშაო.
     const asTreasurer = projects.error
-      ? {} : WebLib.staffIndex(projects.data, 'treasurer');
+      ? {} : WebLib.staffIndex(projects.data, 'treasurers');
     const asModerator = projects.error
-      ? {} : WebLib.staffIndex(projects.data, 'moderator');
+      ? {} : WebLib.staffIndex(projects.data, 'moderators');
 
     return profiles.data.map(function (profile) {
       const email = String(profile.email || '').trim().toLowerCase();
@@ -359,26 +359,39 @@ const API = (function () {
       p_budget: payload && payload.budget === '' ? null : Number(payload.budget),
       p_amount_per_household: Number(payload && payload.amount_per_household),
       p_cads: (payload && payload.cads) || [],
-      p_treasurer: String((payload && payload.treasurer) || '').trim() || null,
-      p_moderator: String((payload && payload.moderator) || '').trim() || null,
+      p_treasurers: emails(payload && payload.treasurers),
+      p_moderators: emails(payload && payload.moderators),
     });
     if (error) fromPostgrest(error);
     return { id: data, status: 'draft' };
   }
 
   /**
+   * მეილების სია ბაზისთვის.
+   *
+   * ინტერფეისი ან მასივს აგზავნის (მონიშვნები), ან მძიმეებით გამოყოფილ
+   * სტრიქონს (შექმნის ფორმა, სადაც სია ხელით იწერება). გასუფთავებას და
+   * შემოწმებას ბაზა აკეთებს — აქ მხოლოდ ფორმა ერთდება.
+   */
+  function emails(value) {
+    const list = Array.isArray(value) ? value : String(value || '').split(',');
+    return list.map(function (item) { return String(item || '').trim(); })
+      .filter(Boolean);
+  }
+
+  /**
    * პროექტის პასუხისმგებლების დანიშვნა.
    *
-   * ორივე ველი ერთად იგზავნება — გამოტოვებული ველი ბაზაში იცლება, ამიტომ
-   * ინტერფეისმა ორივეს მიმდინარე მნიშვნელობა უნდა გამოგზავნოს, თუნდაც
+   * ორივე სია ერთად იგზავნება — გამოტოვებული სია ბაზაში იცლება, ამიტომ
+   * ინტერფეისმა ორივეს მიმდინარე შემადგენლობა უნდა გამოგზავნოს, თუნდაც
    * ერთი მათგანი არ შეცვლილიყო.
    */
   async function actionSetProjectStaff(payload) {
     await active(['admin']);
     const { data, error } = await sb.rpc('set_project_staff', {
       p_id: String((payload && payload.id) || '').trim(),
-      p_moderator: String((payload && payload.moderator) || '').trim() || null,
-      p_treasurer: String((payload && payload.treasurer) || '').trim() || null,
+      p_moderators: emails(payload && payload.moderators),
+      p_treasurers: emails(payload && payload.treasurers),
     });
     if (error) fromPostgrest(error);
     return data;

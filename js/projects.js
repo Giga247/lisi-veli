@@ -201,8 +201,13 @@ const ProjectsView = (function () {
   function canPay() {
     if (!user || !current || current.project.status !== 'active') return false;
     if (user.role === 'admin') return true;
-    return Boolean(current.project.treasurer) &&
-      current.project.treasurer === user.email;
+    return isTreasurer();
+  }
+
+  /** ხაზინდარი ერთი არ არის — 86 კომლს ერთი კაცი ვერ მოაწევს. */
+  function isTreasurer() {
+    if (!user || !current) return false;
+    return (current.project.treasurers || []).indexOf(user.email) !== -1;
   }
 
   /**
@@ -217,8 +222,7 @@ const ProjectsView = (function () {
   function canSeeProgress() {
     if (!user || !current) return false;
     if (user.role === 'admin' || user.role === 'moderator') return true;
-    return Boolean(current.project.treasurer) &&
-      current.project.treasurer === user.email;
+    return isTreasurer();
   }
 
   /** ნაკვეთის მონაცემები — სახელი, ტელეფონი, მისამართი. */
@@ -270,24 +274,31 @@ const ProjectsView = (function () {
    * მოდის: `profiles`-ს მაცხოვრებელი ვერ კითხულობს.
    */
   function staffBlock(staff) {
-    const byKind = {};
-    (staff || []).forEach(function (person) { byKind[person.kind] = person; });
+    const byKind = { moderator: [], treasurer: [] };
+    (staff || []).forEach(function (person) {
+      if (byKind[person.kind]) byKind[person.kind].push(person.display_name);
+    });
 
     const one = function (kind, label) {
-      const person = byKind[kind];
+      const names = byKind[kind];
       return '<div class="pr-staff-i"><span>' + esc(label) + '</span>' +
-        (person
-          ? '<b>' + esc(person.display_name) + '</b>'
+        (names.length
+          ? '<b>' + names.map(esc).join(', ') + '</b>'
           : '<i>დაუნიშნავი</i>') + '</div>';
     };
 
     return '<section class="pr-staff">' +
-      one('moderator', 'მოდერატორი') +
-      one('treasurer', 'ხაზინდარი') +
+      one('moderator', names(byKind.moderator.length, 'მოდერატორი', 'მოდერატორები')) +
+      one('treasurer', names(byKind.treasurer.length, 'ხაზინდარი', 'ხაზინდრები')) +
       (user && user.role === 'admin'
         ? '<button type="button" class="pr-staff-b" data-staff="1">დანიშვნა</button>'
         : '') +
       '</section>';
+  }
+
+  /** ერთი კაცია თუ რამდენიმე — წარწერაც იმას მიჰყვება. */
+  function names(count, one, many) {
+    return count > 1 ? many : one;
   }
 
   function renderProject() {
@@ -698,14 +709,30 @@ const ProjectsView = (function () {
       return ['member', 'moderator', 'admin'].indexOf(person.role) !== -1;
     });
 
-    const options = function (selected) {
-      return '<option value="">— დაუნიშნავი —</option>' +
-        active.map(function (person) {
-          const label = String(person.display_name || '').trim() || person.email;
-          return '<option value="' + esc(person.email) + '"' +
-            (person.email === selected ? ' selected' : '') + '>' +
-            esc(label) + '</option>';
-        }).join('');
+    /*
+     * ჩამოსაშლელის ნაცვლად მონიშვნების სია.
+     *
+     * `<select multiple>` ტელეფონზე Ctrl-ის დაჭერას მოითხოვს და
+     * მონიშნული სტრიქონები ეკრანზე ერთდროულად არ ჩანს. აქ თითო კაცი
+     * ცალკე ჩექბოქსია: ერთი შეხედვით ჩანს, ვინ არის შიგნით და ვინ არა.
+     */
+    const list = function (field, chosen) {
+      return '<div class="pr-pick">' + active.map(function (person) {
+        const label = String(person.display_name || '').trim() || person.email;
+        return '<label class="pr-pick-i">' +
+          '<input type="checkbox" name="' + field + '" value="' +
+          esc(person.email) + '"' +
+          (chosen.indexOf(person.email) === -1 ? '' : ' checked') + '>' +
+          '<span class="pr-pick-n">' + esc(label) + '</span>' +
+          '<span class="pr-pick-e">' + esc(person.email) + '</span>' +
+          '</label>';
+      }).join('') + '</div>';
+    };
+
+    const picked = function (field) {
+      return Array.prototype.map.call(
+        dialog.querySelectorAll('[name="' + field + '"]:checked'),
+        function (box) { return box.value; });
     };
 
     const dialog = document.createElement('div');
@@ -713,10 +740,11 @@ const ProjectsView = (function () {
     dialog.innerHTML =
       '<form class="pr-dialog-box">' +
       '<h3>ვინ პასუხობს პროექტზე</h3>' +
-      '<label class="pc-note">მოდერატორი — ზარები და სტატუსები' +
-      '<select name="moderator">' + options(project.moderator || '') + '</select></label>' +
-      '<label class="pc-note">ხაზინდარი — გადახდები' +
-      '<select name="treasurer">' + options(project.treasurer || '') + '</select></label>' +
+      '<div class="pr-pick-g"><p class="pr-pick-h">მოდერატორები — ' +
+      'ზარები და სტატუსები</p>' + list('moderators', project.moderators || []) +
+      '</div>' +
+      '<div class="pr-pick-g"><p class="pr-pick-h">ხაზინდრები — ' +
+      'გადახდები</p>' + list('treasurers', project.treasurers || []) + '</div>' +
       '<p class="pr-dialog-sub">მოდერატორად დანიშვნა მაცხოვრებელს ' +
       'მოდერატორის როლსაც აძლევს — უფლების გარეშე დანიშვნა ცარიელი ' +
       'ჟესტი იქნებოდა.</p>' +
@@ -747,8 +775,8 @@ const ProjectsView = (function () {
         // ორივე ველი ერთად მიდის: გამოტოვებულს ბაზა ასუფთავებს.
         await API.call('setProjectStaff', {
           id: project.id,
-          moderator: dialog.querySelector('[name="moderator"]').value,
-          treasurer: dialog.querySelector('[name="treasurer"]').value,
+          moderators: picked('moderators'),
+          treasurers: picked('treasurers'),
         });
         close();
         await openProject(project.id);

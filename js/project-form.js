@@ -91,12 +91,14 @@ const ProjectForm = (function () {
       // მხოლოდ ადმინს აქვს (RLS), პროექტს კი მოდერატორიც ქმნის.
       // მეილს ბაზა ამოწმებს — არარსებული ან დაუმტკიცებელი უარიყოფა
       // ქართული შეტყობინებით, ასე რომ ტიპო ჩუმად არ გაივლის.
-      '<label class="pf-field">ხაზინდარი — მეილი (არასავალდებულო)' +
-      '<input name="treasurer" type="email" autocomplete="off" ' +
+      // რამდენიმე კაცი მძიმით. `type="email"` აქ ვეღარ დგას — ის ერთ
+      // მისამართს ელოდება და სიას უარყოფდა.
+      '<label class="pf-field">ხაზინდრები — მეილები, მძიმით (არასავალდებულო)' +
+      '<input name="treasurers" autocomplete="off" ' +
       'placeholder="ვინც ფულს ჩაწერს"></label>' +
 
-      '<label class="pf-field">მოდერატორი — მეილი (არასავალდებულო)' +
-      '<input name="moderator" type="email" autocomplete="off" ' +
+      '<label class="pf-field">მოდერატორები — მეილები, მძიმით (არასავალდებულო)' +
+      '<input name="moderators" autocomplete="off" ' +
       'placeholder="ვინც დარეკავს და სტატუსებს შეავსებს"></label>' +
 
       '<label class="pf-field">ფოტოები' +
@@ -217,8 +219,8 @@ const ProjectForm = (function () {
           description: form.elements.description.value,
           budget: form.elements.budget.value,
           amount_per_household: amount,
-          treasurer: form.elements.treasurer.value,
-          moderator: form.elements.moderator.value,
+          treasurers: form.elements.treasurers.value,
+          moderators: form.elements.moderators.value,
           cads: cads,
         });
 

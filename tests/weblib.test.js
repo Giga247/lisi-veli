@@ -235,13 +235,13 @@ test('filterPledgeRows — ძებნა კოდითაც მუშაო
 
 const TPROJECTS = [
   { id: 'road-2026', name: 'გზის რემონტი 2026',
-    treasurer: 'nino.k@gmail.com', status: 'active' },
+    treasurers: ['nino.k@gmail.com'], status: 'active' },
   { id: 'lights', name: 'განათება',
-    treasurer: 'Nino.K@Gmail.com ', status: 'draft' },
+    treasurers: ['Nino.K@Gmail.com '], status: 'draft' },
   { id: 'gate', name: 'ჭიშკარი',
-    treasurer: 'zura@gmail.com', status: 'done' },
+    treasurers: ['zura@gmail.com'], status: 'done' },
   { id: 'old', name: 'გაუქმებული',
-    treasurer: 'zura@gmail.com', status: 'cancelled' },
+    treasurers: ['zura@gmail.com'], status: 'cancelled' },
   { id: 'none', name: 'ხაზინდრის გარეშე', treasurer: null, status: 'active' },
 ];
 
@@ -270,6 +270,22 @@ test('treasurerIndex — ხაზინდრის გარეშე პრ�
   assert.strictEqual(index[''], undefined);
 });
 
+test('staffIndex — ერთ პროექტს რამდენიმე პასუხისმგებელი ჰყავს', () => {
+  const index = WebLib.staffIndex([{
+    id: 'p-1', name: 'ჭიშკარი', status: 'active',
+    moderators: ['a@b.com', 'C@D.com '],
+  }], 'moderators');
+  assert.deepStrictEqual(index['a@b.com'], ['ჭიშკარი']);
+  assert.deepStrictEqual(index['c@d.com'], ['ჭიშკარი']);
+});
+
+test('staffIndex — ცარიელი მასივი ინდექსში არ ხვდება', () => {
+  const index = WebLib.staffIndex(
+    [{ id: 'p-1', name: 'ჭიშკარი', status: 'active', treasurers: [] }],
+    'treasurers');
+  assert.deepStrictEqual(index, {});
+});
+
 test('treasurerIndex — ცარიელი შემავალი ცარიელ ინდექსს აბრუნებს', () => {
   assert.deepStrictEqual(WebLib.treasurerIndex([]), {});
   assert.deepStrictEqual(WebLib.treasurerIndex(null), {});
@@ -277,6 +293,6 @@ test('treasurerIndex — ცარიელი შემავალი ცა�
 
 test('treasurerIndex — უსახელო პროექტი კოდით ჩანს', () => {
   const index = WebLib.treasurerIndex([
-    { id: 'x-1', name: '', treasurer: 'a@b.com', status: 'active' }]);
+    { id: 'x-1', name: '', treasurers: ['a@b.com'], status: 'active' }]);
   assert.deepStrictEqual(index['a@b.com'], ['x-1']);
 });

@@ -60,7 +60,7 @@ function canSeePhones(profile, projects) {
   if (!profile) return false;
   if (profile.role === 'moderator' || profile.role === 'admin') return true;
   return (projects || []).some(function (project) {
-    return project.treasurer && project.treasurer === profile.email;
+    return (project.treasurers || []).indexOf(profile.email) !== -1;
   });
 }
 

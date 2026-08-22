@@ -65,7 +65,7 @@
   /**
    * ვინ არის რომელი პროექტის ხაზინდარი.
    *
-   * ხაზინდარი გლობალური როლი არ არის — ის `projects.treasurer` ველია,
+   * ხაზინდარი გლობალური როლი არ არის — ის `projects.treasurers` ველია,
    * ანუ ერთი ადამიანი შეიძლება ერთ პროექტში იყოს ხაზინდარი და მეორეში
    * არა. ადმინის პანელს ეს ჭრილი პირუკუ სჭირდება — მომხმარებლიდან
    * პროექტებისკენ — ამიტომ ინდექსი აქ იგება.
@@ -76,19 +76,29 @@
    * ნიშნავს, ფული აღარ იწერება.
    */
   function treasurerIndex(projects) {
-    return staffIndex(projects, 'treasurer');
+    return staffIndex(projects, 'treasurers');
   }
 
-  /** იგივე, ნებისმიერი პასუხისმგებლის ველისთვის: `treasurer`, `moderator`. */
+  /**
+   * იგივე, ნებისმიერი პასუხისმგებლის ველისთვის: `treasurers`, `moderators`.
+   *
+   * ველი მასივია — პროექტს რამდენიმე ხაზინდარიც ჰყავს და რამდენიმე
+   * მოდერატორიც. ცალკე სტრიქონიც მიიღება: ბაზაში ეს ველები ერთეულები
+   * იყო და ძველი პასუხი ქეშიდან ჯერ კიდევ შეიძლება მოვიდეს.
+   */
   function staffIndex(projects, field) {
     const index = {};
     (projects || []).forEach(function (project) {
       if (!project || project.status === 'cancelled') return;
-      const email = String(project[field] || '').trim().toLowerCase();
-      if (!email) return;
+      const raw = project[field];
+      const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
       const label = String(project.name || '').trim() || String(project.id || '');
-      if (!index[email]) index[email] = [];
-      index[email].push(label);
+      list.forEach(function (item) {
+        const email = String(item || '').trim().toLowerCase();
+        if (!email) return;
+        if (!index[email]) index[email] = [];
+        if (index[email].indexOf(label) === -1) index[email].push(label);
+      });
     });
     return index;
   }
