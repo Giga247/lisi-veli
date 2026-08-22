@@ -48,3 +48,8 @@ tools/plan_page/kedri-plan.html
 # ისტორიის სარეზერვო ასლი (PII-ს შეიცავს) — ლოკალური
 backup/
 *.bundle
+
+# Supabase-ის საიდუმლოებები — არასოდეს git-ში
+.env.local
+.env
+supabase/.temp/
