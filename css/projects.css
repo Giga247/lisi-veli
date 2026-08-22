@@ -355,8 +355,10 @@
 .pc-confirm-act button { height: 44px; border-radius: 12px; font: inherit;
   font-size: 14px; cursor: pointer; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); }
-.pc-confirm-yes { background: var(--ink); border-color: var(--ink);
-  color: var(--surface); font-weight: 500; }
+/* იგივე მიზეზი, რაც `.pe-go`-ს: `.pc-confirm-act button` კლასსაც და
+   ელემენტსაც შეიცავს და მარტო კლასს ჯაბნის. */
+.pc-confirm-act .pc-confirm-yes { background: var(--ink);
+  border-color: var(--ink); color: var(--surface); font-weight: 500; }
 
 @media (max-width: 560px) {
   .pr-dialog { align-items: end; padding: 0; }

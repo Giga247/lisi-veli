@@ -160,9 +160,11 @@ input, select, button { font: inherit; padding: 6px 10px;
   min-height: 46px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); font-size: 14px; cursor: pointer;
 }
-.pe-go { background: var(--ink); border-color: var(--ink);
+/* `.pe-act button` ელემენტსაც შეიცავს და კლასსაც — ანუ `.pe-go`-ზე
+   სპეციფიკურია. მთავარი ღილაკი უფერული რჩებოდა. */
+.pe-act .pe-go { background: var(--ink); border-color: var(--ink);
   color: var(--surface); font-weight: 500; }
-.pe-go[disabled] { opacity: .6; cursor: default; }
+.pe-act .pe-go[disabled] { opacity: .6; cursor: default; }
 
 @media (max-width: 560px) {
   /* ტელეფონზე ქვედა ფურცელი: ცერა თითი ეკრანის ბოლოშია და ღილაკებამდე
