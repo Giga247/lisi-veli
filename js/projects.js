@@ -19,7 +19,6 @@ const ProjectsView = (function () {
   let current = null;      // { project, totals, rows, payments }
   let planData = null;
   let planInstance = null;
-  let filters = { street: '', tone: '', query: '' };
 
   const TONE_ORDER = ['paid', 'paying', 'loan', 'declined', 'unreachable', 'not_contacted'];
 
@@ -167,29 +166,6 @@ const ProjectsView = (function () {
     return name || '—';
   }
 
-  /** რუკის დეტალების პანელი — პასუხი, წილი და ჩაწერის ღილაკი. */
-  function detailExtra(record) {
-    const row = rowByCad()[record.cad];
-    if (!row) return '<p class="plan-owner-none">ეს ნაკვეთი პროექტში არ მონაწილეობს.</p>';
-    const view = WebLib.pledgeView(row.status);
-    const tone = WebLib.toneView(row.color);
-    return '<div class="plan-owner"><dl>' +
-      '<dt>მფლობელი</dt><dd>' + esc(ownerName(row)) + '</dd>' +
-      '<dt>წილი</dt><dd>' + esc(WebLib.money(row.amount_due)) + '</dd>' +
-      '<dt>გადახდილი</dt><dd>' + esc(WebLib.money(row.paid)) + '</dd>' +
-      '<dt>პასუხი</dt><dd><span class="pr-tone tint-' + esc(row.color) + '">' +
-      esc(tone.icon) + '</span> ' + esc(view.label) + '</dd>' +
-      (row.recorded_by
-        ? '<dt>ჩაწერა</dt><dd>' + esc(row.recorded_by) + '</dd>' : '') +
-      '</dl>' + answerButton(row) + '</div>';
-  }
-
-  function answerButton(row) {
-    if (!canAnswer(row)) return '';
-    return '<button type="button" class="pr-answer" data-answer="' + esc(row.cad) + '">' +
-      '📞 პასუხის ჩაწერა</button>';
-  }
-
   function canAnswer(row) {
     if (!user || !current || current.project.status !== 'active') return false;
     if (user.role === 'admin') return true;
@@ -215,41 +191,6 @@ const ProjectsView = (function () {
       current.project.treasurer === user.email;
   }
 
-  function paymentsFor(cad) {
-    return (current.payments || [])
-      .filter(function (payment) { return payment.cad === cad; })
-      .sort(function (a, b) { return String(a.paid_on) < String(b.paid_on) ? -1 : 1; });
-  }
-
-  function paymentsHtml(cad) {
-    const rows = paymentsFor(cad);
-    const history = rows.length === 0
-      ? '<p class="pr-pay-empty">გადახდა ჯერ არ არის.</p>'
-      : '<ul class="pr-pay-list">' + rows.map(function (payment) {
-          return '<li><span>' + esc(String(payment.paid_on || '').slice(0, 10)) + '</span>' +
-            '<strong>' + esc(WebLib.money(payment.amount)) + '</strong>' +
-            '<span>' + esc(payment.method || '') + '</span>' +
-            '<span class="pr-pay-who">' + esc(payment.recorded_by || '') + '</span></li>';
-        }).join('') + '</ul>';
-
-    if (!canPay()) return '<section class="pr-pay"><h4>გადახდები</h4>' + history + '</section>';
-
-    // ჩაწერილი თანხა ყოველთვის სრული წილია. ნაწილობრივი გადახდა არ
-    // არსებობს — ან დებს, ან არა — ამიტომ რიცხვის ველი მხოლოდ შეცდომის
-    // საშუალება იქნებოდა და არა არჩევანი.
-    const row = rowByCad()[cad] || {};
-    const today = new Date().toISOString().slice(0, 10);
-    return '<section class="pr-pay"><h4>გადახდები</h4>' + history +
-      '<div class="pr-pay-form">' +
-      '<label>გადახდის თარიღი' +
-      '<input type="date" name="pay_date" value="' + esc(today) + '"></label>' +
-      // type="button" აუცილებელია: ეს ღილაკი დიალოგის form-ის შიგნითაა
-      // და ნაგულისხმევად სტატუსის შენახვას გაუშვებდა.
-      '<button type="button" data-pay="1">გადაიხადა — ' +
-      esc(WebLib.money(row.amount_due)) + '</button>' +
-      '</div></section>';
-  }
-
   let byCadCache = null;
   function rowByCad() {
     if (!byCadCache) {
@@ -257,74 +198,6 @@ const ProjectsView = (function () {
       current.rows.forEach(function (row) { byCadCache[row.cad] = row; });
     }
     return byCadCache;
-  }
-
-  function streetTable(rows) {
-    const breakdown = WebLib.streetBreakdown(rows);
-    return '<details class="pr-streets"><summary>ქუჩების ჭრილი</summary>' +
-      '<table><thead><tr><th>ქუჩა</th><th>კომლი</th><th>წილი</th>' +
-      '<th>შემოვიდა</th><th>პასუხის გარეშე</th></tr></thead><tbody>' +
-      breakdown.map(function (street) {
-        return '<tr><td>' + esc(street.street) + '</td><td>' + street.total + '</td>' +
-          '<td>' + esc(WebLib.money(street.due)) + '</td>' +
-          '<td>' + esc(WebLib.money(street.paid)) + '</td>' +
-          '<td>' + street.counts.none + '</td></tr>';
-      }).join('') + '</tbody></table></details>';
-  }
-
-  /**
-   * კომლების სია — მობაილისთვის, ცხრილის ნაცვლად.
-   *
-   * ცხრილს შვიდი სვეტი ჰქონდა და ტელეფონზე ან იჭიმებოდა, ან სახელს
-   * ჭრიდა. აქ თითო კომლი ერთი მწკრივია: სტატუსის ფერი, სახელი,
-   * მისამართი, წილი. დაჭერით იხსნება დარეკვა და სტატუსის დაყენება.
-   *
-   * რედაქტირება აქ განზრახ არ არის — ნაკვეთის ველები მთავარი გვერდის
-   * საქმეა, პროექტისა კი ის, ვინ რას პასუხობს და ვინ იხდის.
-   */
-  function householdTable(rows) {
-    const shown = WebLib.filterPledgeRows(rows, filters);
-    const streets = [];
-    rows.forEach(function (row) {
-      const street = row.street || '';
-      if (street && streets.indexOf(street) === -1) streets.push(street);
-    });
-    streets.sort();
-
-    const chip = function (group, value, label, on) {
-      return '<button type="button" data-pf="' + group + '" data-v="' + esc(value) + '"' +
-        (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
-    };
-
-    return '<div class="pr-table">' +
-      '<div class="sec-h"><h3>კომლები</h3><span class="muted">' +
-      shown.length + ' / ' + rows.length + '</span></div>' +
-      '<input type="search" id="pr-q" placeholder="ძებნა — მფლობელი, კოდი, მისამართი" ' +
-      'value="' + esc(filters.query) + '" aria-label="ძებნა">' +
-      '<div class="chips">' +
-      chip('street', '', 'ყველა ქუჩა', filters.street === '') +
-      streets.map(function (street) {
-        return chip('street', street, street, filters.street === street);
-      }).join('') + '</div>' +
-      '<div class="chips">' +
-      chip('tone', '', 'ყველა სტატუსი', filters.tone === '') +
-      TONE_ORDER.map(function (tone) {
-        return chip('tone', tone, WebLib.toneView(tone).label, filters.tone === tone);
-      }).join('') + '</div>' +
-      '<div class="list">' +
-      (shown.length === 0 ? '<p class="empty">ვერაფერი მოიძებნა.</p>' :
-        shown.map(function (row) {
-          const view = WebLib.pledgeView(row.status);
-          return '<button type="button" class="it" data-answer="' + esc(row.cad) + '">' +
-            '<i class="dot tint-' + esc(row.color) + '"></i>' +
-            '<span class="it-b">' +
-            '<span class="it-n">' + esc(ownerName(row)) + '</span>' +
-            '<span class="it-a">' + esc(row.address || row.cad) + ' · ' +
-            esc(WebLib.money(row.amount_due)) + '</span></span>' +
-            '<span class="it-s">' + esc(view.short) + '</span>' +
-            '</button>';
-        }).join('')) +
-      '</div></div>';
   }
 
   /**
@@ -371,9 +244,11 @@ const ProjectsView = (function () {
       figures(totals) +
       progressBar(totals) +
       myHousehold() +
+      // სია აქ განზრახ არ არის: პროექტის გვერდზე ერთადერთი ინტერაქცია
+      // რუკაა. ნაკვეთზე შეხებით იხსნება კომპაქტური ბარათი, სადაც
+      // ერთ ეკრანზე ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს სჭირდება.
       '<div id="pr-plan"></div>' +
-      streetTable(current.rows) +
-      householdTable(current.rows) +
+      '<p class="map-hint">შეეხე ნაკვეთს — სტატუსი, შენიშვნა, გადახდა</p>' +
       '</div>';
 
     UI.showView('project');
@@ -386,136 +261,143 @@ const ProjectsView = (function () {
     const paint = function () {
       const map = rowByCad();
       planInstance = PlanView.create(host, planData, {
+        sidebar: false,
         tint: function (cad) { return map[cad] ? map[cad].color : 'not_contacted'; },
         legend: legendHtml(current.rows),
-        extra: detailExtra,
+        onSelect: function (cad) { if (cad) openAnswer(cad); },
       });
     };
     if (planData) { paint(); return; }
     PlanView.load().then(function (data) { planData = data; paint(); })
       .catch(function () {
-        host.innerHTML = '<p class="pr-empty">გეგმა ვერ ჩაიტვირთა — ' +
-          'ცხრილი ქვემოთ სრულია.</p>';
+        host.innerHTML = '<p class="empty">გეგმა ვერ ჩაიტვირთა — ' +
+          'გადატვირთეთ გვერდი.</p>';
       });
   }
 
   /* ── პასუხის ჩაწერა ──────────────────────────────────────────── */
 
+  /**
+   * ნაკვეთის ბარათი პროექტში.
+   *
+   * ერთი ეკრანი, რომელზეც ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს
+   * სჭირდება: ვის ურეკავს, რა ნომერზე, რა უპასუხა, რა უნდა დაიმახსოვროს
+   * და შემოვიდა თუ არა ფული. სტატუსები ჩიპებია და არა ერთმანეთის ქვეშ
+   * დაწყობილი რადიოები — ექვსი გრძელი წარწერა ეკრანის ნახევარს ჭამდა.
+   */
   function openAnswer(cad) {
     const row = rowByCad()[cad];
-    // დიალოგი ყველასთვის იხსნება და შიგნით მხოლოდ ნებადართული ნაწილი
-    // ჩანს. ადრე ის უფლების გარეშე ჩუმად არაფერს აკეთებდა — მაცხოვრებელი
-    // აჭერდა და ეგონა, რომ გატეხილია.
     if (!row) return;
     const mayAnswer = canAnswer(row);
+    const mayPay = canPay();
+    const view = WebLib.pledgeView(row.status);
 
     const dialog = document.createElement('div');
     dialog.className = 'pr-dialog';
     dialog.innerHTML =
-      '<form class="pr-dialog-box">' +
-      '<h3>' + esc(ownerName(row)) + '</h3>' +
-      '<p class="pr-dialog-sub">' + esc(row.address || row.cad) + ' · წილი ' +
-      esc(WebLib.money(row.amount_due)) + '</p>' +
+      '<form class="pr-dialog-box pr-card-box">' +
+
+      '<header class="pc-h">' +
+      '<div><h3>' + esc(ownerName(row)) + '</h3>' +
+      '<p>' + esc(row.address || row.cad) + '</p></div>' +
+      '<button type="button" class="pc-x" data-cancel="1" aria-label="დახურვა">✕</button>' +
+      '</header>' +
+
+      (row.phone
+        ? '<a class="pc-call" href="tel:' + esc(row.phone) + '">' +
+          'დარეკვა · ' + esc(row.phone) + '</a>'
+        : '') +
 
       (mayAnswer
-        ? '<fieldset><legend>სტატუსი</legend>' +
+        ? '<fieldset class="pc-status"><legend>სტატუსი</legend>' +
           Object.keys(WebLib.PLEDGE_VIEW).map(function (key) {
-            const view = WebLib.PLEDGE_VIEW[key];
-            return '<label class="pr-choice"><input type="radio" name="status" value="' + key + '"' +
-              (row.status === key ? ' checked' : '') + '> <span>' + esc(view.label) + '</span></label>';
+            const item = WebLib.PLEDGE_VIEW[key];
+            return '<label class="pc-chip tint-' + esc(key) + '">' +
+              '<input type="radio" name="status" value="' + esc(key) + '"' +
+              (row.status === key ? ' checked' : '') + '>' +
+              '<span>' + esc(item.label) + '</span></label>';
           }).join('') + '</fieldset>' +
-          '<label class="pr-note">შენიშვნა<textarea name="note" rows="2" maxlength="500">' +
-          esc(row.note || '') + '</textarea></label>'
-        : '<p class="pr-dialog-sub">პასუხი: ' +
-          esc(WebLib.pledgeView(row.status).label) + '</p>') +
-      paymentsHtml(cad) +
-      '<p class="pr-dialog-error" hidden></p>' +
-      // დარეკვა პირველი მოქმედებაა: მოდერატორი სწორედ ამისთვის ხსნის
-      // ამ ფანჯარას, და ნომერი ტექსტურ ბმულად ეკრანის შუაში იკარგებოდა.
-      (row.phone
-        ? '<div class="cta"><a class="pri" href="tel:' + esc(row.phone) + '">' +
-          'დარეკვა — ' + esc(row.phone) + '</a></div>'
+          '<label class="pc-note">შენიშვნა' +
+          '<textarea name="note" rows="2" maxlength="500" ' +
+          'placeholder="მაგ. ხვალ დამირეკავს">' + esc(row.note || '') + '</textarea></label>'
+        : '<p class="pc-ro"><span class="pr-tone tint-' + esc(row.color) + '">' +
+          esc(view.icon) + '</span> ' + esc(view.label) +
+          (row.note ? ' · ' + esc(row.note) : '') + '</p>') +
+
+      '<div class="pc-money">' +
+      '<span>წილი <b>' + esc(WebLib.money(row.amount_due)) + '</b></span>' +
+      '<span>გადახდილი <b>' + esc(WebLib.money(row.paid)) + '</b></span>' +
+      '</div>' +
+      (mayPay && Number(row.paid) < Number(row.amount_due)
+        ? '<button type="button" class="pc-pay" data-pay="1">გადაიხადა · ' +
+          esc(WebLib.money(row.amount_due)) + '</button>'
         : '') +
-      '<div class="pr-dialog-actions">' +
-      '<button type="button" data-cancel="1">' + (mayAnswer ? 'გაუქმება' : 'დახურვა') + '</button>' +
-      (mayAnswer ? '<button type="submit">შენახვა</button>' : '') +
-      '</div></form>';
+
+      '<p class="pr-dialog-error" hidden></p>' +
+      (mayAnswer ? '<button type="submit" class="pc-save">შენახვა</button>' : '') +
+      '</form>';
+
     document.body.appendChild(dialog);
+    document.body.classList.add('sheet-open');
 
     const form = dialog.querySelector('form');
     const errorBox = dialog.querySelector('.pr-dialog-error');
-    const close = function () { dialog.remove(); };
+    const close = function () {
+      dialog.remove();
+      document.body.classList.remove('sheet-open');
+      if (planInstance) planInstance.select(null);
+    };
     dialog.querySelector('[data-cancel]').addEventListener('click', close);
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
     });
 
+    const fail = function (message) {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    };
+
     const payButton = form.querySelector('[data-pay]');
     if (payButton) {
       payButton.addEventListener('click', async function () {
-        const amount = Number(row.amount_due);
-        const paidOn = form.elements.pay_date.value;
-        if (!isFinite(amount) || amount <= 0) {
-          errorBox.textContent = 'ამ ნაკვეთს წილი არ აქვს მითითებული';
-          errorBox.hidden = false;
-          return;
-        }
-        if (!paidOn) {
-          errorBox.textContent = 'აირჩიეთ გადახდის თარიღი';
-          errorBox.hidden = false;
-          return;
-        }
-        errorBox.hidden = true;
         payButton.disabled = true;
         payButton.textContent = 'იწერება…';
         try {
           await API.call('recordPayment', {
-            project_id: current.project.id,
-            cad: cad,
-            amount: amount,
-            paid_on: paidOn,
+            project_id: current.project.id, cad: cad,
+            amount: Number(row.amount_due),
+            paid_on: new Date().toISOString().slice(0, 10),
           });
-          // დიალოგი იხურება და გვერდი თავიდან იტვირთება: ფერი, ჯამები
-          // და ისტორია ერთდროულად უნდა განახლდეს, თორემ ეკრანზე ორი
-          // სხვადასხვა სიმართლე დარჩება.
           close();
           await openProject(current.project.id);
         } catch (error) {
-          errorBox.textContent = error.message || 'გადახდა ვერ ჩაიწერა';
-          errorBox.hidden = false;
+          fail(error.message || 'გადახდა ვერ ჩაიწერა');
           payButton.disabled = false;
-          payButton.textContent = 'გადაიხადა — ' + WebLib.money(row.amount_due);
+          payButton.textContent = 'გადაიხადა · ' + WebLib.money(row.amount_due);
         }
       });
     }
 
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
-      const status = form.querySelector('input[name="status"]:checked');
-      if (!status) {
-        errorBox.textContent = 'აირჩიეთ პასუხი';
-        errorBox.hidden = false;
-        return;
-      }
-      // ღილაკი ითიშება, დიალოგი კი ღია რჩება პასუხამდე — წინააღმდეგ
-      // შემთხვევაში შეცდომისას აკრეფილი შენიშვნა დაიკარგებოდა.
-      const submit = form.querySelector('button[type="submit"]');
-      submit.disabled = true;
-      submit.textContent = 'ინახება…';
+      const picked = form.querySelector('input[name="status"]:checked');
+      if (!picked) return fail('აირჩიეთ სტატუსი');
+
+      const save = form.querySelector('.pc-save');
+      save.disabled = true;
+      save.textContent = 'ინახება…';
       try {
         await API.call('setPledge', {
-          project_id: current.project.id,
-          cad: cad,
-          status: status.value,
-          note: form.querySelector('textarea[name="note"]').value,
+          project_id: current.project.id, cad: cad,
+          status: picked.value,
+          note: form.elements.note.value,
         });
         close();
         await openProject(current.project.id);
       } catch (error) {
-        errorBox.textContent = error.message || 'შენახვა ვერ მოხერხდა';
-        errorBox.hidden = false;
-        submit.disabled = false;
-        submit.textContent = 'შენახვა';
+        fail(error.message || 'შენახვა ვერ მოხერხდა');
+        save.disabled = false;
+        save.textContent = 'შენახვა';
       }
     });
   }
@@ -525,7 +407,6 @@ const ProjectsView = (function () {
   async function openProject(id) {
     try {
       current = await API.call('project', { id: id });
-      filters = { street: '', tone: '', query: '' };
       renderProject();
     } catch (error) {
       UI.showError(error.message || 'პროექტი ვერ ჩაიტვირთა');
@@ -585,18 +466,6 @@ const ProjectsView = (function () {
       openProject(card.getAttribute('data-open'));
     });
 
-    // ფილტრები ცხრილს თავიდან ხატავენ, ამიტომ მოვლენა დელეგირებულია.
-    host.addEventListener('input', function (event) {
-      if (event.target.id !== 'pr-q') return;
-      filters.query = event.target.value;
-      refreshTable(true);
-    });
-    host.addEventListener('click', function (event) {
-      const chip = event.target.closest && event.target.closest('[data-pf]');
-      if (!chip) return;
-      filters[chip.getAttribute('data-pf')] = chip.getAttribute('data-v');
-      refreshTable(false);
-    });
   }
 
   function openNewProject() {
@@ -643,22 +512,6 @@ const ProjectsView = (function () {
       button.textContent = 'დამტკიცება';
       button.removeAttribute('data-armed');
       button.classList.remove('pr-armed');
-    }
-  }
-
-  /**
-   * მხოლოდ ცხრილს ხატავს თავიდან — რუკას ხელს არ ახლებს.
-   * გვერდის სრული გადახატვა ძებნის ველიდან ფოკუსს იპარავდა.
-   */
-  function refreshTable(keepFocus) {
-    const box = UI.el('view-project').querySelector('.pr-table');
-    if (!box || !current) return;
-    const caret = keepFocus ? document.getElementById('pr-q').selectionStart : null;
-    box.outerHTML = householdTable(current.rows);
-    if (keepFocus) {
-      const field = document.getElementById('pr-q');
-      field.focus();
-      if (caret != null) field.setSelectionRange(caret, caret);
     }
   }
 

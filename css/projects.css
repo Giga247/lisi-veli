@@ -255,3 +255,67 @@
 @media (max-width: 720px) {
   .pr-pay-form { grid-template-columns: 1fr; }
 }
+
+/* ── ნაკვეთის ბარათი პროექტში ─────────────────────────────────── */
+/* ერთი ეკრანი ზარისთვის: ვის, რა ნომერზე, რა უპასუხა, რა დავიმახსოვრო,
+   შემოვიდა თუ არა. ტელეფონზე ქვემოდან ამოდის, დესკტოპზე შუაში დგას. */
+.pr-card-box { width: min(420px, 100%); gap: 12px; padding: 16px; }
+
+.pc-h { display: flex; align-items: flex-start; gap: 10px; }
+.pc-h h3 { margin: 0; font-size: 17px; line-height: 1.25; }
+.pc-h p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-muted); }
+.pc-x { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-muted);
+  font: inherit; font-size: 15px; cursor: pointer; }
+
+.pc-call { display: grid; place-items: center; height: 46px; border-radius: 12px;
+  background: var(--ink); color: var(--surface); text-decoration: none;
+  font-size: 14px; font-weight: 500; }
+
+.pc-status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  border: 0; padding: 0; margin: 0; }
+.pc-status legend { font-size: 12px; color: var(--ink-muted); padding: 0 0 6px;
+  grid-column: 1 / -1; }
+/* რადიო რჩება — კლავიატურა და ეკრანის მკითხველი მასზეა მიბმული —
+   ოღონდ ვიზუალურად ჩიპი ცვლის მას. */
+.pc-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.pc-chip { display: flex; align-items: center; gap: 7px; min-height: 44px;
+  padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); font-size: 12.5px; line-height: 1.25;
+  cursor: pointer; }
+.pc-chip::before { content: ''; width: 10px; height: 10px; border-radius: 50%;
+  flex: 0 0 auto; background: currentColor; opacity: .85; }
+.pc-chip.tint-not_contacted { color: var(--tone-not_contacted); }
+.pc-chip.tint-unreachable { color: var(--tone-unreachable); }
+.pc-chip.tint-paying { color: var(--tone-paying); }
+.pc-chip.tint-loan { color: var(--tone-loan); }
+.pc-chip.tint-declined { color: var(--tone-declined); }
+.pc-chip.tint-paid { color: var(--tone-paid); }
+.pc-chip span { color: var(--ink); }
+.pc-chip:has(input:checked) { border-color: currentColor; border-width: 2px;
+  padding: 6px 9px; }
+.pc-chip:has(input:focus-visible) { outline: 2px solid var(--pl-focus);
+  outline-offset: 2px; }
+
+.pc-note { display: grid; gap: 4px; font-size: 12px; color: var(--ink-muted); }
+.pc-note textarea { border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 10px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13px; resize: vertical; }
+
+.pc-ro { margin: 0; font-size: 13px; }
+.pc-money { display: flex; gap: 18px; font-size: 12px; color: var(--ink-muted);
+  padding-top: 10px; border-top: 1px solid var(--line); }
+.pc-money b { display: block; font-size: 15px; color: var(--ink);
+  font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.pc-pay, .pc-save { height: 46px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px;
+  font-weight: 500; cursor: pointer; }
+.pc-save { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.pc-pay[disabled], .pc-save[disabled] { opacity: .6; cursor: default; }
+
+@media (max-width: 560px) {
+  .pr-dialog { align-items: end; padding: 0; }
+  .pr-card-box { width: 100%; border-radius: 20px 20px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+}

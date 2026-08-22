@@ -260,6 +260,7 @@ const API = (function () {
         first_name: plot.first_name || '', last_name: plot.last_name || '',
         phone: phoneByCad[pledge.cad] || '',
         amount_due: pledge.amount_due, status: pledge.status,
+        note: pledge.note || '',
         recorded_by: pledge.recorded_by || '', recorded_at: pledge.recorded_at || '',
         paid: paid,
         color: WebLib.plotColor(pledge),
@@ -301,9 +302,13 @@ const API = (function () {
     if (!projectId || !cad) fail('VALIDATION', 'პროექტი ან ნაკვეთი არ არის მითითებული');
     if (allowed.indexOf(status) === -1) fail('VALIDATION', 'უცნობი პასუხი: ' + status);
 
+    const patch = {
+      status: status,
+      note: String((payload && payload.note) || '').trim().slice(0, 500) || null,
+      recorded_at: new Date().toISOString(),
+    };
     const { data, error } = await sb.from('pledges')
-      .update({ status: status, recorded_at: new Date().toISOString() })
-      .eq('project_id', projectId).eq('cad', cad).select();
+      .update(patch).eq('project_id', projectId).eq('cad', cad).select();
     if (error) fromPostgrest(error);
     if (!data || data.length === 0) fail('NOT_FOUND', 'ვალდებულება ვერ მოიძებნა');
     return data[0];
