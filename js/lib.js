@@ -113,21 +113,35 @@
    * სადაც ფერი მარტო აღარ კმარა. ამიტომ ფერს ყველგან სიმბოლოც მოსდევს
    * და წარწერაც: რუკაზე, ლეგენდაში, ცხრილში.
    */
+  /**
+   * ექვსი სტატუსი — ერთადერთი წყარო წარწერისთვის, სიმბოლოსა და ფერისთვის.
+   *
+   * `tone` სტატუსის სახელს ემთხვევა და ეს განზრახაა: ადრე ფერი ცალკე
+   * ცნება იყო და გადახდების ცხრილიდან გამოითვლებოდა („ნაწილობრივ
+   * გადახდილი"). ნაწილობრივი გადახდა არ არსებობს — ან დებს, ან არა —
+   * ამიტომ სტატუსი თავად არის ფერი და ორი ცნება ერთმანეთს ვეღარ
+   * დაშორდება.
+   *
+   * სიმბოლო ყველგან თან ახლავს ფერს: მწვანე და ნარინჯისფერი
+   * პროტანოპიისთვის ახლოს დგანან, და ფერი მარტო ვერასდროს ატარებს
+   * მნიშვნელობას.
+   */
   const PLEDGE_VIEW = {
-    not_contacted: { label: 'ჯერ არ მიველაპარაკე', short: 'ჯერ არა', icon: '·', tone: 'none' },
-    paying: { label: 'ვდებ თანხას', short: 'დებს', icon: '↑', tone: 'promised' },
-    loan: { label: 'უბნის ვალად ვიღებ — წლის განმავლობაში დავაბრუნებ',
-      short: 'ვალით', icon: '⟳', tone: 'loan' },
-    declined: { label: 'არ ვდებ', short: 'არ დებს', icon: '✕', tone: 'declined' },
+    not_contacted: { label: 'არ დარეკილა', short: 'არ დარეკილა', icon: '·', tone: 'not_contacted' },
+    unreachable: { label: 'ვერ ვუკავშირდები', short: 'ვერ ვუკავშირდები', icon: '?', tone: 'unreachable' },
+    paying: { label: 'დებს', short: 'დებს', icon: '↑', tone: 'paying' },
+    loan: { label: 'ვერ დებს და ვალად იღებს', short: 'ვალად იღებს', icon: '⟳', tone: 'loan' },
+    declined: { label: 'არ დებს', short: 'არ დებს', icon: '✕', tone: 'declined' },
+    paid: { label: 'გადახდილია', short: 'გადახდილია', icon: '✓', tone: 'paid' },
   };
 
   const TONE_VIEW = {
-    none: { label: 'პასუხის გარეშე', icon: '·' },
-    promised: { label: 'თანხას დებს', icon: '↑' },
+    not_contacted: { label: 'არ დარეკილა', icon: '·' },
+    unreachable: { label: 'ვერ ვუკავშირდები', icon: '?' },
+    paying: { label: 'დებს', icon: '↑' },
     loan: { label: 'ვალად იღებს', icon: '⟳' },
-    partial: { label: 'ნაწილობრივ გადახდილი', icon: '◐' },
-    paid: { label: 'გადახდილი', icon: '✓' },
     declined: { label: 'არ დებს', icon: '✕' },
+    paid: { label: 'გადახდილია', icon: '✓' },
   };
 
   function pledgeView(status) {
@@ -135,7 +149,7 @@
   }
 
   function toneView(tone) {
-    return TONE_VIEW[tone] || TONE_VIEW.none;
+    return TONE_VIEW[tone] || TONE_VIEW.not_contacted;
   }
 
   /**
@@ -170,8 +184,11 @@
       if (!byStreet[street]) {
         // მთვლელები ცალკე ბუდეშია: `paid` ორივეს ერქვა — შემოსულ თანხასაც
         // და გადახდილი კომლების რიცხვსაც — და ერთმანეთს ემატებოდნენ.
-        byStreet[street] = { street: street, total: 0, due: 0, paid: 0,
-          counts: { none: 0, promised: 0, loan: 0, partial: 0, paid: 0, declined: 0 } };
+        // მთვლელები ექვსივე სტატუსზე, `PLEDGE_VIEW`-იდან — რომ ახალი
+        // სტატუსის დამატებისას ეს სია ჩუმად არ ჩამორჩეს.
+        const counts = {};
+        Object.keys(PLEDGE_VIEW).forEach(function (key) { counts[key] = 0; });
+        byStreet[street] = { street: street, total: 0, due: 0, paid: 0, counts: counts };
       }
       const bucket = byStreet[street];
       bucket.total += 1;
@@ -199,9 +216,127 @@
     });
   }
 
+  /**
+   * რედაქტირებადი ველების თეთრი სია.
+   *
+   * ჭეშმარიტების წყარო აღარ არის ეს მასივი — ბაზაში ამ ცხრა სვეტზე
+   * გვაქვს `grant update`, დანარჩენებზე არა, ასე რომ სიის გვერდის ავლა
+   * შეუძლებელია. აქ ის იმისთვის რჩება, რომ მომხმარებელმა შეცდომა
+   * ქართულად და მაშინვე დაინახოს, და არა Postgres-ის ინგლისური უარი.
+   */
+  const EDITABLE_FIELDS = ['first_name', 'last_name', 'phone', 'street',
+    'num', 'address', 'area', 'purpose', 'note'];
+
+  function isEditableField(field) {
+    return EDITABLE_FIELDS.indexOf(field) !== -1;
+  }
+
+  /** ტელეფონი -> {ok, value} ან {ok:false, message}. */
+  function normalizePhone(raw) {
+    if (raw == null || String(raw).trim() === '') {
+      return { ok: true, value: '' };
+    }
+    const text = String(raw).trim();
+    // წამყვანი `+` განზრახვის ნიშანია: მფლობელი უცხოურ ნომერს წერს. მის
+    // გარეშე ისევ მხოლოდ ქართული ფორმატი მიიღება — ათნიშნა ნომერი ტიპოა,
+    // არა უცხოური.
+    const international = text.charAt(0) === '+';
+    const digits = text.replace(/[\s\-()+.]/g, '');
+    if (!/^[0-9]+$/.test(digits)) {
+      return { ok: false, message: 'ტელეფონი მხოლოდ ციფრებს უნდა შეიცავდეს' };
+    }
+    if (international) {
+      // E.164: ქვეყნის კოდი + ნომერი, სულ 15 ციფრამდე.
+      if (digits.length < 8 || digits.length > 15) {
+        return { ok: false, message: 'საერთაშორისო ნომერი უნდა იყოს 8-15 ციფრი' };
+      }
+      return { ok: true, value: '+' + digits };
+    }
+    let local;
+    if (digits.length === 9) {
+      local = digits;
+    } else if (digits.length === 12 && digits.indexOf('995') === 0) {
+      local = digits.slice(3);
+    } else {
+      return { ok: false, message: 'ნომერი უნდა იყოს 9 ციფრი, 995 + 9 ციფრი, ან +ქვეყნის-კოდი' };
+    }
+    return { ok: true, value: '+995' + local };
+  }
+
+  /**
+   * უახლოეს ხუთეულამდე. უბანში ხუთლარიან ნაბიჯებში ლაპარაკობენ და ისე
+   * იხდიან; 222.22 ლარი ქაღალდზეც უხერხულია და საუბარშიც.
+   */
+  function roundToFive(value) {
+    const number = Number(value);
+    if (!isFinite(number)) return 0;
+    return Math.round(number / 5) * 5;
+  }
+
+  /**
+   * ნაკვეთის ფერი. სტატუსი და ფერი ერთი და იგივეა.
+   *
+   * ადრე ეს ფუნქცია გადახდილ თანხას ადარებდა წილს და „ნაწილობრივ
+   * გადახდილს" აბრუნებდა. ასეთი მდგომარეობა უბანში არ არსებობს.
+   */
+  function plotColor(pledge) {
+    const status = pledge && pledge.status;
+    return PLEDGE_VIEW[status] ? status : 'not_contacted';
+  }
+
+  /**
+   * პროექტის ჯამები.
+   *
+   * `promised` და `loan` **დარჩენილს** ითვლიან, არა სრულ წილს — ვინც
+   * ნახევარი გადაიხადა, დანარჩენ ნახევარს რჩება დაპირებული, და ერთი და
+   * იგივე ლარი ორჯერ არ ითვლება.
+   */
+  function projectTotals(project, pledges, payments) {
+    const paidByCad = {};
+    (payments || []).forEach(function (payment) {
+      const cad = String(payment.cad || '').trim();
+      paidByCad[cad] = (paidByCad[cad] || 0) + (Number(payment.amount) || 0);
+    });
+
+    let collected = 0;
+    Object.keys(paidByCad).forEach(function (cad) { collected += paidByCad[cad]; });
+
+    let promised = 0;
+    let loan = 0;
+    let declined = 0;
+    let pending = 0;
+
+    (pledges || []).forEach(function (pledge) {
+      const cad = String(pledge.cad || '').trim();
+      const due = Number(pledge.amount_due) || 0;
+      const paid = paidByCad[cad] || 0;
+      const left = Math.max(0, due - paid);
+      if (pledge.status === 'paid') return;   // ფული უკვე `collected`-შია
+      if (pledge.status === 'paying') promised += left;
+      else if (pledge.status === 'loan') loan += left;
+      else if (pledge.status === 'declined') declined += due;
+      else pending += due;   // not_contacted და unreachable
+    });
+
+    const budget = Number(project && project.budget) || 0;
+    return {
+      budget: budget, collected: collected, promised: promised,
+      loan: loan, declined: declined, pending: pending,
+      remaining: Math.max(0, budget - collected),
+      // ნამეტი შეცდომა არ არის — ის უბნის ფონდში რჩება. მისი ცალკე
+      // ჩვენების გარეშე 31 000-იან პროექტში შემოსული 56 000 ეკრანზე
+      // „აკლია 0 ₾"-ად გამოჩნდებოდა და 25 000 უბრალოდ დაიკარგებოდა.
+      surplus: Math.max(0, collected - budget),
+    };
+  }
+
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
     PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,
-    streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows };
+    streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows,
+    EDITABLE_FIELDS: EDITABLE_FIELDS, isEditableField: isEditableField,
+    normalizePhone: normalizePhone,
+    roundToFive: roundToFive, plotColor: plotColor,
+    projectTotals: projectTotals };
 });

@@ -7,7 +7,7 @@ const AdminView = (function () {
   ];
 
   async function render() {
-    const panel = UI.el('panel-admin');
+    const panel = UI.el('view-admin');
     panel.innerHTML = '<p>იტვირთება…</p>';
     try {
       const users = await API.call('users');

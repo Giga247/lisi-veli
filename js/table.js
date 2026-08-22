@@ -1,97 +1,122 @@
+/**
+ * ნაკვეთების სია მთავარ გვერდზე.
+ *
+ * ცხრილი სტრიქონებად გადაკეთდა: ექვსსვეტიანი ცხრილი ტელეფონზე ან
+ * ჰორიზონტალურად იჭიმებოდა, ან ისე იკუმშებოდა, რომ სახელი ორ ასოზე
+ * წყდებოდა. თითო კომლი ერთი მწკრივია, დაჭერით — იგივე ბარათი, რასაც
+ * რუკა ხსნის.
+ */
 const TableView = (function () {
+  'use strict';
+
+  const esc = function (v) { return WebLib.escapeHtml(v); };
+
   let plots = [];
   let user = null;
-  let sortKey = 'street';
-  let sortDir = 'asc';
-
-  const COLUMNS = [
-    { key: 'street', label: 'ქუჩა' },
-    { key: 'num', label: 'N' },
-    { key: 'name', label: 'მფლობელი', sortable: false },
-    { key: 'phone', label: 'ტელეფონი' },
-    { key: 'area', label: 'ფართობი' },
-    { key: 'cad', label: 'საკადასტრო კოდი' },
-  ];
+  let statusByCad = {};
+  let project = null;
+  let filters = { query: '', street: '', status: '' };
 
   function canEdit() {
     return user && (user.role === 'moderator' || user.role === 'admin');
   }
 
-  function render(allPlots, currentUser) {
-    plots = allPlots;
-    user = currentUser;
-    const panel = UI.el('panel-table');
-    panel.innerHTML =
-      '<div class="controls">' +
-      '  <input id="tbl-search" type="search" placeholder="ძებნა…">' +
-      '  <select id="tbl-street"><option value="">ყველა ქუჩა</option></select>' +
-      '  <span id="tbl-count"></span>' +
-      '</div><div id="tbl-body"></div>';
+  function chips() {
+    const streets = WebLib.streetList(plots);
+    const status = Object.keys(WebLib.PLEDGE_VIEW);
+    const one = function (group, value, label, on) {
+      return '<button type="button" data-f="' + group + '" data-v="' + esc(value) +
+        '"' + (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
+    };
+    return '<div class="chips">' +
+      one('street', '', 'ყველა ქუჩა', filters.street === '') +
+      streets.map(function (street) {
+        return one('street', street, street, filters.street === street);
+      }).join('') +
+      '</div>' +
+      (project
+        ? '<div class="chips">' +
+          one('status', '', 'ყველა სტატუსი', filters.status === '') +
+          status.map(function (key) {
+            return one('status', key, WebLib.PLEDGE_VIEW[key].label, filters.status === key);
+          }).join('') + '</div>'
+        : '');
+  }
 
-    const select = UI.el('tbl-street');
-    WebLib.streetList(plots).forEach(function (street) {
-      const option = document.createElement('option');
-      option.value = street;
-      option.textContent = street;
-      select.appendChild(option);
-    });
+  function matches(plot) {
+    if (filters.status) {
+      const row = statusByCad[String(plot.cad).trim()];
+      if (!row || row.status !== filters.status) return false;
+    }
+    return true;
+  }
 
-    UI.el('tbl-search').addEventListener('input', draw);
-    select.addEventListener('change', draw);
-    draw();
+  function visible() {
+    return WebLib.sortPlots(
+      WebLib.filterPlots(plots, { query: filters.query, street: filters.street }),
+      'street', 'asc').filter(matches);
+  }
+
+  function rowHtml(plot) {
+    const row = statusByCad[String(plot.cad).trim()];
+    const view = row ? WebLib.pledgeView(row.status) : null;
+    const where = [plot.street, plot.num ? '№' + plot.num : '']
+      .filter(Boolean).join(' ');
+    return '<button type="button" class="it" data-cad="' + esc(plot.cad) + '">' +
+      '<i class="dot' + (view ? ' tint-' + esc(row.status) : ' is-plain') + '"></i>' +
+      '<span class="it-b">' +
+      '<span class="it-n">' + esc(WebLib.fullName(plot) || '—') + '</span>' +
+      '<span class="it-a">' + esc(where || plot.cad) + '</span></span>' +
+      (view ? '<span class="it-s">' + esc(view.short) + '</span>' : '') +
+      '</button>';
   }
 
   function draw() {
-    const query = UI.el('tbl-search').value;
-    const street = UI.el('tbl-street').value;
-    const rows = WebLib.sortPlots(
-      WebLib.filterPlots(plots, { query: query, street: street }),
-      sortKey, sortDir);
+    const rows = visible();
+    UI.el('list-count').textContent = rows.length + (rows.length === plots.length
+      ? '' : ' / ' + plots.length);
+    UI.el('list-rows').innerHTML = rows.length === 0
+      ? '<p class="empty">ვერაფერი მოიძებნა.</p>'
+      : rows.map(rowHtml).join('');
+    UI.el('list-filters').innerHTML = chips();
+  }
 
-    UI.el('tbl-count').textContent = rows.length + ' ნაკვეთი';
+  function render(allPlots, currentUser, activeProject, projectRows) {
+    plots = allPlots || [];
+    user = currentUser;
+    project = activeProject || null;
+    statusByCad = {};
+    (projectRows || []).forEach(function (row) {
+      statusByCad[String(row.cad).trim()] = row;
+    });
 
-    const head = COLUMNS.map(function (column) {
-      const arrow = (column.key === sortKey) ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-      const attr = column.sortable === false ? '' :
-        ' data-sort="' + column.key + '"';
-      return '<th' + attr + '>' + column.label + arrow + '</th>';
-    }).join('') + '<th></th>';
+    const host = UI.el('home-list');
+    host.innerHTML =
+      '<div class="sec-h"><h2>ნაკვეთები</h2><span id="list-count" class="muted"></span></div>' +
+      '<input id="list-q" type="search" placeholder="ძებნა — სახელი, მისამართი, კოდი">' +
+      '<div id="list-filters"></div>' +
+      '<div id="list-rows" class="list"></div>';
 
-    const body = rows.map(function (plot) {
-      const status = WebLib.mapStatus(plot);
-      const flag = status === 'missing' ? ' 🚩' : (status === 'marker' ? ' 📍' : '');
-      const phone = plot.phone
-        ? '<a href="tel:' + WebLib.escapeHtml(plot.phone) + '">' + WebLib.escapeHtml(plot.phone) + '</a>'
-        : '—';
-      const edit = canEdit()
-        ? '<button data-edit="' + WebLib.escapeHtml(plot.cad) + '">✏️</button>' : '';
-      return '<tr>' +
-        '<td>' + WebLib.escapeHtml(plot.street || '—') + flag + '</td>' +
-        '<td>' + WebLib.escapeHtml(plot.num || '—') + '</td>' +
-        '<td>' + WebLib.escapeHtml(WebLib.fullName(plot)) + '</td>' +
-        '<td>' + phone + '</td>' +
-        '<td>' + WebLib.escapeHtml(plot.area || '—') + '</td>' +
-        '<td>' + WebLib.escapeHtml(plot.cad) + '</td>' +
-        '<td>' + edit + '</td>' +
-        '</tr>';
-    }).join('');
-
-    UI.el('tbl-body').innerHTML =
-      '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>';
-
-    UI.el('tbl-body').querySelectorAll('[data-sort]').forEach(function (th) {
-      th.addEventListener('click', function () {
-        const key = th.getAttribute('data-sort');
-        if (key === sortKey) { sortDir = (sortDir === 'asc') ? 'desc' : 'asc'; }
-        else { sortKey = key; sortDir = 'asc'; }
+    // მოვლენები დელეგირებულია: სია და ჩიპები ყოველ ფილტრზე თავიდან
+    // იხატება, ამიტომ პირდაპირ მიბმული მსმენელი პირველივე ძებნას
+    // გადარჩებოდა.
+    host.addEventListener('input', function (event) {
+      if (event.target.id !== 'list-q') return;
+      filters.query = event.target.value;
+      draw();
+    });
+    host.addEventListener('click', function (event) {
+      const chip = event.target.closest('[data-f]');
+      if (chip) {
+        filters[chip.getAttribute('data-f')] = chip.getAttribute('data-v');
         draw();
-      });
+        return;
+      }
+      const item = event.target.closest('[data-cad]');
+      if (item) MapView.openSheet(item.getAttribute('data-cad'));
     });
-    UI.el('tbl-body').querySelectorAll('[data-edit]').forEach(function (button) {
-      button.addEventListener('click', function () {
-        openEditor(button.getAttribute('data-edit'));
-      });
-    });
+
+    draw();
   }
 
   function findPlot(cad) {
@@ -172,7 +197,9 @@ const TableView = (function () {
         plot.updated_at = result.updated_at;
         dialog.close();
         draw();
-        if (window.MapView) MapView.render(plots, user);
+        // რუკის თავიდან ხატვა არ სჭირდება: `MapView` სიის იმავე
+        // ობიექტებს იხსენებს, ამიტომ `Object.assign` მასაც ეხება.
+        // გეომეტრია და სტატუსი კი რედაქტირებით არ იცვლება.
       } catch (error) {
         // შეცდომა თავად dialog-ში ჩანს და 6 წამში არ ქრება — ტოსტი
         // შესწორებისთვის საკმარისი დრო არ იყო, და მისი გაქრობის შემდეგ

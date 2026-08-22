@@ -14,7 +14,6 @@ const ProjectsView = (function () {
 
   const esc = function (v) { return WebLib.escapeHtml(v); };
 
-  let panel = null;
   let user = null;
   let list = [];
   let current = null;      // { project, totals, rows, payments }
@@ -22,7 +21,7 @@ const ProjectsView = (function () {
   let planInstance = null;
   let filters = { street: '', tone: '', query: '' };
 
-  const TONE_ORDER = ['paid', 'partial', 'promised', 'loan', 'none', 'declined'];
+  const TONE_ORDER = ['paid', 'paying', 'loan', 'declined', 'unreachable', 'not_contacted'];
 
   /* ── სია ─────────────────────────────────────────────────────── */
 
@@ -74,15 +73,59 @@ const ProjectsView = (function () {
     const sorted = list.slice().sort(function (a, b) {
       return (order[a.status] ?? 9) - (order[b.status] ?? 9);
     });
-    panel.innerHTML = '<div class="pr-list">' +
-      '<h2>უბნის პროექტები</h2>' +
+    UI.el('home-projects').innerHTML =
+      '<div class="sec-h"><h2>უბნის პროექტები</h2>' +
+      (canCreate() ? '<button type="button" data-new="1" class="pr-new">' +
+        '+ ახალი</button>' : '') + '</div>' +
       (sorted.length === 0
-        ? '<p class="pr-empty">პროექტი ჯერ არ არის.</p>'
-        : sorted.map(projectCard).join('')) +
-      '</div>';
+        ? '<p class="empty">პროექტი ჯერ არ არის.</p>'
+        : '<div class="pr-cards">' + sorted.map(projectCard).join('') + '</div>');
+  }
+
+  /** პროექტს ქმნის ადმინი ან მოდერატორი; ამტკიცებს მხოლოდ ადმინი. */
+  function canCreate() {
+    return Boolean(user) && (user.role === 'admin' || user.role === 'moderator');
+  }
+
+  function canApprove(project) {
+    return Boolean(user) && user.role === 'admin' && project && project.status === 'draft';
   }
 
   /* ── ერთი პროექტი ────────────────────────────────────────────── */
+
+  /**
+   * ფოტოების ზოლი. bucket კერძოა, ამიტომ `url` ხელმოწერილია და ვადა
+   * აქვს — გვერდის ხელახლა გახსნისას ახალი მოდის.
+   */
+  function photoStrip(photos) {
+    const shown = (photos || []).filter(function (photo) { return photo.url; });
+    if (shown.length === 0) return '';
+    return '<div class="pr-photos">' +
+      shown.map(function (photo) {
+        return '<a href="' + esc(photo.url) + '" target="_blank" rel="noopener">' +
+          '<img src="' + esc(photo.url) + '" alt="" loading="lazy"></a>';
+      }).join('') + '</div>';
+  }
+
+  /**
+   * დაუმტკიცებელი პროექტის ბანერი.
+   *
+   * ღილაკი ერთი დაჭერით ათეულობით ვალდებულებას ქმნის, ამიტომ ეკრანზე
+   * წერია, ზუსტად რამდენს — და არა უბრალოდ „დამტკიცება".
+   */
+  function approvalBanner(project) {
+    if (project.status !== 'draft') return '';
+    const count = (project.plot_cads || []).length;
+    const each = Number(project.amount_per_household) || 0;
+    const sum = 'შეიქმნება ' + count + ' ვალდებულება, თითო ' +
+      WebLib.money(each) + ' — სულ ' + WebLib.money(count * each);
+    return '<div class="pr-approval">' +
+      '<p><strong>ეს პროექტი ჯერ არ არის დამტკიცებული.</strong> ' + esc(sum) + '.</p>' +
+      (canApprove(project)
+        ? '<button type="button" data-approve="' + esc(project.id) + '">დამტკიცება</button>'
+        : '<p class="pr-approval-wait">დამტკიცებას ადმინი ახდენს.</p>') +
+      '</div>';
+  }
 
   function figures(totals) {
     const cells = [
@@ -91,8 +134,14 @@ const ProjectsView = (function () {
       ['ვალად იღებს', totals.loan, ''],
       ['არ დებს', totals.declined, ''],
       ['პასუხის გარეშე', totals.pending, ''],
-      ['აკლია', totals.remaining, ''],
     ];
+    // „აკლია" და „ნამეტი" ერთდროულად ვერასდროს იქნება — ერთი მათგანი
+    // ყოველთვის ნული იქნებოდა და ეკრანზე ცარიელ სვეტს იჭერდა. ნამეტი
+    // შეცდომა არ არის: ის უბნის ფონდში რჩება, ამიტომ ისე ჩანს,
+    // როგორც შედეგი, და არა როგორც გაფრთხილება.
+    cells.push(totals.surplus > 0
+      ? ['ნამეტი', totals.surplus, 'pr-surplus']
+      : ['აკლია', totals.remaining, '']);
     return '<dl class="pr-kpi">' + cells.map(function (cell) {
       return '<div><dt>' + esc(cell[0]) + '</dt>' +
         '<dd class="' + cell[2] + '">' + esc(WebLib.money(cell[1])) + '</dd></div>';
@@ -146,6 +195,59 @@ const ProjectsView = (function () {
     if (user.role === 'admin') return true;
     if (user.role !== 'moderator') return false;
     return !!row.street && row.street === (user.street || '');
+  }
+
+  /**
+   * ფულის ჩაწერის უფლება.
+   *
+   * `canAnswer`-ისგან განსხვავებით მოდერატორი აქ ქუჩით **არ** არის
+   * შეზღუდული — ასე წერია RLS-ში, და კლიენტი განზრახ იმეორებს ბაზას:
+   * ფორმა, რომელსაც ბაზა უარყოფს, არ უნდა გამოჩნდეს, და პირიქითაც.
+   *
+   * ხაზინდარი გლობალური როლი არ არის — ის პროექტის ველია, ამიტომ
+   * ჩვეულებრივ მაცხოვრებელსაც შეუძლია ფულის ჩაწერა, თუ ამ პროექტის
+   * ხაზინდარია.
+   */
+  function canPay() {
+    if (!user || !current || current.project.status !== 'active') return false;
+    if (user.role === 'admin' || user.role === 'moderator') return true;
+    return Boolean(current.project.treasurer) &&
+      current.project.treasurer === user.email;
+  }
+
+  function paymentsFor(cad) {
+    return (current.payments || [])
+      .filter(function (payment) { return payment.cad === cad; })
+      .sort(function (a, b) { return String(a.paid_on) < String(b.paid_on) ? -1 : 1; });
+  }
+
+  function paymentsHtml(cad) {
+    const rows = paymentsFor(cad);
+    const history = rows.length === 0
+      ? '<p class="pr-pay-empty">გადახდა ჯერ არ არის.</p>'
+      : '<ul class="pr-pay-list">' + rows.map(function (payment) {
+          return '<li><span>' + esc(String(payment.paid_on || '').slice(0, 10)) + '</span>' +
+            '<strong>' + esc(WebLib.money(payment.amount)) + '</strong>' +
+            '<span>' + esc(payment.method || '') + '</span>' +
+            '<span class="pr-pay-who">' + esc(payment.recorded_by || '') + '</span></li>';
+        }).join('') + '</ul>';
+
+    if (!canPay()) return '<section class="pr-pay"><h4>გადახდები</h4>' + history + '</section>';
+
+    // ჩაწერილი თანხა ყოველთვის სრული წილია. ნაწილობრივი გადახდა არ
+    // არსებობს — ან დებს, ან არა — ამიტომ რიცხვის ველი მხოლოდ შეცდომის
+    // საშუალება იქნებოდა და არა არჩევანი.
+    const row = rowByCad()[cad] || {};
+    const today = new Date().toISOString().slice(0, 10);
+    return '<section class="pr-pay"><h4>გადახდები</h4>' + history +
+      '<div class="pr-pay-form">' +
+      '<label>გადახდის თარიღი' +
+      '<input type="date" name="pay_date" value="' + esc(today) + '"></label>' +
+      // type="button" აუცილებელია: ეს ღილაკი დიალოგის form-ის შიგნითაა
+      // და ნაგულისხმევად სტატუსის შენახვას გაუშვებდა.
+      '<button type="button" data-pay="1">გადაიხადა — ' +
+      esc(WebLib.money(row.amount_due)) + '</button>' +
+      '</div></section>';
   }
 
   let byCadCache = null;
@@ -245,13 +347,15 @@ const ProjectsView = (function () {
     const totals = current.totals;
     byCadCache = null;
 
-    panel.innerHTML =
+    UI.el('view-project').innerHTML =
       '<div class="pr-page">' +
-      '<button type="button" class="pr-back" data-back="1">← ყველა პროექტი</button>' +
+      '<button type="button" class="pr-back" data-back="1">← მთავარი</button>' +
       '<header class="pr-head"><h2>' + esc(project.name) + '</h2>' +
       '<span class="pr-status pr-status-' + esc(project.status) + '">' +
       esc(statusLabel(project.status)) + '</span></header>' +
+      approvalBanner(project) +
       (project.description ? '<p class="pr-desc">' + esc(project.description) + '</p>' : '') +
+      photoStrip(current.photos) +
       figures(totals) +
       progressBar(totals) +
       myHousehold() +
@@ -260,6 +364,7 @@ const ProjectsView = (function () {
       householdTable(current.rows) +
       '</div>';
 
+    UI.showView('project');
     renderPlan();
   }
 
@@ -269,7 +374,7 @@ const ProjectsView = (function () {
     const paint = function () {
       const map = rowByCad();
       planInstance = PlanView.create(host, planData, {
-        tint: function (cad) { return map[cad] ? map[cad].color : 'none'; },
+        tint: function (cad) { return map[cad] ? map[cad].color : 'not_contacted'; },
         legend: legendHtml(current.rows),
         extra: detailExtra,
       });
@@ -286,7 +391,10 @@ const ProjectsView = (function () {
 
   function openAnswer(cad) {
     const row = rowByCad()[cad];
-    if (!row || !canAnswer(row)) return;
+    // ხაზინდარი პასუხს ვერ ცვლის, ფულს კი წერს — დიალოგი ორივესთვის
+    // იხსნება და შიგნით მხოლოდ ნებადართული ნაწილი ჩანს.
+    if (!row || (!canAnswer(row) && !canPay())) return;
+    const mayAnswer = canAnswer(row);
 
     const dialog = document.createElement('div');
     dialog.className = 'pr-dialog';
@@ -296,18 +404,23 @@ const ProjectsView = (function () {
       '<p class="pr-dialog-sub">' + esc(row.address || row.cad) + ' · წილი ' +
       esc(WebLib.money(row.amount_due)) + '</p>' +
       (row.phone ? '<p><a href="tel:' + esc(row.phone) + '">' + esc(row.phone) + '</a></p>' : '') +
-      '<fieldset><legend>რა უპასუხა?</legend>' +
-      Object.keys(WebLib.PLEDGE_VIEW).map(function (key) {
-        const view = WebLib.PLEDGE_VIEW[key];
-        return '<label class="pr-choice"><input type="radio" name="status" value="' + key + '"' +
-          (row.status === key ? ' checked' : '') + '> <span>' + esc(view.label) + '</span></label>';
-      }).join('') + '</fieldset>' +
-      '<label class="pr-note">შენიშვნა<textarea name="note" rows="2" maxlength="500">' +
-      esc(row.note || '') + '</textarea></label>' +
+      (mayAnswer
+        ? '<fieldset><legend>სტატუსი</legend>' +
+          Object.keys(WebLib.PLEDGE_VIEW).map(function (key) {
+            const view = WebLib.PLEDGE_VIEW[key];
+            return '<label class="pr-choice"><input type="radio" name="status" value="' + key + '"' +
+              (row.status === key ? ' checked' : '') + '> <span>' + esc(view.label) + '</span></label>';
+          }).join('') + '</fieldset>' +
+          '<label class="pr-note">შენიშვნა<textarea name="note" rows="2" maxlength="500">' +
+          esc(row.note || '') + '</textarea></label>'
+        : '<p class="pr-dialog-sub">პასუხი: ' +
+          esc(WebLib.pledgeView(row.status).label) + '</p>') +
+      paymentsHtml(cad) +
       '<p class="pr-dialog-error" hidden></p>' +
       '<div class="pr-dialog-actions">' +
-      '<button type="button" data-cancel="1">გაუქმება</button>' +
-      '<button type="submit">შენახვა</button></div></form>';
+      '<button type="button" data-cancel="1">' + (mayAnswer ? 'გაუქმება' : 'დახურვა') + '</button>' +
+      (mayAnswer ? '<button type="submit">შენახვა</button>' : '') +
+      '</div></form>';
     document.body.appendChild(dialog);
 
     const form = dialog.querySelector('form');
@@ -317,6 +430,45 @@ const ProjectsView = (function () {
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
     });
+
+    const payButton = form.querySelector('[data-pay]');
+    if (payButton) {
+      payButton.addEventListener('click', async function () {
+        const amount = Number(row.amount_due);
+        const paidOn = form.elements.pay_date.value;
+        if (!isFinite(amount) || amount <= 0) {
+          errorBox.textContent = 'ამ ნაკვეთს წილი არ აქვს მითითებული';
+          errorBox.hidden = false;
+          return;
+        }
+        if (!paidOn) {
+          errorBox.textContent = 'აირჩიეთ გადახდის თარიღი';
+          errorBox.hidden = false;
+          return;
+        }
+        errorBox.hidden = true;
+        payButton.disabled = true;
+        payButton.textContent = 'იწერება…';
+        try {
+          await API.call('recordPayment', {
+            project_id: current.project.id,
+            cad: cad,
+            amount: amount,
+            paid_on: paidOn,
+          });
+          // დიალოგი იხურება და გვერდი თავიდან იტვირთება: ფერი, ჯამები
+          // და ისტორია ერთდროულად უნდა განახლდეს, თორემ ეკრანზე ორი
+          // სხვადასხვა სიმართლე დარჩება.
+          close();
+          await openProject(current.project.id);
+        } catch (error) {
+          errorBox.textContent = error.message || 'გადახდა ვერ ჩაიწერა';
+          errorBox.hidden = false;
+          payButton.disabled = false;
+          payButton.textContent = 'გადაიხადა — ' + WebLib.money(row.amount_due);
+        }
+      });
+    }
 
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
@@ -361,33 +513,49 @@ const ProjectsView = (function () {
     }
   }
 
+  /**
+   * @returns {Array} პროექტების სია — `main.js`-ს აქტიური სჭირდება
+   *          რუკისა და სიის შესაღებად.
+   */
   async function render(currentUser) {
     user = currentUser;
-    panel = UI.el('panel-projects');
-    panel.innerHTML = '<p class="pr-empty">იტვირთება…</p>';
+    const host = UI.el('home-projects');
+    host.innerHTML = '<p class="empty">იტვირთება…</p>';
     try {
       list = await API.call('projects');
     } catch (error) {
-      panel.innerHTML = '<p class="pr-empty">პროექტები ვერ ჩაიტვირთა — ' +
+      host.innerHTML = '<p class="empty">პროექტები ვერ ჩაიტვირთა — ' +
         esc(error.message || '') + '</p>';
-      return;
+      return [];
     }
     current = null;
     renderList();
+    return list;
   }
 
   function bind() {
-    const host = UI.el('panel-projects');
-    if (!host || host._bound) return;
-    host._bound = true;
+    // ორი ჰოსტი: ბარათები მთავარზე, დეტალები ცალკე ხედში. მოვლენები
+    // ორივეზე დელეგირებულია და ერთი და იგივე დამმუშავებელი ემსახურება.
+    ['home-projects', 'view-project'].forEach(function (id) {
+      const box = UI.el(id);
+      if (box && !box._bound) { box._bound = true; wire(box); }
+    });
+  }
 
+  function wire(host) {
     host.addEventListener('click', function (event) {
       const target = event.target;
       const card = target.closest && target.closest('[data-open]');
       if (card) { openProject(card.getAttribute('data-open')); return; }
-      if (target.closest && target.closest('[data-back]')) { renderList(); return; }
+      if (target.closest && target.closest('[data-back]')) {
+        UI.showView('home');
+        return;
+      }
       const answer = target.closest && target.closest('[data-answer]');
-      if (answer) { openAnswer(answer.getAttribute('data-answer')); }
+      if (answer) { openAnswer(answer.getAttribute('data-answer')); return; }
+      if (target.closest && target.closest('[data-new]')) { openNewProject(); return; }
+      const approve = target.closest && target.closest('[data-approve]');
+      if (approve) { confirmApprove(approve); }
     });
 
     host.addEventListener('keydown', function (event) {
@@ -412,12 +580,59 @@ const ProjectsView = (function () {
     });
   }
 
+  function openNewProject() {
+    if (!canCreate()) return;
+    ProjectForm.open(window.PLOTS || [], async function (id) {
+      list = await API.call('projects');
+      await openProject(id);
+    });
+  }
+
+  /**
+   * დამტკიცება ორ დაჭერას ითხოვს.
+   *
+   * `confirm()` განზრახ არ გამოიყენება: ბრაუზერის მოდალი გვერდს კეტავს
+   * და ეკრანზე ინგლისურ ჩარჩოში ჩასმულ ქართულ ტექსტს აჩვენებს. მეორე
+   * დაჭერა იმავეს აკეთებს, ოღონდ გვერდის ენაზე — და შემთხვევითი
+   * დაჭერისგანაც ისევე იცავს.
+   */
+  async function confirmApprove(button) {
+    const id = button.getAttribute('data-approve');
+    if (button.getAttribute('data-armed') !== '1') {
+      button.setAttribute('data-armed', '1');
+      button.textContent = 'დარწმუნებული ხარ? დააჭირე ისევ';
+      button.classList.add('pr-armed');
+      setTimeout(function () {
+        if (!button.isConnected) return;
+        button.removeAttribute('data-armed');
+        button.textContent = 'დამტკიცება';
+        button.classList.remove('pr-armed');
+      }, 5000);
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'მტკიცდება…';
+    try {
+      const result = await API.call('approveProject', { id: id });
+      UI.showError('პროექტი დამტკიცდა — შეიქმნა ' + result.pledges + ' ვალდებულება');
+      list = await API.call('projects');
+      await openProject(id);
+    } catch (error) {
+      UI.showError(error.message || 'დამტკიცება ვერ მოხერხდა');
+      button.disabled = false;
+      button.textContent = 'დამტკიცება';
+      button.removeAttribute('data-armed');
+      button.classList.remove('pr-armed');
+    }
+  }
+
   /**
    * მხოლოდ ცხრილს ხატავს თავიდან — რუკას ხელს არ ახლებს.
    * გვერდის სრული გადახატვა ძებნის ველიდან ფოკუსს იპარავდა.
    */
   function refreshTable(keepFocus) {
-    const box = UI.el('panel-projects').querySelector('.pr-table');
+    const box = UI.el('view-project').querySelector('.pr-table');
     if (!box || !current) return;
     const caret = keepFocus ? document.getElementById('pr-q').selectionStart : null;
     box.outerHTML = householdTable(current.rows);

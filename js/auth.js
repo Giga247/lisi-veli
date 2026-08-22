@@ -1,71 +1,108 @@
 /**
- * Google Identity Services. ტოკენი მხოლოდ მეხსიერებაშია — localStorage-ში
- * არ ინახება. გვერდის გადატვირთვისას ჩუმი შესვლა ავსებს (One Tap).
+ * ავტორიზაცია Supabase Auth-ით (Google provider).
+ *
+ * წინა ვერსია Google Identity Services-ს იყენებდა და ID token-ს მხოლოდ
+ * მეხსიერებაში ინახავდა. ახლა სესიას supabase-js მართავს: ის თვითონ
+ * ინახავს, თვითონ განაახლებს ვადის გასვლამდე და გვერდის გადატვირთვას
+ * გადაურჩება. `Auth`-ის გარე ინტერფეისი განზრახ უცვლელია, რომ
+ * `main.js`-ს და დანარჩენებს არ შეხებოდა.
  */
 const Auth = (function () {
-  let token = null;
-  let signInCallback = null;
-  let refreshResolve = null;
-  let refreshPromise = null;
+  const client = supabase.createClient(
+    CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY,
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 
-  function handleCredential(response) {
-    token = response.credential;
-    if (refreshResolve) refreshResolve(true);
-    if (signInCallback) signInCallback();
-  }
+  let session = null;
 
-  function init(callback) {
-    signInCallback = callback;
-    google.accounts.id.initialize({
-      client_id: CONFIG.CLIENT_ID,
-      callback: handleCredential,
-      auto_select: true,
-      cancel_on_tap_outside: false,
+  async function init(callback) {
+    const button = document.getElementById('signin-button');
+    if (button) {
+      button.innerHTML =
+        '<button type="button" class="signin-google">Google-ით შესვლა</button>';
+      button.querySelector('button').addEventListener('click', signIn);
+    }
+
+    // `detectSessionInUrl` Google-იდან დაბრუნებულ ფრაგმენტს თვითონ კითხულობს
+    // და სესიად აქცევს, ამიტომ აქ უკვე მზა სესიას ვიღებთ.
+    const { data } = await client.auth.getSession();
+    session = data.session;
+
+    // გადაწყვეტილება მომხმარებლის id-ზეა და არა სესიის არსებობაზე:
+    // ტოკენის განახლებისას სესია წამით ქრება და ბრუნდება, რაც
+    // „ახალ შესვლად" ჩაითვლებოდა და მთელ აპს თავიდან ახატვინებდა.
+    let signedInAs = session ? session.user.id : null;
+
+    client.auth.onAuthStateChange(function (_event, next) {
+      session = next;
+      const nextId = next ? next.user.id : null;
+      if (nextId && nextId !== signedInAs) {
+        signedInAs = nextId;
+        if (callback) callback();
+        return;
+      }
+      if (!nextId && _event === 'SIGNED_OUT') signedInAs = null;
     });
-    google.accounts.id.renderButton(
-      document.getElementById('signin-button'),
-      { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ka' });
-    google.accounts.id.prompt();
+
+    if (session && callback) callback();
+    return Boolean(session);
   }
 
-  function getToken() { return token; }
+  function signIn() {
+    // `redirectTo` აუცილებლად მიმდინარე გვერდია — GitHub Pages-ზე საიტი
+    // ქვესაქაღალდეშია და ნაგულისხმევი (საიტის ფესვი) 404-ს დააბრუნებდა.
+    return client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname },
+    });
+  }
+
+  function getClient() { return client; }
 
   /**
-   * ტოკენის ვადა ერთი საათია; გასვლისას ჩუმად ვცდილობთ ახლის აღებას.
+   * მიმდინარე სესია — ყოველთვის კლიენტს ვეკითხებით, არასდროს ქეშს.
    *
-   * ერთდროული გამოძახებები (მაგ. ორი პარალელური API.call ერთსა და იმავე
-   * წუთს UNAUTHENTICATED-ს იჭერს) ერთსა და იმავე in-flight promise-ს
-   * იზიარებენ — ცალკე resolver-ები აღარ ეწერება ერთმანეთს თავზე, და
-   * არცერთი resolver ორჯერ არ ისვლება.
+   * ადრე სესია მოდულის ცვლადში ეწერა და `onAuthStateChange`-იდან
+   * ნახლდებოდა. ტოკენის განახლების მომენტში იმ ცვლადში null ჩავარდებოდა
+   * და ისე რჩებოდა შემდეგ მოვლენამდე — შედეგად სრულიად ავტორიზებული
+   * მომხმარებელი „შესვლა საჭიროა"-ს იღებდა. `getSession()` შიგნით
+   * მიმდინარე განახლებას ელოდება და სწორ პასუხს აბრუნებს.
    */
-  function refresh() {
-    if (refreshPromise) return refreshPromise;
-
-    refreshPromise = new Promise(function (resolve) {
-      function settle(value) {
-        if (!refreshResolve) return;
-        refreshResolve = null;
-        refreshPromise = null;
-        resolve(value);
-      }
-      refreshResolve = settle;
-
-      google.accounts.id.prompt(function (notification) {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          settle(false);
-        }
-      });
-      setTimeout(function () { settle(false); }, 5000);
-    });
-
-    return refreshPromise;
+  async function getSession() {
+    const { data } = await client.auth.getSession();
+    session = data.session;
+    return session;
   }
 
-  function signOut() {
-    token = null;
-    google.accounts.id.disableAutoSelect();
+  async function getToken() {
+    const active = await getSession();
+    return active ? active.access_token : null;
+  }
+
+  async function getUser() {
+    const active = await getSession();
+    return active ? active.user : null;
+  }
+
+  /**
+   * supabase-js ტოკენს თვითონ ანახლებს ვადის გასვლამდე, ასე რომ ეს
+   * გამონაკლისის გზაა: ვცდილობთ ერთხელ და ვამბობთ, გამოვიდა თუ არა.
+   */
+  async function refresh() {
+    const { data, error } = await client.auth.refreshSession();
+    if (error || !data.session) return false;
+    session = data.session;
+    return true;
+  }
+
+  async function signOut() {
+    await client.auth.signOut();
+    session = null;
     location.reload();
   }
 
-  return { init: init, getToken: getToken, refresh: refresh, signOut: signOut };
+  return {
+    init: init, signIn: signIn, signOut: signOut,
+    getClient: getClient, getSession: getSession,
+    getToken: getToken, getUser: getUser, refresh: refresh,
+  };
 })();

@@ -10,33 +10,50 @@
   სწორედ ის არხია, რომლითაც მწვანე და ნარინჯისფერი გაირჩევა.
 */
 :root {
-  --tone-paid: #0ca30c;
-  --tone-promised: #f59e0b;
-  --tone-declined: #d03b3b;
-  --tone-none: #b8b8b2;
+  --tone-not-contacted: #b8b8b2;   /* არ დარეკილა — ნაცრისფერი */
+  --tone-unreachable:   #6f6f68;   /* ვერ ვუკავშირდები — მუქი ნაცრისფერი */
+  --tone-paying:        #84cc16;   /* დებს — ფოსფორისფერი */
+  --tone-loan:          #f59e0b;   /* ვალად იღებს — ნარინჯისფერი */
+  --tone-declined:      #ef4444;   /* არ დებს — კაშკაშა წითელი */
+  --tone-paid:          #16a34a;   /* გადახდილია — მწვანე */
   --tone-ink: #ffffff;
+  /* ნაკვეთის კანტი ყველგან თეთრია — ის ფორმას ფერისგან დამოუკიდებლად
+     კვეთს, ასე რომ მეზობელი საზღვრები ბნელ ფონზეც ერჩევა. */
+  --plot-edge: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --tone-promised: #fbbf24;
-    --tone-declined: #e66767;
-    --tone-none: #63635e;
+    --tone-not-contacted: #63635e;
+    --tone-unreachable:   #45453f;
+    --tone-paying:        #a3e635;
+    --tone-loan:          #fbbf24;
+    --tone-declined:      #f87171;
+    --tone-paid:          #22c55e;
   }
 }
 :root[data-theme="dark"] {
-  --tone-promised: #fbbf24;
-  --tone-declined: #e66767;
-  --tone-none: #63635e;
+  --tone-not-contacted: #63635e;
+  --tone-unreachable:   #45453f;
+  --tone-paying:        #a3e635;
+  --tone-loan:          #fbbf24;
+  --tone-declined:      #f87171;
+  --tone-paid:          #22c55e;
 }
 
 /* ── ნაკვეთის შეღებვა გეგმაზე ─────────────────────────────────── */
-.plot.tint-paid { fill: var(--tone-paid); fill-opacity: .72; }
-.plot.tint-partial { fill: var(--tone-paid); fill-opacity: .34; }
-.plot.tint-promised,
-.plot.tint-loan { fill: var(--tone-promised); fill-opacity: .72; }
-.plot.tint-loan { fill-opacity: .45; }
-.plot.tint-declined { fill: var(--tone-declined); fill-opacity: .72; }
-.plot.tint-none { fill: var(--tone-none); fill-opacity: .3; }
+/* ექვსივე სტატუსი ერთი და იმავე გამჭვირვალობით: ადრე `loan` და
+   `partial` სიკაშკაშით გამოირჩეოდნენ, რაც ფერს მეორე, ჩუმ არხს
+   უმატებდა. ახლა თითოეულს თავისი ფერი აქვს და ხრიკი აღარ სჭირდება. */
+.plot.tint-not_contacted { fill: var(--tone-not-contacted); fill-opacity: .34; }
+.plot.tint-unreachable   { fill: var(--tone-unreachable);   fill-opacity: .55; }
+.plot.tint-paying        { fill: var(--tone-paying);        fill-opacity: .72; }
+.plot.tint-loan          { fill: var(--tone-loan);          fill-opacity: .72; }
+.plot.tint-declined      { fill: var(--tone-declined);      fill-opacity: .72; }
+.plot.tint-paid          { fill: var(--tone-paid);          fill-opacity: .72; }
+
+/* შეღებილ ნაკვეთს ქუჩის ფერის კანტი აღარ სჭირდება — თეთრი კანტი
+   ყველა მდგომარეობაში ერთნაირად კვეთს ფორმას. */
+.plot[class*="tint-"] { stroke: var(--plot-edge); }
 
 /* ── სია ──────────────────────────────────────────────────────── */
 .pr-list { display: grid; gap: 14px; }
@@ -59,9 +76,9 @@
 
 /* ── მეტრი ────────────────────────────────────────────────────── */
 .pr-meter { position: relative; height: 8px; border-radius: 999px;
-  background: var(--tone-none); overflow: hidden; }
+  background: var(--tone-not-contacted); overflow: hidden; }
 .pr-meter span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
-.pr-meter-pledged { background: var(--tone-promised); }
+.pr-meter-pledged { background: var(--tone-paying); }
 .pr-meter-collected { background: var(--tone-paid); }
 
 /* ── ციფრები ──────────────────────────────────────────────────── */
@@ -86,21 +103,25 @@
 .plan-legend .lg i[class^="tint-"] {
   display: inline-grid; place-items: center; width: 16px; height: 16px;
   border-radius: 4px; color: var(--tone-ink); font-size: 11px; line-height: 1; }
-.plan-legend .lg i.tint-paid { background: var(--tone-paid); }
-.plan-legend .lg i.tint-partial { background: var(--tone-paid); opacity: .55; }
-.plan-legend .lg i.tint-promised,
-.plan-legend .lg i.tint-loan { background: var(--tone-promised); color: #2b2b28; }
-.plan-legend .lg i.tint-declined { background: var(--tone-declined); }
-.plan-legend .lg i.tint-none { background: var(--tone-none); color: #2b2b28; }
+/* ექვსივე სტატუსს თავისი ფერი აქვს, ამიტომ opacity-ის ხრიკები
+   („ნაწილობრივ" = ნახევრად გამჭვირვალე მწვანე) აღარ არის საჭირო.
+   ღია ფონზე მდგარ ნიშნებს მუქი ტექსტი აქვთ — თეთრი მათზე იკარგებოდა. */
+.plan-legend .lg i.tint-not_contacted,
+.pr-tone.tint-not_contacted { background: var(--tone-not-contacted); color: #2b2b28; }
+.plan-legend .lg i.tint-unreachable,
+.pr-tone.tint-unreachable { background: var(--tone-unreachable); }
+.plan-legend .lg i.tint-paying,
+.pr-tone.tint-paying { background: var(--tone-paying); color: #2b2b28; }
+.plan-legend .lg i.tint-loan,
+.pr-tone.tint-loan { background: var(--tone-loan); color: #2b2b28; }
+.plan-legend .lg i.tint-declined,
+.pr-tone.tint-declined { background: var(--tone-declined); }
+.plan-legend .lg i.tint-paid,
+.pr-tone.tint-paid { background: var(--tone-paid); }
 
 .pr-tone { display: inline-grid; place-items: center; width: 18px; height: 18px;
   border-radius: 4px; color: var(--tone-ink); font-size: 12px; line-height: 1;
   vertical-align: -3px; }
-.pr-tone.tint-paid { background: var(--tone-paid); }
-.pr-tone.tint-partial { background: var(--tone-paid); opacity: .55; }
-.pr-tone.tint-promised, .pr-tone.tint-loan { background: var(--tone-promised); color: #2b2b28; }
-.pr-tone.tint-declined { background: var(--tone-declined); }
-.pr-tone.tint-none { background: var(--tone-none); color: #2b2b28; }
 
 /* ── ცხრილები ─────────────────────────────────────────────────── */
 .pr-streets summary { cursor: pointer; color: var(--ink-muted); }
@@ -154,3 +175,84 @@
   border-radius: 8px; padding: 12px 16px; display: grid; gap: 8px; }
 .pr-mine h3 { margin: 0; font-size: .95rem; }
 .pr-mine-address { margin: 0; color: var(--ink-muted); font-size: .85rem; }
+
+/* ── ახალი პროექტი და დამტკიცება ──────────────────────────────── */
+.pr-list-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; }
+.pr-list-head h2 { margin: 0; }
+.pr-new { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--ink); color: var(--surface); cursor: pointer; font: inherit; }
+
+.pr-approval { border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 12px 16px; display: grid; gap: 10px;
+  justify-items: start; }
+.pr-approval p { margin: 0; }
+.pr-approval-wait { color: var(--ink-muted); font-size: .88rem; }
+.pr-approval button { padding: 8px 16px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--ink); color: var(--surface);
+  cursor: pointer; font: inherit; }
+/* მეორე დაჭერის მოლოდინში ღილაკი ფერს იცვლის — შემთხვევით არავინ
+   გაიაროს ორივე ნაბიჯი ისე, რომ არ შეამჩნიოს. */
+.pr-approval button.pr-armed { background: var(--danger); border-color: var(--danger); }
+.pr-approval button[disabled] { opacity: .6; cursor: default; }
+
+/* ── ფოტოები ──────────────────────────────────────────────────── */
+.pr-photos { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.pr-photos img { height: 140px; width: auto; border-radius: 8px; display: block;
+  border: 1px solid var(--line); }
+
+/* ── ახალი პროექტის ფორმა ─────────────────────────────────────── */
+.pf-box { width: min(640px, 100%); }
+.pf-field { display: grid; gap: 4px; color: var(--ink-muted); font-size: .85rem; }
+.pf-field input, .pf-field textarea { border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px; background: var(--surface); color: var(--ink);
+  font: inherit; }
+.pf-field textarea { resize: vertical; }
+.pf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.pf-select { max-height: 320px; overflow: auto; }
+.pf-check { display: flex; gap: 8px; align-items: center; cursor: pointer;
+  line-height: 1.4; }
+.pf-all { font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.pf-street > summary { display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; cursor: pointer; list-style: none; }
+.pf-street > summary::-webkit-details-marker { display: none; }
+.pf-street > summary::before { content: '▸'; color: var(--ink-muted); }
+.pf-street[open] > summary::before { content: '▾'; }
+.pf-count { margin-left: auto; color: var(--ink-muted); font-size: .8rem; }
+.pf-plots { list-style: none; margin: 0; padding: 0 0 6px 22px; display: grid;
+  gap: 4px; font-size: .9rem; }
+
+.pf-summary { margin: 0; padding: 10px 12px; border-radius: 8px;
+  background: var(--pl-sunk, rgba(127,127,127,.08)); color: var(--ink);
+  font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .pf-row { grid-template-columns: 1fr; }
+  .pr-photos img { height: 110px; }
+}
+
+/* ── გადახდები დიალოგში ───────────────────────────────────────── */
+.pr-pay { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.pr-pay h4 { margin: 0; font-size: .9rem; color: var(--ink-muted); }
+.pr-pay-empty { margin: 0; color: var(--ink-muted); font-size: .85rem; }
+.pr-pay-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px;
+  font-size: .88rem; font-variant-numeric: tabular-nums; }
+.pr-pay-list li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px;
+  align-items: baseline; }
+.pr-pay-who { color: var(--ink-muted); font-size: .8rem; }
+.pr-pay-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px;
+  align-items: end; }
+.pr-pay-form label { display: grid; gap: 4px; color: var(--ink-muted); font-size: .8rem; }
+.pr-pay-form input, .pr-pay-form select { border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px; background: var(--surface); color: var(--ink);
+  font: inherit; }
+.pr-pay-form button { grid-column: 1 / -1; padding: 8px 16px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--ink); color: var(--surface);
+  cursor: pointer; font: inherit; }
+.pr-pay-form button[disabled] { opacity: .6; cursor: default; }
+.pr-surplus { color: var(--tone-paid, var(--accent)); }
+
+@media (max-width: 720px) {
+  .pr-pay-form { grid-template-columns: 1fr; }
+}

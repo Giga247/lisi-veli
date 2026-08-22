@@ -2,6 +2,13 @@
 let CURRENT_USER = null;
 let PLOTS = [];
 
+/**
+ * შესვლის შემდეგ: ვინ ხარ → მონაცემები → მთავარი გვერდი.
+ *
+ * ოთხი მოთხოვნიდან სამი პარალელურია. აქტიური პროექტის დეტალები
+ * ცალკე მოდის, რადგან მისი id მხოლოდ სიის მიღების შემდეგ ვიცით —
+ * სწორედ ის აძლევს რუკასა და სიას სტატუსების ფერებს.
+ */
 async function afterSignIn() {
   UI.showScreen('loading');
   try {
@@ -11,34 +18,51 @@ async function afterSignIn() {
     return;
   }
 
-  UI.el('whoami').textContent =
-    CURRENT_USER.display_name || CURRENT_USER.email;
-  if (CURRENT_USER.role === 'admin') UI.el('tab-admin').hidden = false;
+  UI.el('whoami').textContent = initials(CURRENT_USER);
+  UI.el('whoami').title = CURRENT_USER.display_name || CURRENT_USER.email;
+  if (CURRENT_USER.role === 'admin') UI.el('btn-admin').hidden = false;
 
-  // აპის ჩარჩო ჩანს მონაცემების ლოდინშიც — თუ `plots` ჩავარდება, catch
-  // ცხრილის პანელში მუდმივ შეტყობინებას წერს, არა უსასრულოდ ჩატვირთვის ეკრანს.
   UI.showScreen('app');
-  UI.showTab('table');
+  UI.showView('home');
+  ProjectsView.bind();
 
   try {
     PLOTS = await API.call('plots');
     window.PLOTS = PLOTS;
-    TableView.render(PLOTS, CURRENT_USER);
-    MapView.render(PLOTS, CURRENT_USER);
-    // პროექტები საკუთარ შეცდომას თავად წერს პანელში და `await`-ს არ
-    // ელოდება — მისი ჩავარდნა რეესტრის ჩატვირთვას არ უნდა შეაჩეროს.
-    ProjectsView.bind();
-    ProjectsView.render(CURRENT_USER);
-    if (CURRENT_USER.role === 'admin') AdminView.render();
   } catch (error) {
-    UI.showError(error.message || 'მონაცემების ჩატვირთვა ვერ მოხერხდა');
-    // ბანერი 6 წამში თავად იმალება. მის გარეშე ეკრანზე რჩებოდა ჩვეულებრივი
-    // header სამი ტაბით, რომლებიც არაფერს აკეთებენ, და არცერთი ნიშანი იმისა,
-    // რომ რაღაც ვერ მოხერხდა — ამიტომ პანელში მუდმივი კვალიც იწერება
-    // (იგივე პატერნი, რაც js/admin.js-ს აქვს საკუთარი ჩავარდნისთვის).
-    UI.el('panel-table').innerHTML =
-      '<p>მონაცემები ვერ ჩაიტვირთა — გადატვირთეთ გვერდი.</p>';
+    UI.showError(error.message || 'მონაცემები ვერ ჩაიტვირთა');
+    UI.el('home-list').innerHTML =
+      '<p class="empty">მონაცემები ვერ ჩაიტვირთა — გადატვირთეთ გვერდი.</p>';
+    return;
   }
+
+  // პროექტების ჩავარდნა რეესტრს არ აჩერებს: რუკა და სია ქუჩის
+  // ფერებით მაინც უნდა დაიხატოს.
+  let active = null;
+  let rows = [];
+  try {
+    const list = await ProjectsView.render(CURRENT_USER);
+    active = (list || []).filter(function (p) { return p.status === 'active'; })[0] || null;
+    if (active) {
+      const detail = await API.call('project', { id: active.id });
+      rows = detail.rows || [];
+    }
+  } catch (error) {
+    UI.showError(error.message || 'პროექტები ვერ ჩაიტვირთა');
+  }
+
+  MapView.render(PLOTS, CURRENT_USER, active, rows);
+  TableView.render(PLOTS, CURRENT_USER, active, rows);
+}
+
+/** ავატარის ორი ასო — სახელიდან, თუ არა და მეილიდან. */
+function initials(profile) {
+  const source = String(profile.display_name || profile.email || '?').trim();
+  const parts = source.split(/[\s@._-]+/).filter(Boolean);
+  const letters = parts.length >= 2
+    ? parts[0][0] + parts[1][0]
+    : source.slice(0, 2);
+  return letters.toUpperCase();
 }
 
 /**
@@ -86,15 +110,13 @@ async function handleSignInError(error) {
 /**
  * `js/config.js` ჯერ პლეისჰოლდერებით არის შევსებული თუ არა.
  *
- * სერვერი ამას თავად იცავს — `smokeTest()` გამონაკლისს აგდებს, სანამ
- * `CLIENT_ID` არ შეიცვლება. კლიენტს ასეთი დაცვა არ ჰქონდა: GSI ცრუ
- * client id-ით ინიციალიზდებოდა, შესვლის ღილაკი ჩუმად ვერაფერს აკეთებდა
- * და მფლობელი ინგლისურ კონსოლის შეცდომას იღებდა სწორედ იმ მომენტში,
- * როცა ყველაზე ნაკლებად შეეძლო მისი ამოკითხვა.
+ * სიტყვა `ჩასვი` მარკერია: სანამ ის კონფიგში დგას, შესვლას საერთოდ არ
+ * ვცდილობთ და მფლობელს ქართულ ინსტრუქციას ვაჩვენებთ — და არა ჩუმად
+ * უმოქმედო ღილაკს კონსოლის ინგლისურ შეცდომასთან ერთად.
  */
 function configNotFilled() {
-  return String(CONFIG.CLIENT_ID).indexOf('ჩასვი') !== -1 ||
-    String(CONFIG.API_URL).indexOf('ჩასვი') !== -1;
+  return String(CONFIG.SUPABASE_URL).indexOf('ჩასვი') !== -1 ||
+    String(CONFIG.SUPABASE_ANON_KEY).indexOf('ჩასვი') !== -1;
 }
 
 /**
@@ -123,26 +145,21 @@ window.addEventListener('load', function () {
   if (configNotFilled()) {
     UI.showScreen('signin');
     UI.el('signin-button').textContent =
-      'კონფიგურაცია ჯერ არ არის შევსებული: js/config.js-ში CLIENT_ID და ' +
-      'API_URL კვლავ პლეისჰოლდერებია. შეავსეთ ორივე docs/setup.md-ის ' +
-      'მიხედვით (Step 8) და გადატვირთეთ გვერდი.';
+      'კონფიგურაცია ჯერ არ არის შევსებული: js/config.js-ში SUPABASE_URL და ' +
+      'SUPABASE_ANON_KEY კვლავ პლეისჰოლდერებია. შეავსეთ ორივე ' +
+      'docs/setup.md-ის მიხედვით და გადატვირთეთ გვერდი.';
     return;
   }
 
-  const GSI_TIMEOUT_MS = 10000;
-  const startedAt = Date.now();
+  // supabase-js ლოკალური ფაილია და სინქრონულად იტვირთება — ლოდინის
+  // ციკლი, რომელიც Google-ის CDN-ს სჭირდებოდა, აღარ არის საჭირო.
+  // შემოწმება მაინც რჩება: ფაილი შეიძლება საერთოდ არ ჩაიტვირთოს.
+  if (typeof supabase === 'undefined') {
+    UI.showScreen('signin');
+    UI.showError('js/vendor/supabase.js ვერ ჩაიტვირთა. გადატვირთეთ გვერდი.');
+    return;
+  }
 
-  const timer = setInterval(function () {
-    if (window.google && google.accounts && google.accounts.id) {
-      clearInterval(timer);
-      Auth.init(afterSignIn);
-      UI.showScreen('signin');
-      return;
-    }
-    if (Date.now() - startedAt > GSI_TIMEOUT_MS) {
-      clearInterval(timer);
-      UI.showScreen('signin');
-      UI.showError('Google-ის ავტორიზაციის სერვისთან დაკავშირება ვერ მოხერხდა. გადატვირთეთ გვერდი.');
-    }
-  }, 100);
+  UI.showScreen('signin');
+  Auth.init(afterSignIn);
 });

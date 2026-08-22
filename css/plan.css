@@ -116,7 +116,11 @@
 /* ── ნახაზი ────────────────────────────────────────────────── */
 .road { fill: none; stroke: var(--pl-road); stroke-linecap: round; stroke-linejoin: round; }
 
-.plot { stroke-width: 1.1; cursor: pointer; fill-opacity: .22; }
+/* თეთრი კანტი ყველა ნაკვეთს, ყველგან — რუკაზეც და შესვლის ეკრანის
+   ნახაზზეც. ქუჩის ფერი შევსებაში რჩება, საზღვარი კი ერთი და იგივეა,
+   ასე რომ მიჯრით მდგარი ნაკვეთები ერთმანეთში აღარ ერევა. */
+.plot { stroke: var(--plot-edge, #ffffff); stroke-width: 1.1;
+  cursor: pointer; fill-opacity: .22; }
 .plot:hover { fill-opacity: .48; }
 .plot.is-sel { stroke-width: 2.8; fill-opacity: .55; }
 .plot.is-new { stroke-dasharray: 4 2.5; }

@@ -11,9 +11,10 @@
 <!-- ?v= ქეშის გამტეხია: build-პროცესი არ გვაქვს, ფაილის სახელი არ
      იცვლება და ბრაუზერი ძველ CSS-ს ინახავდა ახალ HTML-თან ერთად.
      სტილის შეცვლისას ეს ციფრი უნდა გაიზარდოს. -->
-<link rel="stylesheet" href="css/style.css?v=3">
-<link rel="stylesheet" href="css/plan.css?v=1">
-<link rel="stylesheet" href="css/projects.css?v=1">
+<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/plan.css?v=2">
+<link rel="stylesheet" href="css/projects.css?v=2">
+<link rel="stylesheet" href="css/home.css?v=3">
 </head>
 <body>
 
@@ -63,36 +64,47 @@
   <button onclick="Auth.signOut()">გასვლა</button>
 </div>
 
-<div id="screen-app" class="screen" hidden>
-  <header>
+<div id="screen-app" hidden>
+  <header class="app-top">
     <h1>ლისი ველი</h1>
-    <nav>
-      <button id="tab-table" onclick="UI.showTab('table')">ცხრილი</button>
-      <button id="tab-map" onclick="UI.showTab('map')">რუკა</button>
-      <button id="tab-projects" onclick="UI.showTab('projects')">პროექტები</button>
-      <button id="tab-admin" onclick="UI.showTab('admin')" hidden>ადმინი</button>
-    </nav>
-    <span id="whoami"></span>
-    <button onclick="Auth.signOut()">გასვლა</button>
+    <div class="app-top-r">
+      <button type="button" id="btn-admin" class="ghost" hidden
+        onclick="UI.showView('admin')">ადმინი</button>
+      <span id="whoami" class="me" title=""></span>
+      <button type="button" class="ghost" onclick="Auth.signOut()">გასვლა</button>
+    </div>
   </header>
 
-  <section id="panel-table"></section>
-  <section id="panel-map" hidden></section>
-  <section id="panel-projects" hidden></section>
-  <section id="panel-admin" hidden></section>
+  <!--
+    მთავარი ერთი გრაგნილი გვერდია — რუკა, პროექტები, სია. ტაბები აღარ არის:
+    მომხმარებელთა 90% ტელეფონიდან შემოდის, სადაც სამი ტაბი სამჯერ მეტ
+    დაჭერას ნიშნავს იმისთვის, რომ იგივე დაინახო.
+  -->
+  <main id="view-home">
+    <section id="home-map" class="hm"></section>
+    <section id="home-projects" class="hm"></section>
+    <section id="home-list" class="hm"></section>
+  </main>
+
+  <!-- ერთი პროექტი და ადმინი ცალკე ხედებია: მათზე გადასვლა ხდება და
+       უკან ბრუნდები, ისე როგორც ტელეფონზეა მიღებული. -->
+  <main id="view-project" hidden></main>
+  <main id="view-admin" hidden></main>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="js/config.js"></script>
-<script src="js/lib.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/api.js"></script>
-<script src="js/plan.js"></script>
-<script src="js/table.js"></script>
-<script src="js/map.js"></script>
-<script src="js/projects.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/main.js"></script>
+<script src="js/vendor/supabase.js"></script>
+<script src="js/config.js?v=3"></script>
+<script src="js/lib.js?v=2"></script>
+<script src="js/ui.js?v=2"></script>
+<script src="js/auth.js?v=2"></script>
+<script src="js/api.js?v=2"></script>
+<script src="js/plan.js?v=2"></script>
+<script src="js/sheet.js?v=2"></script>
+<script src="js/table.js?v=2"></script>
+<script src="js/map.js?v=3"></script>
+<script src="js/project-form.js?v=2"></script>
+<script src="js/projects.js?v=2"></script>
+<script src="js/admin.js?v=2"></script>
+<script src="js/main.js?v=3"></script>
 </body>
 </html>
