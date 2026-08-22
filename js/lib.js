@@ -251,8 +251,8 @@
       if (street && String(row.street || '') !== street) return false;
       if (tone && row.color !== tone) return false;
       if (!query) return true;
-      const hay = [row.cad, row.address, row.street, row.first_name, row.last_name]
-        .join(' ').toLowerCase();
+      const hay = [row.cad, row.address, row.street, row.num,
+        row.first_name, row.last_name, row.phone].join(' ').toLowerCase();
       return hay.indexOf(query) !== -1;
     });
   }

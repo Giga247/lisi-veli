@@ -316,6 +316,75 @@ const ProjectsView = (function () {
     return count > 1 ? many : one;
   }
 
+  /**
+   * ძებნა რუკაზე.
+   *
+   * ოთხმოცდაორ ნაკვეთში კონკრეტულის თვალით პოვნა ზარის დროს ნელია —
+   * მოდერატორმა სახელი იცის, ადგილი კი არა. სია განზრახ არ ჩნდება:
+   * პასუხი რუკაზე მონიშნული ნაკვეთია და მისი ბარათი, ანუ იქვე, სადაც
+   * ისედაც მუშაობს.
+   *
+   * მაცხოვრებელს ეს ველი არ უჩანს — მას სტატუსებიც არ უჩანს და ძებნა
+   * მხოლოდ მეზობლების სიის დათვალიერების საშუალება იქნებოდა.
+   */
+  function findBox() {
+    if (!canSeeProgress()) return '';
+    return '<div class="pr-find">' +
+      '<input type="search" id="pr-find-q" autocomplete="off" ' +
+      'placeholder="ძებნა — სახელი, მისამართი, კოდი, ნომერი" ' +
+      'aria-label="ნაკვეთის ძებნა რუკაზე">' +
+      '<div class="pr-find-r" hidden></div></div>';
+  }
+
+  function wireFind() {
+    const input = document.getElementById('pr-find-q');
+    if (!input) return;
+    const box = input.parentNode.querySelector('.pr-find-r');
+    let hits = [];
+
+    const draw = function () {
+      const query = input.value.trim();
+      // ერთი სიმბოლო ნახევარ უბანს დააბრუნებდა — სია მაშინ ჩნდება,
+      // როცა უკვე რაღაცას ავიწროებს.
+      if (query.length < 2) { hits = []; box.hidden = true; box.innerHTML = ''; return; }
+      hits = WebLib.filterPledgeRows(current.rows, { query: query }).slice(0, 8);
+      box.hidden = false;
+      box.innerHTML = hits.length
+        ? hits.map(function (row) {
+          return '<button type="button" data-find="' + esc(row.cad) + '">' +
+            '<i class="pr-tone tint-' + esc(row.color) + '"></i>' +
+            '<span class="pr-find-n">' + esc(ownerName(row)) + '</span>' +
+            '<span class="pr-find-a">' + esc(row.address || row.cad) + '</span>' +
+            '</button>';
+        }).join('')
+        : '<p class="empty">ვერაფერი მოიძებნა.</p>';
+    };
+
+    const go = function (cad) {
+      box.hidden = true;
+      input.value = '';
+      hits = [];
+      if (!planInstance) return;
+      // ჯერ ვასუფთავებთ: `select` გადამრთველია და იმავე ნაკვეთზე
+      // მეორედ დაძახება მას მოხსნიდა ბარათის გახსნის ნაცვლად.
+      planInstance.select(null);
+      planInstance.select(cad);
+    };
+
+    input.addEventListener('input', draw);
+    input.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return;
+      // ფორმა აქ არ არის, მაგრამ Enter-ს ბრაუზერი ზოგჯერ გვერდის
+      // გადატვირთვად კითხულობს — და ნაპოვნი ისედაც ერთი დაჭერაა.
+      event.preventDefault();
+      if (hits.length) go(hits[0].cad);
+    });
+    box.addEventListener('click', function (event) {
+      const hit = event.target.closest && event.target.closest('[data-find]');
+      if (hit) go(hit.getAttribute('data-find'));
+    });
+  }
+
   function renderProject() {
     const project = current.project;
     const totals = current.totals;
@@ -343,12 +412,14 @@ const ProjectsView = (function () {
       // სია აქ განზრახ არ არის: პროექტის გვერდზე ერთადერთი ინტერაქცია
       // რუკაა. ნაკვეთზე შეხებით იხსნება კომპაქტური ბარათი, სადაც
       // ერთ ეკრანზე ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს სჭირდება.
+      findBox() +
       '<div id="pr-plan"></div>' +
       '<p class="map-hint">შეეხე ნაკვეთს — სტატუსი, შენიშვნა, გადახდა</p>' +
       '</div>';
 
     UI.showView('project');
     renderPlan();
+    wireFind();
   }
 
   function renderPlan() {

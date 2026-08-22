@@ -326,3 +326,23 @@ test('ownerCount — ცარიელი სია ნულია', () => {
   assert.strictEqual(WebLib.ownerCount([]), 0);
   assert.strictEqual(WebLib.ownerCount(null), 0);
 });
+
+// რუკაზე ძებნა იმავე ფუნქციას ეყრდნობა — მოდერატორი ხან ნომერს კრეფს,
+// ხან ტელეფონს, და ორივემ უნდა იპოვოს.
+test('filterPledgeRows — ნაკვეთის ნომრით', () => {
+  const rows = [
+    { cad: 'a', address: 'კედრის I გასასვლელი N15', num: '15', color: 'paying' },
+    { cad: 'b', address: 'კედრის I გასასვლელი N7', num: '7', color: 'paying' },
+  ];
+  const hit = WebLib.filterPledgeRows(rows, { query: '15' });
+  assert.strictEqual(hit.length, 1);
+  assert.strictEqual(hit[0].cad, 'a');
+});
+
+test('filterPledgeRows — ტელეფონის ბოლო ციფრებით', () => {
+  const rows = [
+    { cad: 'a', phone: '+995599111222', color: 'paying' },
+    { cad: 'b', phone: '+995599333444', color: 'paying' },
+  ];
+  assert.strictEqual(WebLib.filterPledgeRows(rows, { query: '333444' })[0].cad, 'b');
+});

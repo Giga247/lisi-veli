@@ -305,6 +305,9 @@ const API = (function () {
       return {
         cad: pledge.cad,
         street: plot.street || '', address: plot.address || '',
+        // ნომერი ცალკე ველად ძებნისთვისაა: მისამართში ის „N15"-ად წერია,
+        // მოდერატორი კი უბრალოდ „15"-ს კრეფს.
+        num: plot.num || '',
         area: plot.area == null ? null : Number(plot.area),
         first_name: plot.first_name || '', last_name: plot.last_name || '',
         phone: phoneByCad[pledge.cad] || '',

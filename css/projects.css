@@ -416,3 +416,31 @@
   .pr-edit-row { grid-template-columns: 1fr; }
   .pr-head { flex-wrap: wrap; }
 }
+
+/* ── ძებნა რუკაზე ─────────────────────────────────────────────────
+   ველი რუკის თავზე დგას და შედეგები მას ეკიდება — სია გვერდის
+   განლაგებას არ სწევს, თორემ ყოველი აკრეფილი სიმბოლო რუკას ქვემოთ
+   ხტუნავდა. */
+.pr-find { position: relative; }
+.pr-find input {
+  width: 100%; min-height: 46px; padding: 10px 14px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; }
+.pr-find input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+.pr-find-r { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px);
+  max-height: 46vh; overflow: auto; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
+.pr-find-r button {
+  display: grid; grid-template-columns: auto 1fr; gap: 1px 10px;
+  width: 100%; min-height: 48px; padding: 7px 9px; text-align: right;
+  border: none; border-radius: 9px; background: none; color: var(--ink);
+  font: inherit; cursor: pointer; }
+.pr-find-r button:hover, .pr-find-r button:focus-visible { background: var(--line); }
+.pr-find-r i { grid-row: 1 / 3; width: 10px; height: 10px; border-radius: 50%;
+  align-self: center; }
+.pr-find-n { font-size: 14px; }
+.pr-find-a { font-size: 12px; color: var(--ink-muted); }
+.pr-find-r .empty { margin: 0; padding: 12px; font-size: 13px; }
