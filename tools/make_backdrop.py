@@ -16,6 +16,7 @@ PNG-ის ნაცვლად SVG: იგივე ერთი ფაილ�
 """
 import json
 import pathlib
+import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data' / 'plan-page.json'
@@ -29,6 +30,11 @@ ROAD = '#39444d'
 EDGE = '#ffffff'
 
 
+def r(value):
+    """ორი ნიშანი მძიმის შემდეგ — float-ის კუდი ფაილს უაზროდ აწონებდა."""
+    return ('%.2f' % value).rstrip('0').rstrip('.')
+
+
 def road_width(cls):
     if cls == 'secondary':
         return 7
@@ -37,9 +43,34 @@ def road_width(cls):
     return 3.4
 
 
+NUM = re.compile(r'-?\d+(?:\.\d+)?')
+
+
+def frame(parcels, pad=0.10):
+    """ჩარჩო თვითონ ნაკვეთებზე.
+
+    `bbox` მთელ ჩამოტვირთულ არეს მოიცავს — გზებსაც, მდინარესაც, ცარიელ
+    მინდვრებსაც. ფონად აღებული, უბანი მასში პატარა ლაქად რჩებოდა ეკრანის
+    კუთხეში. ვითვლით მხოლოდ იმ ნაკვეთებს, რომლებსაც ქუჩა აქვთ: უქუჩო
+    დიდი ნაკვეთი (მდინარისპირა ზოლი) ჩარჩოს ისევ განზე სწევდა.
+    """
+    xs, ys = [], []
+    for parcel in parcels:
+        if parcel.get('si', -1) < 0:
+            continue
+        nums = [float(n) for n in NUM.findall(parcel['d'])]
+        xs.extend(nums[0::2])
+        ys.extend(nums[1::2])
+    if not xs:
+        return None
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    mx, my = (x1 - x0) * pad, (y1 - y0) * pad
+    return x0 - mx, y0 - my, (x1 - x0) + mx * 2, (y1 - y0) + my * 2
+
+
 def main():
     data = json.loads(DATA.read_text(encoding='utf-8'))
-    x, y, w, h = data['bbox']
+    x, y, w, h = frame(data['parcels']) or data['bbox']
 
     out = [
         '<svg xmlns="http://www.w3.org/2000/svg" '
@@ -47,7 +78,8 @@ def main():
         # ფაილს ბუნებრივ პროპორციას აძლევს და მოჭრას CSS-ის `cover`
         # წყვეტს. ორივეგან `slice` ნახაზს ორჯერ აახლოებდა და ეკრანზე
         # მხოლოდ რამდენიმე ნაკვეთი რჩებოდა.
-        f'viewBox="{x} {y} {w} {h}" role="presentation">',
+        'viewBox="%s %s %s %s" role="presentation">'
+        % (r(x), r(y), r(w), r(h)),
         '<g fill="none" stroke="%s" stroke-linecap="round" '
         'stroke-linejoin="round">' % ROAD,
     ]
