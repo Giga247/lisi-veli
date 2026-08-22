@@ -251,10 +251,52 @@
       if (street && String(row.street || '') !== street) return false;
       if (tone && row.color !== tone) return false;
       if (!query) return true;
-      const hay = [row.cad, row.address, row.street, row.num,
-        row.first_name, row.last_name, row.phone].join(' ').toLowerCase();
+      const hay = [row.cad, row.address, row.street, row.first_name, row.last_name]
+        .join(' ').toLowerCase();
       return hay.indexOf(query) !== -1;
     });
+  }
+
+  /**
+   * რუკაზე ძებნა — დარანჟირებული.
+   *
+   * მარტივი „ყველა ველში ჩართე" აქ არ გამოდგება: უბნის ყველა
+   * საკადასტრო კოდი `72.16`-ით იწყება, ამიტომ „16" ოთხმოცივე ნაკვეთს
+   * აბრუნებდა და ძებნას აზრი ეკარგებოდა. ველებს ახლა წონა აქვთ და
+   * კოდი მხოლოდ მაშინ ითვლება, როცა შეკითხვა მართლა კოდს ჰგავს.
+   *
+   * თანმიმდევრობა იმას მიჰყვება, რაც ხაზინდარმა იცის: ჯერ სახლის
+   * ნომერი და სახელი, მერე მისამართი, ბოლოს ტელეფონი და კოდი.
+   */
+  function searchRows(rows, query, limit) {
+    const q = String(query || '').trim().toLowerCase();
+    if (q.length < 2) return [];
+    const digits = q.replace(/\D/g, '');
+    const found = [];
+
+    (rows || []).forEach(function (row) {
+      const num = String(row.num == null ? '' : row.num).trim().toLowerCase();
+      const name = fullName(row).toLowerCase();
+      const cad = String(row.cad || '').toLowerCase();
+      const tail = cad.split('.').pop();
+      const phone = String(row.phone || '').replace(/\D/g, '');
+      const addr = String(row.address || '').toLowerCase();
+      const street = String(row.street || '').toLowerCase();
+
+      let rank = -1;
+      if (num && num === q) rank = 0;
+      else if (name !== '—' && name.indexOf(q) !== -1) rank = 1;
+      else if (tail && tail.indexOf(q) === 0) rank = 2;
+      else if (addr.indexOf(q) !== -1) rank = 3;
+      // სამზე მოკლე ციფრი ნებისმიერ ნომერში იპოვება — ეს ძებნა არ არის.
+      else if (digits.length >= 3 && phone && phone.indexOf(digits) !== -1) rank = 4;
+      else if (q.length >= 4 && cad.indexOf(q) !== -1) rank = 5;
+      else if (street.indexOf(q) !== -1) rank = 6;
+      if (rank >= 0) found.push({ row: row, rank: rank });
+    });
+
+    found.sort(function (a, b) { return a.rank - b.rank; });
+    return found.slice(0, limit || 8).map(function (item) { return item.row; });
   }
 
   /**
@@ -399,6 +441,7 @@
     PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,
     streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows,
+    searchRows: searchRows,
     EDITABLE_FIELDS: EDITABLE_FIELDS, isEditableField: isEditableField,
     normalizePhone: normalizePhone,
     roundToFive: roundToFive, plotColor: plotColor,

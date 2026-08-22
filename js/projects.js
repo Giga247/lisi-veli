@@ -347,7 +347,7 @@ const ProjectsView = (function () {
       // ერთი სიმბოლო ნახევარ უბანს დააბრუნებდა — სია მაშინ ჩნდება,
       // როცა უკვე რაღაცას ავიწროებს.
       if (query.length < 2) { hits = []; box.hidden = true; box.innerHTML = ''; return; }
-      hits = WebLib.filterPledgeRows(current.rows, { query: query }).slice(0, 8);
+      hits = WebLib.searchRows(current.rows, query, 8);
       box.hidden = false;
       box.innerHTML = hits.length
         ? hits.map(function (row) {
