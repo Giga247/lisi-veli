@@ -51,7 +51,7 @@ const ProjectsView = (function () {
       '<dl class="pr-figures">' +
       '<div><dt>შეგროვდა</dt><dd class="pr-hero">' + esc(WebLib.money(totals.collected)) + '</dd></div>' +
       '<div><dt>ბიუჯეტი</dt><dd>' + esc(WebLib.money(totals.budget)) + '</dd></div>' +
-      '<div><dt>კომლი</dt><dd>' + project.households + '</dd></div>' +
+      '<div><dt>ნაკვეთი</dt><dd>' + project.households + '</dd></div>' +
       '</dl>' +
       (dates ? '<p class="pr-dates">' + esc(dates) + '</p>' : '') +
       '</article>';
@@ -124,6 +124,19 @@ const ProjectsView = (function () {
         ? '<button type="button" data-approve="' + esc(project.id) + '">დამტკიცება</button>'
         : '<p class="pr-approval-wait">დამტკიცებას ადმინი ახდენს.</p>') +
       '</div>';
+  }
+
+  /**
+   * ნაკვეთი და მეპატრონე ცალკე ითვლება.
+   *
+   * მეპატრონე ნაკვეთზე ნაკლებია — ზოგს რამდენიმე ნაკვეთი აქვს — და
+   * მხოლოდ ნაკვეთების რიცხვი უბნის ხალხს ზედმეტად ბევრად აჩვენებდა.
+   */
+  function scale(rows) {
+    const owners = WebLib.ownerCount(rows);
+    return '<p class="pr-scale">' +
+      '<span><b>' + esc(String(rows.length)) + '</b> ნაკვეთი</span>' +
+      '<span><b>' + esc(String(owners)) + '</b> მეპატრონე</span></p>';
   }
 
   function figures(totals) {
@@ -204,7 +217,7 @@ const ProjectsView = (function () {
     return isTreasurer();
   }
 
-  /** ხაზინდარი ერთი არ არის — 86 კომლს ერთი კაცი ვერ მოაწევს. */
+  /** ხაზინდარი ერთი არ არის — 86 ნაკვეთს ერთი კაცი ვერ მოაწევს. */
   function isTreasurer() {
     if (!user || !current) return false;
     return (current.project.treasurers || []).indexOf(user.email) !== -1;
@@ -240,7 +253,7 @@ const ProjectsView = (function () {
   }
 
   /**
-   * „ჩემი კომლი" — შესული მომხმარებლის საკუთარი წილი, თავშივე.
+   * „ჩემი ნაკვეთი" — შესული მომხმარებლის საკუთარი წილი, თავშივე.
    *
    * ეს არის მიზეზი, რის გამოც `მომხმარებლები` ფურცელს საკადასტრო კოდის
    * სვეტი აქვს. თუ კოდი მიბმული არ არის, ბლოკი უბრალოდ არ ჩნდება —
@@ -255,7 +268,7 @@ const ProjectsView = (function () {
     const tone = WebLib.toneView(row.color);
     const left = Math.max(0, (row.amount_due || 0) - (row.paid || 0));
     return '<section class="pr-mine">' +
-      '<h3>ჩემი კომლი</h3>' +
+      '<h3>ჩემი ნაკვეთი</h3>' +
       '<p class="pr-mine-address">' + esc(row.address || cad) + '</p>' +
       '<dl class="pr-kpi">' +
       '<div><dt>ჩემი წილი</dt><dd>' + esc(WebLib.money(row.amount_due)) + '</dd></div>' +
@@ -311,11 +324,17 @@ const ProjectsView = (function () {
       '<button type="button" class="pr-back" data-back="1">← მთავარი</button>' +
       '<header class="pr-head"><h2>' + esc(project.name) + '</h2>' +
       '<span class="pr-status pr-status-' + esc(project.status) + '">' +
-      esc(statusLabel(project.status)) + '</span></header>' +
+      esc(statusLabel(project.status)) + '</span>' +
+      (user && user.role === 'admin'
+        ? '<button type="button" class="pr-edit" data-edit-project="1">' +
+          'რედაქტირება</button>'
+        : '') +
+      '</header>' +
       approvalBanner(project) +
       (project.description ? '<p class="pr-desc">' + esc(project.description) + '</p>' : '') +
       photoStrip(current.photos) +
       staffBlock(current.staff) +
+      scale(current.rows) +
       figures(totals) +
       progressBar(totals) +
       myHousehold() +
@@ -674,7 +693,8 @@ const ProjectsView = (function () {
       if (target.closest && target.closest('[data-new]')) { openNewProject(); return; }
       const approve = target.closest && target.closest('[data-approve]');
       if (approve) { confirmApprove(approve); return; }
-      if (target.closest && target.closest('[data-staff]')) { openStaff(); }
+      if (target.closest && target.closest('[data-staff]')) { openStaff(); return; }
+      if (target.closest && target.closest('[data-edit-project]')) { openEditProject(); }
     });
 
     host.addEventListener('keydown', function (event) {
@@ -694,6 +714,106 @@ const ProjectsView = (function () {
    * ველისთვის მისი აშენება გადაჭარბებული იქნებოდა. სია `users`-იდან
    * მოდის — მას ისედაც მხოლოდ ადმინი კითხულობს.
    */
+  /**
+   * პროექტის ველების რედაქტირება (ადმინი).
+   *
+   * სტატუსი აქვეა: „მიმდინარე → დასრულებული" ცალკე ღილაკს არ იმსახურებს,
+   * ის იმავე ფორმის ნაწილია. მონახაზიდან გამოსვლა კი აქ არ ხდება —
+   * აქტიურობას `approve_project()` ანიჭებს, რომელიც ვალდებულებებსაც
+   * ქმნის, და ორ გზას ერთი და იმავე გადასვლისთვის აზრი არ აქვს.
+   */
+  function openEditProject() {
+    if (!user || user.role !== 'admin' || !current) return;
+    const project = current.project;
+    const draft = project.status === 'draft';
+
+    const statuses = [
+      ['active', 'მიმდინარე'], ['done', 'დასრულებული'], ['cancelled', 'გაუქმებული'],
+    ];
+
+    const dialog = document.createElement('div');
+    dialog.className = 'pr-dialog';
+    dialog.innerHTML =
+      '<form class="pr-dialog-box">' +
+      '<h3>პროექტის რედაქტირება</h3>' +
+
+      '<label class="pc-note">სახელი' +
+      '<input name="name" maxlength="120" value="' + esc(project.name) + '"></label>' +
+
+      '<label class="pc-note">აღწერა' +
+      '<textarea name="description" rows="3" maxlength="2000">' +
+      esc(project.description || '') + '</textarea></label>' +
+
+      '<div class="pr-edit-row">' +
+      '<label class="pc-note">ბიუჯეტი, ₾' +
+      '<input name="budget" type="number" step="any" min="0" value="' +
+      esc(project.budget == null ? '' : String(project.budget)) + '"></label>' +
+      '<label class="pc-note">თანხა ნაკვეთიდან, ₾' +
+      '<input name="amount_per_household" type="number" step="any" min="1" ' +
+      'value="' + esc(String(project.amount_per_household)) + '"></label>' +
+      '</div>' +
+
+      (draft
+        ? '<p class="pr-dialog-sub">სტატუსი მონახაზია — „მიმდინარეზე" ' +
+          'დამტკიცების ღილაკი გადაიყვანს.</p>'
+        : '<label class="pc-note">სტატუსი<select name="status">' +
+          statuses.map(function (item) {
+            return '<option value="' + esc(item[0]) + '"' +
+              (project.status === item[0] ? ' selected' : '') + '>' +
+              esc(item[1]) + '</option>';
+          }).join('') + '</select></label>') +
+
+      '<p class="pr-dialog-sub">თანხის შეცვლა უკვე გადახდილ ნაკვეთს არ ' +
+      'ეხება — ვინც შემოიტანა, ის დავალიანებაში არ უნდა აღმოჩნდეს.</p>' +
+      '<p class="pr-dialog-error" hidden></p>' +
+      '<div class="pc-confirm-act">' +
+      '<button type="button" data-cancel="1">გაუქმება</button>' +
+      '<button type="submit" class="pc-confirm-yes">შენახვა</button>' +
+      '</div></form>';
+
+    document.body.appendChild(dialog);
+    document.body.classList.add('sheet-open');
+    const close = function () {
+      dialog.remove();
+      document.body.classList.remove('sheet-open');
+    };
+    dialog.querySelector('[data-cancel]').addEventListener('click', close);
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) close();
+    });
+
+    const errorBox = dialog.querySelector('.pr-dialog-error');
+    const submit = dialog.querySelector('[type="submit"]');
+    dialog.querySelector('form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      errorBox.hidden = true;
+      submit.disabled = true;
+      try {
+        const status = draft ? 'draft' : dialog.querySelector('[name="status"]').value;
+        const result = await API.call('updateProject', {
+          id: project.id,
+          name: dialog.querySelector('[name="name"]').value,
+          description: dialog.querySelector('[name="description"]').value,
+          budget: dialog.querySelector('[name="budget"]').value,
+          amount_per_household: dialog.querySelector('[name="amount_per_household"]').value,
+          status: status,
+        });
+        close();
+        // ჩუმად რომ გაგვევლო, ადმინი იფიქრებდა, რომ ახალი წილი ყველას
+        // შეეხო — და ჯამები მოულოდნელი გამოუვიდოდა.
+        if (result && Number(result.kept) > 0) {
+          UI.showError('თანხა შეიცვალა ' + result.repriced + ' ნაკვეთზე; ' +
+            result.kept + ' უკვე გადახდილს არ შევეხეთ.');
+        }
+        await openProject(project.id);
+      } catch (error) {
+        errorBox.textContent = error.message || 'ვერ შეინახა';
+        errorBox.hidden = false;
+        submit.disabled = false;
+      }
+    });
+  }
+
   async function openStaff() {
     if (!user || user.role !== 'admin' || !current) return;
     const project = current.project;

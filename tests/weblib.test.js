@@ -296,3 +296,33 @@ test('treasurerIndex — უსახელო პროექტი კოდ�
     { id: 'x-1', name: '', treasurers: ['a@b.com'], status: 'active' }]);
   assert.deepStrictEqual(index['a@b.com'], ['x-1']);
 });
+
+test('ownerCount — ერთი მეპატრონე რამდენიმე ნაკვეთით ერთხელ ითვლება', () => {
+  const rows = [
+    { first_name: 'ალფა', last_name: 'ერთაძე' },
+    { first_name: 'ალფა', last_name: 'ერთაძე' },
+    { first_name: 'ბეტა', last_name: 'ორაძე' },
+  ];
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(WebLib.ownerCount(rows), 2);
+});
+
+test('ownerCount — ჰარეები და რეგისტრი ერთსა და იმავე კაცს არ ყოფს', () => {
+  assert.strictEqual(WebLib.ownerCount([
+    { first_name: 'Alfa ', last_name: 'Ertadze' },
+    { first_name: 'alfa', last_name: 'ertadze' },
+  ]), 1);
+});
+
+test('ownerCount — უსახელო ნაკვეთი ცალკე ითვლება', () => {
+  assert.strictEqual(WebLib.ownerCount([
+    { first_name: '', last_name: '' },
+    { first_name: '', last_name: '' },
+    { first_name: 'ბეტა', last_name: 'ორაძე' },
+  ]), 3);
+});
+
+test('ownerCount — ცარიელი სია ნულია', () => {
+  assert.strictEqual(WebLib.ownerCount([]), 0);
+  assert.strictEqual(WebLib.ownerCount(null), 0);
+});

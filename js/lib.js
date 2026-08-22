@@ -224,7 +224,7 @@
       const street = String(row.street || '').trim() || 'ქუჩის გარეშე';
       if (!byStreet[street]) {
         // მთვლელები ცალკე ბუდეშია: `paid` ორივეს ერქვა — შემოსულ თანხასაც
-        // და გადახდილი კომლების რიცხვსაც — და ერთმანეთს ემატებოდნენ.
+        // და გადახდილი ნაკვეთების რიცხვსაც — და ერთმანეთს ემატებოდნენ.
         // მთვლელები ექვსივე სტატუსზე, `PLEDGE_VIEW`-იდან — რომ ახალი
         // სტატუსის დამატებისას ეს სია ჩუმად არ ჩამორჩეს.
         const counts = {};
@@ -332,6 +332,28 @@
    * ნახევარი გადაიხადა, დანარჩენ ნახევარს რჩება დაპირებული, და ერთი და
    * იგივე ლარი ორჯერ არ ითვლება.
    */
+  /**
+   * რამდენი მეპატრონეა ნაკვეთების ამ ნაკრებში.
+   *
+   * მეპატრონე ნაკვეთზე ნაკლებია: ზოგს ორი-სამი ნაკვეთი აქვს და
+   * ნაკვეთების რიცხვი უბნის ხალხს ზედმეტად ბევრად აჩვენებდა. სახელი
+   * და გვარი ერთდება, ჰარეები და რეგისტრი იშლება — ერთი და იგივე კაცი
+   * ორ ჩანაწერში ხან ბოლო ჰარით იწერებოდა, ხან მის გარეშე.
+   *
+   * უსახელო ნაკვეთი ცალკე მეპატრონედ ითვლება: არ ვიცით, ვისია, და
+   * მათი ერთ კაცად ჩათვლა ნაკლებად სწორი იქნებოდა, ვიდრე ცალკედ.
+   */
+  function ownerCount(rows) {
+    const seen = {};
+    let unknown = 0;
+    (rows || []).forEach(function (row) {
+      const name = fullName(row);
+      if (name === '—') { unknown += 1; return; }
+      seen[name.replace(/\s+/g, ' ').toLowerCase()] = true;
+    });
+    return Object.keys(seen).length + unknown;
+  }
+
   function projectTotals(project, pledges, payments) {
     const paidByCad = {};
     (payments || []).forEach(function (payment) {
@@ -380,5 +402,5 @@
     EDITABLE_FIELDS: EDITABLE_FIELDS, isEditableField: isEditableField,
     normalizePhone: normalizePhone,
     roundToFive: roundToFive, plotColor: plotColor,
-    projectTotals: projectTotals };
+    projectTotals: projectTotals, ownerCount: ownerCount };
 });

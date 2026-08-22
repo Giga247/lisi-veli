@@ -172,7 +172,7 @@ const ProjectForm = (function () {
       const each = WebLib.roundToFive(form.elements.amount.value);
       summary.textContent = count === 0
         ? 'ნაკვეთი ჯერ არ არის არჩეული'
-        : count + ' კომლი · ' + WebLib.money(each) + ' თითოეულს · სულ ' +
+        : count + " ნაკვეთი · " + WebLib.money(each) + ' თითოეულს · სულ ' +
           WebLib.money(count * each);
     }
 

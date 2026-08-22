@@ -397,6 +397,26 @@ const API = (function () {
     return data;
   }
 
+  /**
+   * პროექტის ველების რედაქტირება.
+   *
+   * თანხის ცვლილება უკვე გადახდილ ვალდებულებას არ ეხება — ბაზა
+   * აბრუნებს, რამდენს შეეხო და რამდენს არა, რომ ინტერფეისმა ეს თქვას.
+   */
+  async function actionUpdateProject(payload) {
+    await active(['admin']);
+    const { data, error } = await sb.rpc('update_project', {
+      p_id: String((payload && payload.id) || '').trim(),
+      p_name: String((payload && payload.name) || '').trim(),
+      p_description: String((payload && payload.description) || '').trim(),
+      p_budget: payload && payload.budget === '' ? null : Number(payload.budget),
+      p_amount_per_household: Number(payload && payload.amount_per_household),
+      p_status: String((payload && payload.status) || '').trim(),
+    });
+    if (error) fromPostgrest(error);
+    return data;
+  }
+
   async function actionApproveProject(payload) {
     await active(['admin']);
     const { data, error } = await sb.rpc('approve_project', {
@@ -420,6 +440,7 @@ const API = (function () {
     createProject: actionCreateProject,
     approveProject: actionApproveProject,
     setProjectStaff: actionSetProjectStaff,
+    updateProject: actionUpdateProject,
     recordPayment: actionRecordPayment,
     cancelPayment: actionCancelPayment,
   };
