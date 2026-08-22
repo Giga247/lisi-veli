@@ -104,15 +104,27 @@ const AdminView = (function () {
 
   function userCard(user) {
     const name = String(user.display_name || '').trim();
+    // ხაზინდრობა როლი არ არის და აქ არც იცვლება — ის პროექტის ველია.
+    // ნიშანი და სტრიქონი მხოლოდ იმას ეუბნება ადმინს, ვის რომელ
+    // პროექტში ევალება ფულის ჩაწერა.
+    const projects = user.treasurer_of || [];
     return '<article class="ad-u" data-email="' + esc(user.email) + '">' +
       '<header class="ad-u-h">' +
       '<span class="ad-av">' + esc(initials(user)) + '</span>' +
       '<span class="ad-u-id">' +
       '<span class="ad-u-n">' + esc(name || '— სახელის გარეშე') + '</span>' +
       '<span class="ad-u-e">' + esc(user.email) + '</span></span>' +
+      '<span class="ad-tags">' +
       '<span class="ad-tag ad-tag-' + esc(user.role) + '">' +
       esc(ROLE_SHORT[user.role] || user.role) + '</span>' +
+      (projects.length
+        ? '<span class="ad-tag ad-tag-treasurer">ხაზინდარი</span>' : '') +
+      '</span>' +
       '</header>' +
+      (projects.length
+        ? '<p class="ad-u-tre"><span>ხაზინდარი:</span> ' +
+          esc(projects.join(', ')) + '</p>'
+        : '') +
       '<div class="ad-u-f">' +
       '<label>როლი<select data-role>' + roleOptions(user.role) + '</select></label>' +
       '<label>ქუჩა<select data-street>' + streetOptions(user.street) + '</select></label>' +

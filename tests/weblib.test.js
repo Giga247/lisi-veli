@@ -228,3 +228,55 @@ test('filterPledgeRows — ძებნა კოდითაც მუშაო
     'კოდი B რეგისტრის მიუხედავად იძებნება');
   assert.strictEqual(WebLib.filterPledgeRows(ROWS, { query: 'ჩიხი 3' }).length, 1);
 });
+
+// ── ხაზინდრობა ────────────────────────────────────────────────────────────
+// ხაზინდარი გლობალური როლი არ არის — ის პროექტის ველია. ადმინის პანელს
+// მისი ჩვენება სჭირდება, ამიტომ პროექტების სიიდან მეილების ინდექსი აიგება.
+
+const TPROJECTS = [
+  { id: 'road-2026', name: 'გზის რემონტი 2026',
+    treasurer: 'nino.k@gmail.com', status: 'active' },
+  { id: 'lights', name: 'განათება',
+    treasurer: 'Nino.K@Gmail.com ', status: 'draft' },
+  { id: 'gate', name: 'ჭიშკარი',
+    treasurer: 'zura@gmail.com', status: 'done' },
+  { id: 'old', name: 'გაუქმებული',
+    treasurer: 'zura@gmail.com', status: 'cancelled' },
+  { id: 'none', name: 'ხაზინდრის გარეშე', treasurer: null, status: 'active' },
+];
+
+test('treasurerIndex — მეილი პროექტების სახელებზე', () => {
+  const index = WebLib.treasurerIndex(TPROJECTS);
+  assert.deepStrictEqual(index['nino.k@gmail.com'],
+    ['გზის რემონტი 2026', 'განათება']);
+});
+
+test('treasurerIndex — რეგისტრი და ზედმეტი ჰარეები არ ითვლება', () => {
+  // `create_project` მეილს lower()-ით ინახავს, მაგრამ ძველი ჩანაწერები
+  // პირდაპირ Sheet-იდან მოვიდა და იქ რეგისტრი დაცული არ იყო.
+  const index = WebLib.treasurerIndex(TPROJECTS);
+  assert.strictEqual(index['Nino.K@Gmail.com'], undefined);
+  assert.strictEqual(index['nino.k@gmail.com'].length, 2);
+});
+
+test('treasurerIndex — გაუქმებული პროექტი არ ითვლება', () => {
+  const index = WebLib.treasurerIndex(TPROJECTS);
+  assert.deepStrictEqual(index['zura@gmail.com'], ['ჭიშკარი']);
+});
+
+test('treasurerIndex — ხაზინდრის გარეშე პროექტი ინდექსში არ ხვდება', () => {
+  const index = WebLib.treasurerIndex(TPROJECTS);
+  assert.strictEqual(Object.keys(index).length, 2);
+  assert.strictEqual(index[''], undefined);
+});
+
+test('treasurerIndex — ცარიელი შემავალი ცარიელ ინდექსს აბრუნებს', () => {
+  assert.deepStrictEqual(WebLib.treasurerIndex([]), {});
+  assert.deepStrictEqual(WebLib.treasurerIndex(null), {});
+});
+
+test('treasurerIndex — უსახელო პროექტი კოდით ჩანს', () => {
+  const index = WebLib.treasurerIndex([
+    { id: 'x-1', name: '', treasurer: 'a@b.com', status: 'active' }]);
+  assert.deepStrictEqual(index['a@b.com'], ['x-1']);
+});

@@ -36,6 +36,11 @@
 .ad-u-e { color: var(--ink-muted); font-size: 12px;
   overflow-wrap: anywhere; }
 
+/* ორი ნიშანი — როლი და ხაზინდრობა — ერთმანეთის ქვეშ ეწყობა, რომ ვიწრო
+   ბარათში სახელს ადგილი არ წაართვან. */
+.ad-tags { flex: 0 0 auto; display: flex; flex-direction: column;
+  align-items: flex-end; gap: 4px; }
+
 .ad-tag { flex: 0 0 auto; font-size: 11px; padding: 3px 8px; border-radius: 99px;
   border: 1px solid var(--line); color: var(--ink-muted);
   background: var(--pl-sunk); white-space: nowrap; }
@@ -44,6 +49,15 @@
 .ad-tag-admin     { color: #fff; background: var(--accent); border-color: transparent; }
 .ad-tag-moderator { color: var(--ink); border-color: var(--pl-rule); }
 .ad-tag-blocked   { color: #fff; background: var(--danger); border-color: transparent; }
+/* ხაზინდრობა როლის გვერდით დგას, მაგრამ როლი არ არის — ამიტომ სხვა
+   ფორმა აქვს: შევსების ნაცვლად მხოლოდ კონტური. */
+.ad-tag-treasurer { color: var(--tone-paid); background: none;
+  border-color: var(--tone-paid); }
+
+/* რომელ პროექტში — თვითონ ნიშანი ამას ვერ იტევს, ხოლო რამდენიმე
+   პროექტი ერთ ადამიანზე ჩვეულებრივი ამბავია. */
+.ad-u-tre { margin: 0; font-size: 12px; color: var(--ink); }
+.ad-u-tre span { color: var(--ink-muted); }
 
 /* ორი select ერთმანეთის ქვეშ ტელეფონზე, გვერდიგვერდ — ფართო ეკრანზე.
    `auto-fit` + `minmax` ამას მედია-შეკითხვის გარეშე აკეთებს, ასე რომ

@@ -154,12 +154,30 @@ const API = (function () {
     };
   }
 
+  /**
+   * მომხმარებლები ადმინის პანელისთვის.
+   *
+   * ხაზინდრობა პროფილში არ წერია — ის `projects.treasurer` ველია, ამიტომ
+   * პროექტებსაც ვკითხულობთ და თითო მომხმარებელს ვამაგრებთ იმ პროექტების
+   * სახელებს, სადაც ის ხაზინდარია. ეს მხოლოდ საჩვენებელია: შეცვლა
+   * პროექტის ფორმაში ხდება და `setRole` მას არ ეხება.
+   */
   async function actionUsers() {
     await active(['admin']);
-    const { data, error } = await sb.from('profiles').select('*')
-      .order('requested_at', { ascending: false });
-    if (error) fromPostgrest(error);
-    return data;
+    const [profiles, projects] = await Promise.all([
+      sb.from('profiles').select('*').order('requested_at', { ascending: false }),
+      sb.from('projects').select('id, name, treasurer, status'),
+    ]);
+    if (profiles.error) fromPostgrest(profiles.error);
+    // პროექტების ჩავარდნა მომხმარებლების სიას არ აჩერებს — ხაზინდრობა
+    // დამატებითი ინფორმაციაა, დამტკიცება კი მთავარი სამუშაო.
+    const byEmail = projects.error
+      ? {} : WebLib.treasurerIndex(projects.data);
+
+    return profiles.data.map(function (profile) {
+      const email = String(profile.email || '').trim().toLowerCase();
+      return Object.assign({}, profile, { treasurer_of: byEmail[email] || [] });
+    });
   }
 
   async function actionSetRole(payload) {

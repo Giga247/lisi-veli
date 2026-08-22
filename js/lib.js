@@ -62,6 +62,32 @@
     return Object.keys(seen).sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
   }
 
+  /**
+   * ვინ არის რომელი პროექტის ხაზინდარი.
+   *
+   * ხაზინდარი გლობალური როლი არ არის — ის `projects.treasurer` ველია,
+   * ანუ ერთი ადამიანი შეიძლება ერთ პროექტში იყოს ხაზინდარი და მეორეში
+   * არა. ადმინის პანელს ეს ჭრილი პირუკუ სჭირდება — მომხმარებლიდან
+   * პროექტებისკენ — ამიტომ ინდექსი აქ იგება.
+   *
+   * მეილი ორივე მხრიდან lower/trim-დება: `create_project` მას `lower()`-ით
+   * ინახავს, მაგრამ Sheet-იდან შემოსულ ძველ ჩანაწერებში რეგისტრი დაცული
+   * არ იყო. გაუქმებული პროექტი არ ითვლება — მასზე ხაზინდრობა აღარაფერს
+   * ნიშნავს, ფული აღარ იწერება.
+   */
+  function treasurerIndex(projects) {
+    const index = {};
+    (projects || []).forEach(function (project) {
+      if (!project || project.status === 'cancelled') return;
+      const email = String(project.treasurer || '').trim().toLowerCase();
+      if (!email) return;
+      const label = String(project.name || '').trim() || String(project.id || '');
+      if (!index[email]) index[email] = [];
+      index[email].push(label);
+    });
+    return index;
+  }
+
   const SEARCH_FIELDS = ['cad', 'street', 'num', 'address',
     'first_name', 'last_name', 'phone', 'purpose', 'note'];
 
@@ -332,6 +358,7 @@
 
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
+    treasurerIndex: treasurerIndex,
     PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,
     streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows,
