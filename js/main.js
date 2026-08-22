@@ -36,23 +36,32 @@ async function afterSignIn() {
     return;
   }
 
-  // პროექტების ჩავარდნა რეესტრს არ აჩერებს: რუკა და სია ქუჩის
-  // ფერებით მაინც უნდა დაიხატოს.
-  let active = null;
-  let rows = [];
+  // პროექტების ჩავარდნა რეესტრს არ აჩერებს: რუკა და სია მათ არ ელოდება.
+  let projects = [];
   try {
-    const list = await ProjectsView.render(CURRENT_USER);
-    active = (list || []).filter(function (p) { return p.status === 'active'; })[0] || null;
-    if (active) {
-      const detail = await API.call('project', { id: active.id });
-      rows = detail.rows || [];
-    }
+    projects = await ProjectsView.render(CURRENT_USER) || [];
   } catch (error) {
     UI.showError(error.message || 'პროექტები ვერ ჩაიტვირთა');
   }
 
-  MapView.render(PLOTS, CURRENT_USER, active, rows);
-  TableView.render(PLOTS, CURRENT_USER, active, rows);
+  MapView.render(PLOTS, CURRENT_USER, canSeePhones(CURRENT_USER, projects));
+  TableView.render(PLOTS, CURRENT_USER);
+}
+
+/**
+ * ტელეფონს ვინ ხედავს.
+ *
+ * ნამდვილ გადაწყვეტილებას ბაზა იღებს — ნომრები `plot_phones()`-იდან
+ * მოდის და უფლების გარეშე საერთოდ არ ჩამოდის. ეს ფუნქცია მხოლოდ
+ * ინტერფეისისთვისაა: მაცხოვრებელს „ტელეფონი არ არის" არ უნდა ეწეროს
+ * მაშინ, როცა ნომერი არსებობს და უბრალოდ მას არ ეკუთვნის.
+ */
+function canSeePhones(profile, projects) {
+  if (!profile) return false;
+  if (profile.role === 'moderator' || profile.role === 'admin') return true;
+  return (projects || []).some(function (project) {
+    return project.treasurer && project.treasurer === profile.email;
+  });
 }
 
 /** ავატარის ორი ასო — სახელიდან, თუ არა და მეილიდან. */

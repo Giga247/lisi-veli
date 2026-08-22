@@ -1,10 +1,10 @@
 /**
  * ნაკვეთების სია მთავარ გვერდზე.
  *
- * ცხრილი სტრიქონებად გადაკეთდა: ექვსსვეტიანი ცხრილი ტელეფონზე ან
- * ჰორიზონტალურად იჭიმებოდა, ან ისე იკუმშებოდა, რომ სახელი ორ ასოზე
- * წყდებოდა. თითო კომლი ერთი მწკრივია, დაჭერით — იგივე ბარათი, რასაც
- * რუკა ხსნის.
+ * თითო კომლი ერთი მწკრივია: საკადასტრო კოდი, მისამართი, სახელი.
+ * სტატუსი აქ განზრახ არ არის — ის პროექტის ცნებაა და პროექტის გვერდზე
+ * ჩანს. ტელეფონსაც ვერ ნახავ: ბაზა მას მხოლოდ მოდერატორს, ადმინს და
+ * პროექტის ხაზინდარს უგზავნის, დანარჩენებთან ის საერთოდ არ მოდის.
  */
 const TableView = (function () {
   'use strict';
@@ -13,9 +13,7 @@ const TableView = (function () {
 
   let plots = [];
   let user = null;
-  let statusByCad = {};
-  let project = null;
-  let filters = { query: '', street: '', status: '' };
+  let filters = { query: '', street: '' };
 
   function canEdit() {
     return user && (user.role === 'moderator' || user.role === 'admin');
@@ -23,72 +21,47 @@ const TableView = (function () {
 
   function chips() {
     const streets = WebLib.streetList(plots);
-    const status = Object.keys(WebLib.PLEDGE_VIEW);
-    const one = function (group, value, label, on) {
-      return '<button type="button" data-f="' + group + '" data-v="' + esc(value) +
-        '"' + (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
+    const one = function (value, label, on) {
+      return '<button type="button" data-v="' + esc(value) + '"' +
+        (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
     };
     return '<div class="chips">' +
-      one('street', '', 'ყველა ქუჩა', filters.street === '') +
+      one('', 'ყველა ქუჩა', filters.street === '') +
       streets.map(function (street) {
-        return one('street', street, street, filters.street === street);
-      }).join('') +
-      '</div>' +
-      (project
-        ? '<div class="chips">' +
-          one('status', '', 'ყველა სტატუსი', filters.status === '') +
-          status.map(function (key) {
-            return one('status', key, WebLib.PLEDGE_VIEW[key].label, filters.status === key);
-          }).join('') + '</div>'
-        : '');
-  }
-
-  function matches(plot) {
-    if (filters.status) {
-      const row = statusByCad[String(plot.cad).trim()];
-      if (!row || row.status !== filters.status) return false;
-    }
-    return true;
+        return one(street, street, filters.street === street);
+      }).join('') + '</div>';
   }
 
   function visible() {
     return WebLib.sortPlots(
       WebLib.filterPlots(plots, { query: filters.query, street: filters.street }),
-      'street', 'asc').filter(matches);
+      'street', 'asc');
   }
 
   function rowHtml(plot) {
-    const row = statusByCad[String(plot.cad).trim()];
-    const view = row ? WebLib.pledgeView(row.status) : null;
     const where = [plot.street, plot.num ? '№' + plot.num : '']
       .filter(Boolean).join(' ');
     return '<button type="button" class="it" data-cad="' + esc(plot.cad) + '">' +
-      '<i class="dot' + (view ? ' tint-' + esc(row.status) : ' is-plain') + '"></i>' +
       '<span class="it-b">' +
-      '<span class="it-n">' + esc(WebLib.fullName(plot) || '—') + '</span>' +
-      '<span class="it-a">' + esc(where || plot.cad) + '</span></span>' +
-      (view ? '<span class="it-s">' + esc(view.short) + '</span>' : '') +
+      '<span class="it-n">' + esc(WebLib.fullName(plot) || 'მფლობელი უცნობია') + '</span>' +
+      '<span class="it-a">' + esc(where || '—') + '</span></span>' +
+      '<span class="it-cad mono">' + esc(plot.cad) + '</span>' +
       '</button>';
   }
 
   function draw() {
     const rows = visible();
-    UI.el('list-count').textContent = rows.length + (rows.length === plots.length
-      ? '' : ' / ' + plots.length);
+    UI.el('list-count').textContent = rows.length === plots.length
+      ? String(plots.length) : rows.length + ' / ' + plots.length;
     UI.el('list-rows').innerHTML = rows.length === 0
       ? '<p class="empty">ვერაფერი მოიძებნა.</p>'
       : rows.map(rowHtml).join('');
     UI.el('list-filters').innerHTML = chips();
   }
 
-  function render(allPlots, currentUser, activeProject, projectRows) {
+  function render(allPlots, currentUser) {
     plots = allPlots || [];
     user = currentUser;
-    project = activeProject || null;
-    statusByCad = {};
-    (projectRows || []).forEach(function (row) {
-      statusByCad[String(row.cad).trim()] = row;
-    });
 
     const host = UI.el('home-list');
     host.innerHTML =
@@ -106,9 +79,9 @@ const TableView = (function () {
       draw();
     });
     host.addEventListener('click', function (event) {
-      const chip = event.target.closest('[data-f]');
+      const chip = event.target.closest('[data-v]');
       if (chip) {
-        filters[chip.getAttribute('data-f')] = chip.getAttribute('data-v');
+        filters.street = chip.getAttribute('data-v');
         draw();
         return;
       }

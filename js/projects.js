@@ -261,7 +261,7 @@ const ProjectsView = (function () {
 
   function streetTable(rows) {
     const breakdown = WebLib.streetBreakdown(rows);
-    return '<details class="pr-streets" open><summary>ქუჩების ჭრილი</summary>' +
+    return '<details class="pr-streets"><summary>ქუჩების ჭრილი</summary>' +
       '<table><thead><tr><th>ქუჩა</th><th>კომლი</th><th>წილი</th>' +
       '<th>შემოვიდა</th><th>პასუხის გარეშე</th></tr></thead><tbody>' +
       breakdown.map(function (street) {
@@ -272,6 +272,16 @@ const ProjectsView = (function () {
       }).join('') + '</tbody></table></details>';
   }
 
+  /**
+   * კომლების სია — მობაილისთვის, ცხრილის ნაცვლად.
+   *
+   * ცხრილს შვიდი სვეტი ჰქონდა და ტელეფონზე ან იჭიმებოდა, ან სახელს
+   * ჭრიდა. აქ თითო კომლი ერთი მწკრივია: სტატუსის ფერი, სახელი,
+   * მისამართი, წილი. დაჭერით იხსნება დარეკვა და სტატუსის დაყენება.
+   *
+   * რედაქტირება აქ განზრახ არ არის — ნაკვეთის ველები მთავარი გვერდის
+   * საქმეა, პროექტისა კი ის, ვინ რას პასუხობს და ვინ იხდის.
+   */
   function householdTable(rows) {
     const shown = WebLib.filterPledgeRows(rows, filters);
     const streets = [];
@@ -281,38 +291,40 @@ const ProjectsView = (function () {
     });
     streets.sort();
 
+    const chip = function (group, value, label, on) {
+      return '<button type="button" data-pf="' + group + '" data-v="' + esc(value) + '"' +
+        (on ? ' class="on"' : '') + '>' + esc(label) + '</button>';
+    };
+
     return '<div class="pr-table">' +
-      '<div class="pr-filters">' +
+      '<div class="sec-h"><h3>კომლები</h3><span class="muted">' +
+      shown.length + ' / ' + rows.length + '</span></div>' +
       '<input type="search" id="pr-q" placeholder="ძებნა — მფლობელი, კოდი, მისამართი" ' +
       'value="' + esc(filters.query) + '" aria-label="ძებნა">' +
-      '<select id="pr-street" aria-label="ქუჩა"><option value="">ყველა ქუჩა</option>' +
+      '<div class="chips">' +
+      chip('street', '', 'ყველა ქუჩა', filters.street === '') +
       streets.map(function (street) {
-        return '<option value="' + esc(street) + '"' +
-          (filters.street === street ? ' selected' : '') + '>' + esc(street) + '</option>';
-      }).join('') + '</select>' +
-      '<select id="pr-tone" aria-label="მდგომარეობა"><option value="">ყველა პასუხი</option>' +
+        return chip('street', street, street, filters.street === street);
+      }).join('') + '</div>' +
+      '<div class="chips">' +
+      chip('tone', '', 'ყველა სტატუსი', filters.tone === '') +
       TONE_ORDER.map(function (tone) {
-        return '<option value="' + tone + '"' + (filters.tone === tone ? ' selected' : '') +
-          '>' + esc(WebLib.toneView(tone).label) + '</option>';
-      }).join('') + '</select>' +
-      '<span class="pr-count">' + shown.length + ' / ' + rows.length + '</span>' +
-      '</div>' +
-      '<table><thead><tr><th>მისამართი</th><th>მფლობელი</th><th>წილი</th>' +
-      '<th>გადახდილი</th><th>პასუხი</th><th>ჩაწერა</th><th></th></tr></thead><tbody>' +
-      shown.map(function (row) {
-        const view = WebLib.pledgeView(row.status);
-        const tone = WebLib.toneView(row.color);
-        return '<tr><td>' + esc(row.address || row.cad) + '</td>' +
-          '<td>' + esc(ownerName(row)) + '</td>' +
-          '<td>' + esc(WebLib.money(row.amount_due)) + '</td>' +
-          '<td>' + esc(WebLib.money(row.paid)) + '</td>' +
-          '<td><span class="pr-tone tint-' + esc(row.color) + '">' + esc(tone.icon) +
-          '</span> ' + esc(view.short) + '</td>' +
-          '<td class="pr-by">' + esc(row.recorded_by || '—') + '</td>' +
-          '<td>' + (canAnswer(row)
-            ? '<button type="button" class="pr-answer" data-answer="' + esc(row.cad) +
-              '" aria-label="პასუხის ჩაწერა">✏️</button>' : '') + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+        return chip('tone', tone, WebLib.toneView(tone).label, filters.tone === tone);
+      }).join('') + '</div>' +
+      '<div class="list">' +
+      (shown.length === 0 ? '<p class="empty">ვერაფერი მოიძებნა.</p>' :
+        shown.map(function (row) {
+          const view = WebLib.pledgeView(row.status);
+          return '<button type="button" class="it" data-answer="' + esc(row.cad) + '">' +
+            '<i class="dot tint-' + esc(row.color) + '"></i>' +
+            '<span class="it-b">' +
+            '<span class="it-n">' + esc(ownerName(row)) + '</span>' +
+            '<span class="it-a">' + esc(row.address || row.cad) + ' · ' +
+            esc(WebLib.money(row.amount_due)) + '</span></span>' +
+            '<span class="it-s">' + esc(view.short) + '</span>' +
+            '</button>';
+        }).join('')) +
+      '</div></div>';
   }
 
   /**
@@ -391,9 +403,10 @@ const ProjectsView = (function () {
 
   function openAnswer(cad) {
     const row = rowByCad()[cad];
-    // ხაზინდარი პასუხს ვერ ცვლის, ფულს კი წერს — დიალოგი ორივესთვის
-    // იხსნება და შიგნით მხოლოდ ნებადართული ნაწილი ჩანს.
-    if (!row || (!canAnswer(row) && !canPay())) return;
+    // დიალოგი ყველასთვის იხსნება და შიგნით მხოლოდ ნებადართული ნაწილი
+    // ჩანს. ადრე ის უფლების გარეშე ჩუმად არაფერს აკეთებდა — მაცხოვრებელი
+    // აჭერდა და ეგონა, რომ გატეხილია.
+    if (!row) return;
     const mayAnswer = canAnswer(row);
 
     const dialog = document.createElement('div');
@@ -403,7 +416,7 @@ const ProjectsView = (function () {
       '<h3>' + esc(ownerName(row)) + '</h3>' +
       '<p class="pr-dialog-sub">' + esc(row.address || row.cad) + ' · წილი ' +
       esc(WebLib.money(row.amount_due)) + '</p>' +
-      (row.phone ? '<p><a href="tel:' + esc(row.phone) + '">' + esc(row.phone) + '</a></p>' : '') +
+
       (mayAnswer
         ? '<fieldset><legend>სტატუსი</legend>' +
           Object.keys(WebLib.PLEDGE_VIEW).map(function (key) {
@@ -417,6 +430,12 @@ const ProjectsView = (function () {
           esc(WebLib.pledgeView(row.status).label) + '</p>') +
       paymentsHtml(cad) +
       '<p class="pr-dialog-error" hidden></p>' +
+      // დარეკვა პირველი მოქმედებაა: მოდერატორი სწორედ ამისთვის ხსნის
+      // ამ ფანჯარას, და ნომერი ტექსტურ ბმულად ეკრანის შუაში იკარგებოდა.
+      (row.phone
+        ? '<div class="cta"><a class="pri" href="tel:' + esc(row.phone) + '">' +
+          'დარეკვა — ' + esc(row.phone) + '</a></div>'
+        : '') +
       '<div class="pr-dialog-actions">' +
       '<button type="button" data-cancel="1">' + (mayAnswer ? 'გაუქმება' : 'დახურვა') + '</button>' +
       (mayAnswer ? '<button type="submit">შენახვა</button>' : '') +
@@ -572,10 +591,10 @@ const ProjectsView = (function () {
       filters.query = event.target.value;
       refreshTable(true);
     });
-    host.addEventListener('change', function (event) {
-      if (event.target.id === 'pr-street') filters.street = event.target.value;
-      else if (event.target.id === 'pr-tone') filters.tone = event.target.value;
-      else return;
+    host.addEventListener('click', function (event) {
+      const chip = event.target.closest && event.target.closest('[data-pf]');
+      if (!chip) return;
+      filters[chip.getAttribute('data-pf')] = chip.getAttribute('data-v');
       refreshTable(false);
     });
   }

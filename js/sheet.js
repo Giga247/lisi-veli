@@ -70,9 +70,14 @@ const Sheet = (function () {
         : '') +
       row('შენიშვნა', esc(plot.note || '')) +
       '<div class="cta">' +
+      // სამი მდგომარეობაა და სამივე სხვადასხვა რამეს ნიშნავს: ნომერი
+      // არსებობს; ნომერი არ არის ჩაწერილი; ნომერი არსებობს, მაგრამ ამ
+      // მომხმარებელს არ ეკუთვნის. ბოლო შემთხვევაში ღილაკი საერთოდ არ
+      // ჩანს — „ტელეფონი არ არის" ტყუილი იქნებოდა.
       (phone
         ? '<a class="pri" href="tel:' + esc(phone) + '">დარეკვა</a>'
-        : '<span class="pri is-off">ტელეფონი არ არის</span>') +
+        : (info.canSeePhone
+            ? '<span class="pri is-off">ტელეფონი არ არის</span>' : '')) +
       (info.canEdit
         ? '<button type="button" data-edit="' + esc(plot.cad) + '">რედაქტირება</button>'
         : '') +

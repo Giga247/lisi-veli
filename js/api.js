@@ -77,11 +77,28 @@ const API = (function () {
       : 'თქვენი მოთხოვნა დამტკიცების პროცესშია');
   }
 
+  // `*` აქ განზრახ არ არის: `phone`-ზე `authenticated`-ს უფლება აღარ აქვს
+  // და `select('*')` მთელ მოთხოვნას ჩააგდებდა. სვეტების სია ბაზის
+  // სვეტობრივ უფლებებს ზუსტად იმეორებს.
+  const PLOT_COLUMNS = 'cad, street, num, address, area, purpose, ' +
+    'first_name, last_name, lat, lon, geometry, source, note, ' +
+    'updated_at, updated_by';
+
   async function actionPlots() {
     await active(ROLES_MEMBER);
-    const { data, error } = await sb.from('plots').select('*')
+    const { data, error } = await sb.from('plots').select(PLOT_COLUMNS)
       .order('street', { ascending: true }).order('num', { ascending: true });
     if (error) fromPostgrest(error);
+
+    // ნომრები ცალკე მოთხოვნით — ბაზა თვითონ წყვეტს, დაგვიბრუნებს თუ არა.
+    // უფლების არქონა ცარიელი ნაკრებია და არა შეცდომა, ამიტომ ჩავარდნაზე
+    // უბრალოდ ნომრების გარეშე ვაგრძელებთ.
+    const phones = await sb.rpc('plot_phones');
+    if (!phones.error && phones.data) {
+      const byCad = {};
+      phones.data.forEach(function (row) { byCad[row.cad] = row.phone; });
+      data.forEach(function (plot) { plot.phone = byCad[plot.cad] || null; });
+    }
     return data;
   }
 
@@ -118,7 +135,8 @@ const API = (function () {
     // სხვისი ცვლილება ვერ ჩაეტევა. Apps Script-ს ამისთვის LockService
     // სჭირდებოდა — აქ ამას ბაზა თავად აკეთებს.
     const { data, error } = await sb.from('plots')
-      .update(clean).eq('cad', cad).eq('updated_at', expected).select();
+      .update(clean).eq('cad', cad).eq('updated_at', expected)
+      .select(PLOT_COLUMNS);
     if (error) fromPostgrest(error);
 
     if (!data || data.length === 0) {
@@ -206,12 +224,13 @@ const API = (function () {
     const id = String((payload && payload.id) || '').trim();
     if (!id) fail('VALIDATION', 'პროექტის id არ არის მითითებული');
 
-    const [project, pledges, payments, plots, photos] = await Promise.all([
+    const [project, pledges, payments, plots, photos, phones] = await Promise.all([
       sb.from('projects').select('*').eq('id', id).maybeSingle(),
       sb.from('pledges').select('*').eq('project_id', id),
       sb.from('payments').select('*').eq('project_id', id),
-      sb.from('plots').select('cad, street, address, area, first_name, last_name, phone'),
+      sb.from('plots').select('cad, street, num, address, area, first_name, last_name'),
       sb.from('project_photos').select('*').eq('project_id', id).order('sort'),
+      sb.rpc('plot_phones'),
     ]);
     [project, pledges, payments, plots, photos]
       .forEach(function (r) { if (r.error) fromPostgrest(r.error); });
@@ -219,6 +238,12 @@ const API = (function () {
 
     const plotByCad = {};
     plots.data.forEach(function (plot) { plotByCad[plot.cad] = plot; });
+    // ნომერი მხოლოდ მაშინ მოვა, თუ ბაზამ დაუშვა — მოდერატორს, ადმინს
+    // ან ამ პროექტის ხაზინდარს. სხვას ცარიელი ნაკრები უბრუნდება.
+    const phoneByCad = {};
+    if (!phones.error && phones.data) {
+      phones.data.forEach(function (row) { phoneByCad[row.cad] = row.phone; });
+    }
 
     const paidByCad = {};
     payments.data.forEach(function (payment) {
@@ -233,7 +258,7 @@ const API = (function () {
         street: plot.street || '', address: plot.address || '',
         area: plot.area == null ? null : Number(plot.area),
         first_name: plot.first_name || '', last_name: plot.last_name || '',
-        phone: plot.phone || '',
+        phone: phoneByCad[pledge.cad] || '',
         amount_due: pledge.amount_due, status: pledge.status,
         recorded_by: pledge.recorded_by || '', recorded_at: pledge.recorded_at || '',
         paid: paid,
