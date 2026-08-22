@@ -264,9 +264,13 @@
 .pc-h { display: flex; align-items: flex-start; gap: 10px; }
 .pc-h h3 { margin: 0; font-size: 17px; line-height: 1.25; }
 .pc-h p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-muted); }
-.pc-x { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px;
+/* სახელი ითრევს თავისუფალ ადგილს, რომ ღილაკები კუთხეში მიეკრას —
+   თორემ ისინი მოკლე მისამართს მიჰყვებოდნენ ეკრანის შუაში. */
+.pc-h > div { flex: 1 1 auto; min-width: 0; }
+.pc-ed, .pc-x { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink-muted);
   font: inherit; font-size: 15px; cursor: pointer; }
+.pc-ed { color: var(--ink); }
 
 .pc-call { display: grid; place-items: center; height: 46px; border-radius: 12px;
   background: var(--ink); color: var(--surface); text-decoration: none;

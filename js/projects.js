@@ -184,11 +184,25 @@ const ProjectsView = (function () {
    * ჩვეულებრივ მაცხოვრებელსაც შეუძლია ფულის ჩაწერა, თუ ამ პროექტის
    * ხაზინდარია.
    */
+  /**
+   * ფულს მხოლოდ ხაზინდარი და ადმინი ეხება.
+   *
+   * მოდერატორი სტატუსებს ცვლის — ზარის პასუხს, რომლის შეცდომაც იაფად
+   * სწორდება. გადახდა კი ანგარიშია: ვინც ჩაწერს, ის აგებს პასუხს
+   * ჯამზე, და ეს უბანში ერთი ადამიანია. ნამდვილ შემოწმებას RLS
+   * აკეთებს — აქ ღილაკი მხოლოდ იმიტომ იმალება, რომ არავის შესთავაზოს
+   * მოქმედება, რომელსაც ბაზა უარყოფს.
+   */
   function canPay() {
     if (!user || !current || current.project.status !== 'active') return false;
-    if (user.role === 'admin' || user.role === 'moderator') return true;
+    if (user.role === 'admin') return true;
     return Boolean(current.project.treasurer) &&
       current.project.treasurer === user.email;
+  }
+
+  /** ნაკვეთის მონაცემები — სახელი, ტელეფონი, მისამართი. */
+  function canEditPlot() {
+    return Boolean(user) && (user.role === 'moderator' || user.role === 'admin');
   }
 
   let byCadCache = null;
@@ -365,6 +379,11 @@ const ProjectsView = (function () {
       '<header class="pc-h">' +
       '<div><h3>' + esc(ownerName(row)) + '</h3>' +
       '<p>' + esc(row.address || row.cad) + '</p></div>' +
+      (canEditPlot()
+        ? '<button type="button" class="pc-ed" data-edit-plot="1" ' +
+          'title="ნაკვეთის რედაქტირება" aria-label="ნაკვეთის რედაქტირება">' +
+          '✎</button>'
+        : '') +
       '<button type="button" class="pc-x" data-cancel="1" aria-label="დახურვა">✕</button>' +
       '</header>' +
 
@@ -418,6 +437,20 @@ const ProjectsView = (function () {
       errorBox.textContent = message;
       errorBox.hidden = false;
     };
+
+    // რედაქტორი მთავარი სიის მოდულშია — იმავე ველებით, იმავე
+    // კონფლიქტის შემოწმებით. აქ მისი გამეორება ორ ადგილას ერთი
+    // ფორმის შენახვას ნიშნავდა.
+    const editButton = dialog.querySelector('[data-edit-plot]');
+    if (editButton) {
+      const projectId = current.project.id;
+      editButton.addEventListener('click', function () {
+        close();
+        TableView.openEditor(cad, function () {
+          openProject(projectId).catch(function () {});
+        });
+      });
+    }
 
     const paidBox = form.elements.paid || null;
     const revert = form.querySelector('.pc-status.is-revert');

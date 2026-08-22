@@ -105,7 +105,14 @@ const TableView = (function () {
     { key: 'note', label: 'შენიშვნა' },
   ];
 
-  function openEditor(cad) {
+  /**
+   * ნაკვეთის რედაქტორი.
+   *
+   * `onSaved` პროექტის ბარათისთვისაა: ის იმავე ნაკვეთს სხვა ეკრანზე
+   * აჩვენებს და შენახვის შემდეგ თავად უნდა განახლდეს — თორემ
+   * გასწორებული სახელი მხოლოდ მთავარ სიაში გამოჩნდებოდა.
+   */
+  function openEditor(cad, onSaved) {
     const plot = findPlot(cad);
     if (!plot || !canEdit()) return;
 
@@ -170,6 +177,7 @@ const TableView = (function () {
         plot.updated_at = result.updated_at;
         dialog.close();
         draw();
+        if (typeof onSaved === 'function') onSaved(plot);
         // რუკის თავიდან ხატვა არ სჭირდება: `MapView` სიის იმავე
         // ობიექტებს იხსენებს, ამიტომ `Object.assign` მასაც ეხება.
         // გეომეტრია და სტატუსი კი რედაქტირებით არ იცვლება.
