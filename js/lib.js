@@ -76,10 +76,15 @@
    * ნიშნავს, ფული აღარ იწერება.
    */
   function treasurerIndex(projects) {
+    return staffIndex(projects, 'treasurer');
+  }
+
+  /** იგივე, ნებისმიერი პასუხისმგებლის ველისთვის: `treasurer`, `moderator`. */
+  function staffIndex(projects, field) {
     const index = {};
     (projects || []).forEach(function (project) {
       if (!project || project.status === 'cancelled') return;
-      const email = String(project.treasurer || '').trim().toLowerCase();
+      const email = String(project[field] || '').trim().toLowerCase();
       if (!email) return;
       const label = String(project.name || '').trim() || String(project.id || '');
       if (!index[email]) index[email] = [];
@@ -358,7 +363,7 @@
 
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
-    treasurerIndex: treasurerIndex,
+    treasurerIndex: treasurerIndex, staffIndex: staffIndex,
     PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,
     streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows,

@@ -166,17 +166,22 @@ const API = (function () {
     await active(['admin']);
     const [profiles, projects] = await Promise.all([
       sb.from('profiles').select('*').order('requested_at', { ascending: false }),
-      sb.from('projects').select('id, name, treasurer, status'),
+      sb.from('projects').select('id, name, treasurer, moderator, status'),
     ]);
     if (profiles.error) fromPostgrest(profiles.error);
     // პროექტების ჩავარდნა მომხმარებლების სიას არ აჩერებს — ხაზინდრობა
     // დამატებითი ინფორმაციაა, დამტკიცება კი მთავარი სამუშაო.
-    const byEmail = projects.error
-      ? {} : WebLib.treasurerIndex(projects.data);
+    const asTreasurer = projects.error
+      ? {} : WebLib.staffIndex(projects.data, 'treasurer');
+    const asModerator = projects.error
+      ? {} : WebLib.staffIndex(projects.data, 'moderator');
 
     return profiles.data.map(function (profile) {
       const email = String(profile.email || '').trim().toLowerCase();
-      return Object.assign({}, profile, { treasurer_of: byEmail[email] || [] });
+      return Object.assign({}, profile, {
+        treasurer_of: asTreasurer[email] || [],
+        moderator_of: asModerator[email] || [],
+      });
     });
   }
 
@@ -252,13 +257,14 @@ const API = (function () {
     const id = String((payload && payload.id) || '').trim();
     if (!id) fail('VALIDATION', 'პროექტის id არ არის მითითებული');
 
-    const [project, pledges, payments, plots, photos, phones] = await Promise.all([
+    const [project, pledges, payments, plots, photos, phones, staff] = await Promise.all([
       sb.from('projects').select('*').eq('id', id).maybeSingle(),
       sb.from('pledges').select('*').eq('project_id', id),
       sb.from('payments').select('*').eq('project_id', id),
       sb.from('plots').select('cad, street, num, address, area, first_name, last_name'),
       sb.from('project_photos').select('*').eq('project_id', id).order('sort'),
       sb.rpc('plot_phones'),
+      sb.rpc('project_staff', { p_id: id }),
     ]);
     [project, pledges, payments, plots, photos]
       .forEach(function (r) { if (r.error) fromPostgrest(r.error); });
@@ -297,6 +303,9 @@ const API = (function () {
 
     return {
       project: project.data,
+      // სახელები ცალკე ფუნქციიდან: `projects`-ში მხოლოდ მეილი წერია და
+      // `profiles`-ს მაცხოვრებელი ვერ კითხულობს.
+      staff: (!staff.error && staff.data) ? staff.data : [],
       totals: WebLib.projectTotals(project.data, pledges.data, payments.data),
       rows: rows,
       payments: payments.data,
@@ -351,9 +360,28 @@ const API = (function () {
       p_amount_per_household: Number(payload && payload.amount_per_household),
       p_cads: (payload && payload.cads) || [],
       p_treasurer: String((payload && payload.treasurer) || '').trim() || null,
+      p_moderator: String((payload && payload.moderator) || '').trim() || null,
     });
     if (error) fromPostgrest(error);
     return { id: data, status: 'draft' };
+  }
+
+  /**
+   * პროექტის პასუხისმგებლების დანიშვნა.
+   *
+   * ორივე ველი ერთად იგზავნება — გამოტოვებული ველი ბაზაში იცლება, ამიტომ
+   * ინტერფეისმა ორივეს მიმდინარე მნიშვნელობა უნდა გამოგზავნოს, თუნდაც
+   * ერთი მათგანი არ შეცვლილიყო.
+   */
+  async function actionSetProjectStaff(payload) {
+    await active(['admin']);
+    const { data, error } = await sb.rpc('set_project_staff', {
+      p_id: String((payload && payload.id) || '').trim(),
+      p_moderator: String((payload && payload.moderator) || '').trim() || null,
+      p_treasurer: String((payload && payload.treasurer) || '').trim() || null,
+    });
+    if (error) fromPostgrest(error);
+    return data;
   }
 
   async function actionApproveProject(payload) {
@@ -378,6 +406,7 @@ const API = (function () {
     setPledge: actionSetPledge,
     createProject: actionCreateProject,
     approveProject: actionApproveProject,
+    setProjectStaff: actionSetProjectStaff,
     recordPayment: actionRecordPayment,
     cancelPayment: actionCancelPayment,
   };

@@ -108,6 +108,7 @@ const AdminView = (function () {
     // ნიშანი და სტრიქონი მხოლოდ იმას ეუბნება ადმინს, ვის რომელ
     // პროექტში ევალება ფულის ჩაწერა.
     const projects = user.treasurer_of || [];
+    const moderates = user.moderator_of || [];
     return '<article class="ad-u" data-email="' + esc(user.email) + '">' +
       '<header class="ad-u-h">' +
       '<span class="ad-av">' + esc(initials(user)) + '</span>' +
@@ -124,6 +125,10 @@ const AdminView = (function () {
       (projects.length
         ? '<p class="ad-u-tre"><span>ხაზინდარი:</span> ' +
           esc(projects.join(', ')) + '</p>'
+        : '') +
+      (moderates.length
+        ? '<p class="ad-u-tre"><span>მოდერატორი:</span> ' +
+          esc(moderates.join(', ')) + '</p>'
         : '') +
       '<div class="ad-u-f">' +
       '<label>როლი<select data-role>' + roleOptions(user.role) + '</select></label>' +

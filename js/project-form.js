@@ -95,6 +95,10 @@ const ProjectForm = (function () {
       '<input name="treasurer" type="email" autocomplete="off" ' +
       'placeholder="ვინც ფულს ჩაწერს"></label>' +
 
+      '<label class="pf-field">მოდერატორი — მეილი (არასავალდებულო)' +
+      '<input name="moderator" type="email" autocomplete="off" ' +
+      'placeholder="ვინც დარეკავს და სტატუსებს შეავსებს"></label>' +
+
       '<label class="pf-field">ფოტოები' +
       '<input name="photos" type="file" accept="image/*" multiple></label>' +
 
@@ -214,6 +218,7 @@ const ProjectForm = (function () {
           budget: form.elements.budget.value,
           amount_per_household: amount,
           treasurer: form.elements.treasurer.value,
+          moderator: form.elements.moderator.value,
           cads: cads,
         });
 

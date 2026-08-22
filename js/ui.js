@@ -1,6 +1,6 @@
 const UI = (function () {
 
-  const VIEWS = ['home', 'project', 'admin'];
+  const VIEWS = ['home', 'registry', 'project', 'admin'];
 
   function el(id) { return document.getElementById(id); }
 
@@ -28,10 +28,12 @@ const UI = (function () {
     // არასდროს იხატებოდა, ხოლო რუკა მთავარზე დაბრუნებისას არ ჯდებოდა.
     if (name === 'home') {
       window.scrollTo(0, homeScroll);
-      if (typeof MapView !== 'undefined') MapView.refresh();
     } else {
       window.scrollTo(0, 0);
     }
+    // რუკა დამალულ ხედში ნულოვან სიგანეს ზომავს და გეგმა არ ჯდება —
+    // გასწორება მხოლოდ გამოჩენის შემდეგ შეიძლება.
+    if (name === 'registry' && typeof MapView !== 'undefined') MapView.refresh();
     if (name === 'admin' && typeof AdminView !== 'undefined') AdminView.render();
   }
 

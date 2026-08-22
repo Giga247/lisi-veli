@@ -166,11 +166,16 @@ const ProjectsView = (function () {
     return name || '—';
   }
 
+  /**
+   * ზარის პასუხის ჩაწერა.
+   *
+   * ქუჩის შეზღუდვა მოიხსნა: მოდერატორი მხოლოდ თავის ქუჩაზე რომ წერდა,
+   * შვებულებაში წასული ან ჯერ დაუნიშნავი ქუჩა უპატრონოდ რჩებოდა და
+   * პასუხს ვერავინ აფიქსირებდა. ვინც ურეკავს, ის წერს.
+   */
   function canAnswer(row) {
     if (!user || !current || current.project.status !== 'active') return false;
-    if (user.role === 'admin') return true;
-    if (user.role !== 'moderator') return false;
-    return !!row.street && row.street === (user.street || '');
+    return user.role === 'admin' || user.role === 'moderator';
   }
 
   /**
@@ -196,6 +201,22 @@ const ProjectsView = (function () {
   function canPay() {
     if (!user || !current || current.project.status !== 'active') return false;
     if (user.role === 'admin') return true;
+    return Boolean(current.project.treasurer) &&
+      current.project.treasurer === user.email;
+  }
+
+  /**
+   * ვინ ხედავს სტატუსსა და გადახდას.
+   *
+   * მაცხოვრებელი ბარათზე მხოლოდ ნაკვეთის მონაცემებს ხედავს — ვისი
+   * სახლია და სად. ვინ რას უპასუხა და ვინ რამდენი შემოიტანა, უბნის
+   * შიდა საქმეა და მეზობლის თვალწინ არ იშლება. რუკაზე ფერები ყველას
+   * უჩანს: ისინი უბნის საერთო პროგრესს აჩვენებს და არა კონკრეტული
+   * კარის უკან რა ხდება.
+   */
+  function canSeeProgress() {
+    if (!user || !current) return false;
+    if (user.role === 'admin' || user.role === 'moderator') return true;
     return Boolean(current.project.treasurer) &&
       current.project.treasurer === user.email;
   }
@@ -241,6 +262,34 @@ const ProjectsView = (function () {
       '</dl></section>';
   }
 
+  /**
+   * ვინ პასუხობს ამ პროექტზე.
+   *
+   * მეზობელს, რომელსაც კითხვა აქვს, უნდა ჰქონდეს ერთი მისამართი —
+   * თორემ ან ადმინს წერს, ან არავის. სახელები `project_staff()`-იდან
+   * მოდის: `profiles`-ს მაცხოვრებელი ვერ კითხულობს.
+   */
+  function staffBlock(staff) {
+    const byKind = {};
+    (staff || []).forEach(function (person) { byKind[person.kind] = person; });
+
+    const one = function (kind, label) {
+      const person = byKind[kind];
+      return '<div class="pr-staff-i"><span>' + esc(label) + '</span>' +
+        (person
+          ? '<b>' + esc(person.display_name) + '</b>'
+          : '<i>დაუნიშნავი</i>') + '</div>';
+    };
+
+    return '<section class="pr-staff">' +
+      one('moderator', 'მოდერატორი') +
+      one('treasurer', 'ხაზინდარი') +
+      (user && user.role === 'admin'
+        ? '<button type="button" class="pr-staff-b" data-staff="1">დანიშვნა</button>'
+        : '') +
+      '</section>';
+  }
+
   function renderProject() {
     const project = current.project;
     const totals = current.totals;
@@ -255,6 +304,7 @@ const ProjectsView = (function () {
       approvalBanner(project) +
       (project.description ? '<p class="pr-desc">' + esc(project.description) + '</p>' : '') +
       photoStrip(current.photos) +
+      staffBlock(current.staff) +
       figures(totals) +
       progressBar(totals) +
       myHousehold() +
@@ -276,7 +326,9 @@ const ProjectsView = (function () {
       const map = rowByCad();
       planInstance = PlanView.create(host, planData, {
         sidebar: false,
-        tint: function (cad) { return map[cad] ? map[cad].color : 'not_contacted'; },
+        // პროექტში არმყოფი ნაკვეთი „არ დარეკილად" იღებებოდა — თითქოს
+        // მასზეც ველოდებით პასუხს. ის უბრალოდ არ მონაწილეობს.
+        tint: function (cad) { return map[cad] ? map[cad].color : null; },
         legend: legendHtml(current.rows),
         onSelect: function (cad) { if (cad) openAnswer(cad); },
       });
@@ -363,11 +415,32 @@ const ProjectsView = (function () {
    * და შემოვიდა თუ არა ფული. სტატუსები ჩიპებია და არა ერთმანეთის ქვეშ
    * დაწყობილი რადიოები — ექვსი გრძელი წარწერა ეკრანის ნახევარს ჭამდა.
    */
+  /**
+   * პროექტში არმყოფი ნაკვეთი — მხოლოდ რეესტრის მონაცემები.
+   *
+   * რუკა უბნის ყველა ნაკვეთს ხატავს, პროექტი კი მათ ნაწილს მოიცავს.
+   * კლიკი უპასუხოდ რომ რჩებოდეს, გატეხილად გამოიყურებოდა.
+   */
+  function outsideRow(cad) {
+    const plot = (window.PLOTS || []).filter(function (item) {
+      return item.cad === cad;
+    })[0];
+    if (!plot) return null;
+    return {
+      cad: plot.cad, street: plot.street || '', address: plot.address || '',
+      first_name: plot.first_name || '', last_name: plot.last_name || '',
+      phone: plot.phone || '', amount_due: 0, paid: 0,
+      status: 'not_contacted', note: '', color: 'not_contacted',
+    };
+  }
+
   function openAnswer(cad) {
-    const row = rowByCad()[cad];
+    const inProject = Boolean(rowByCad()[cad]);
+    const row = rowByCad()[cad] || outsideRow(cad);
     if (!row) return;
-    const mayAnswer = canAnswer(row);
-    const mayPay = canPay();
+    const mayAnswer = inProject && canAnswer(row);
+    const mayPay = inProject && canPay();
+    const maySee = inProject && canSeeProgress();
     const wasPaid = Number(row.paid) > 0;
     const view = WebLib.pledgeView(row.status);
 
@@ -378,7 +451,8 @@ const ProjectsView = (function () {
 
       '<header class="pc-h">' +
       '<div><h3>' + esc(ownerName(row)) + '</h3>' +
-      '<p>' + esc(row.address || row.cad) + '</p></div>' +
+      '<p>' + esc(row.address || '—') + '</p>' +
+      '<p class="pc-cad mono">' + esc(row.cad) + '</p></div>' +
       (canEditPlot()
         ? '<button type="button" class="pc-ed" data-edit-plot="1" ' +
           'title="ნაკვეთის რედაქტირება" aria-label="ნაკვეთის რედაქტირება">' +
@@ -397,14 +471,18 @@ const ProjectsView = (function () {
           '<label class="pc-note">შენიშვნა' +
           '<textarea name="note" rows="2" maxlength="500" ' +
           'placeholder="მაგ. ხვალ დამირეკავს">' + esc(row.note || '') + '</textarea></label>'
-        : '<p class="pc-ro"><span class="pr-tone tint-' + esc(row.color) + '">' +
-          esc(view.icon) + '</span> ' + esc(view.label) +
-          (row.note ? ' · ' + esc(row.note) : '') + '</p>') +
+        : maySee
+          ? '<p class="pc-ro"><span class="pr-tone tint-' + esc(row.color) + '">' +
+            esc(view.icon) + '</span> ' + esc(view.label) +
+            (row.note ? ' · ' + esc(row.note) : '') + '</p>'
+          : '') +
 
-      '<div class="pc-money">' +
-      '<span>წილი <b>' + esc(WebLib.money(row.amount_due)) + '</b></span>' +
-      '<span>გადახდილი <b>' + esc(WebLib.money(row.paid)) + '</b></span>' +
-      '</div>' +
+      (maySee
+        ? '<div class="pc-money">' +
+          '<span>წილი <b>' + esc(WebLib.money(row.amount_due)) + '</b></span>' +
+          '<span>გადახდილი <b>' + esc(WebLib.money(row.paid)) + '</b></span>' +
+          '</div>'
+        : '') +
       (mayPay
         ? (mayAnswer ? '' : statusChips(row, false)) +
           '<label class="pc-paid' + (wasPaid ? ' is-on' : '') + '">' +
@@ -584,7 +662,8 @@ const ProjectsView = (function () {
       if (answer) { openAnswer(answer.getAttribute('data-answer')); return; }
       if (target.closest && target.closest('[data-new]')) { openNewProject(); return; }
       const approve = target.closest && target.closest('[data-approve]');
-      if (approve) { confirmApprove(approve); }
+      if (approve) { confirmApprove(approve); return; }
+      if (target.closest && target.closest('[data-staff]')) { openStaff(); }
     });
 
     host.addEventListener('keydown', function (event) {
@@ -595,6 +674,90 @@ const ProjectsView = (function () {
       openProject(card.getAttribute('data-open'));
     });
 
+  }
+
+  /**
+   * პასუხისმგებლების დანიშვნა (ადმინი).
+   *
+   * ცალკე „პროექტის რედაქტირების" გვერდი არ გვაქვს და მხოლოდ ორი
+   * ველისთვის მისი აშენება გადაჭარბებული იქნებოდა. სია `users`-იდან
+   * მოდის — მას ისედაც მხოლოდ ადმინი კითხულობს.
+   */
+  async function openStaff() {
+    if (!user || user.role !== 'admin' || !current) return;
+    const project = current.project;
+
+    let people = [];
+    try {
+      people = await API.call('users');
+    } catch (error) {
+      UI.showError(error.message || 'მომხმარებლები ვერ ჩაიტვირთა');
+      return;
+    }
+    const active = people.filter(function (person) {
+      return ['member', 'moderator', 'admin'].indexOf(person.role) !== -1;
+    });
+
+    const options = function (selected) {
+      return '<option value="">— დაუნიშნავი —</option>' +
+        active.map(function (person) {
+          const label = String(person.display_name || '').trim() || person.email;
+          return '<option value="' + esc(person.email) + '"' +
+            (person.email === selected ? ' selected' : '') + '>' +
+            esc(label) + '</option>';
+        }).join('');
+    };
+
+    const dialog = document.createElement('div');
+    dialog.className = 'pr-dialog';
+    dialog.innerHTML =
+      '<form class="pr-dialog-box">' +
+      '<h3>ვინ პასუხობს პროექტზე</h3>' +
+      '<label class="pc-note">მოდერატორი — ზარები და სტატუსები' +
+      '<select name="moderator">' + options(project.moderator || '') + '</select></label>' +
+      '<label class="pc-note">ხაზინდარი — გადახდები' +
+      '<select name="treasurer">' + options(project.treasurer || '') + '</select></label>' +
+      '<p class="pr-dialog-sub">მოდერატორად დანიშვნა მაცხოვრებელს ' +
+      'მოდერატორის როლსაც აძლევს — უფლების გარეშე დანიშვნა ცარიელი ' +
+      'ჟესტი იქნებოდა.</p>' +
+      '<p class="pr-dialog-error" hidden></p>' +
+      '<div class="pc-confirm-act">' +
+      '<button type="button" data-cancel="1">გაუქმება</button>' +
+      '<button type="submit" class="pc-confirm-yes">შენახვა</button>' +
+      '</div></form>';
+
+    document.body.appendChild(dialog);
+    document.body.classList.add('sheet-open');
+    const close = function () {
+      dialog.remove();
+      document.body.classList.remove('sheet-open');
+    };
+    dialog.querySelector('[data-cancel]').addEventListener('click', close);
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) close();
+    });
+
+    const errorBox = dialog.querySelector('.pr-dialog-error');
+    const submit = dialog.querySelector('[type="submit"]');
+    dialog.querySelector('form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      errorBox.hidden = true;
+      submit.disabled = true;
+      try {
+        // ორივე ველი ერთად მიდის: გამოტოვებულს ბაზა ასუფთავებს.
+        await API.call('setProjectStaff', {
+          id: project.id,
+          moderator: dialog.querySelector('[name="moderator"]').value,
+          treasurer: dialog.querySelector('[name="treasurer"]').value,
+        });
+        close();
+        await openProject(project.id);
+      } catch (error) {
+        errorBox.textContent = error.message || 'ვერ შეინახა';
+        errorBox.hidden = false;
+        submit.disabled = false;
+      }
+    });
   }
 
   function openNewProject() {

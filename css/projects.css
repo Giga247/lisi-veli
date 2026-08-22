@@ -50,6 +50,9 @@
 .plot.tint-loan          { fill: var(--tone-loan);          fill-opacity: .72; }
 .plot.tint-declined      { fill: var(--tone-declined);      fill-opacity: .72; }
 .plot.tint-paid          { fill: var(--tone-paid);          fill-opacity: .72; }
+/* პროექტში არმყოფი ნაკვეთი — ფერის გარეშე, რომ „ჯერ არ დაგვირეკავს"
+   და „არ მონაწილეობს" ერთმანეთში არ აირიოს. */
+.plot.tint-none          { fill: var(--line);               fill-opacity: .35; }
 
 /* კანტს `plan.css` სვამს ორივე შემთხვევისთვის — აქ გამეორება
    მხოლოდ იმას გამოიწვევდა, რომ ერთი წესი ორ ფაილში ცხოვრობდეს. */
@@ -272,6 +275,11 @@
   font: inherit; font-size: 15px; cursor: pointer; }
 .pc-ed { color: var(--ink); }
 
+/* საკადასტრო კოდი სათაურის ქვეშ — მაცხოვრებლისთვის ეს ბარათის
+   მთავარი შიგთავსია, ამიტომ ის ცალკე სტრიქონად დგას. */
+.pc-cad { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-muted);
+  letter-spacing: .02em; }
+
 .pc-call { display: grid; place-items: center; height: 46px; border-radius: 12px;
   background: var(--ink); color: var(--surface); text-decoration: none;
   font-size: 14px; font-weight: 500; }
@@ -357,3 +365,14 @@
   .pc-confirm { align-items: center; padding: 20px; }
   .pc-confirm-box { border-radius: 16px; }
 }
+
+/* ვინ პასუხობს პროექტზე. ორი სახელი გვერდიგვერდ, ტელეფონზეც კი —
+   მათ შორის არჩევანი არ არის, ორივე ერთდროულად უნდა ჩანდეს. */
+.pr-staff { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
+.pr-staff-i { display: grid; gap: 2px; font-size: 12px; color: var(--ink-muted); }
+.pr-staff-i b { font-size: 14px; color: var(--ink); font-weight: 600; }
+.pr-staff-i i { font-size: 14px; color: var(--ink-muted); font-style: normal; }
+.pr-staff-b { margin-left: auto; min-height: 36px; padding: 0 12px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }

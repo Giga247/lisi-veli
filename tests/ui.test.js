@@ -19,7 +19,7 @@ const UI_SOURCE = fs.readFileSync(path.join(__dirname, '..', 'js', 'ui.js'), 'ut
 /** მინიმალური DOM: მხოლოდ ის, რასაც `ui.js` ეხება. */
 function sandbox() {
   const nodes = {};
-  ['view-home', 'view-project', 'view-admin', 'error-box',
+  ['view-home', 'view-registry', 'view-project', 'view-admin', 'error-box',
     'screen-loading', 'screen-signin', 'screen-pending', 'screen-app',
   ].forEach(function (id) { nodes[id] = { id: id, hidden: true }; });
 
@@ -54,10 +54,18 @@ test('showView("admin") ხატავს ადმინის პანელ
   assert.strictEqual(env.nodes['view-home'].hidden, true);
 });
 
-test('მთავარზე დაბრუნება რუკას თავიდან ჯდომს', () => {
+// რუკა მთავარიდან რეესტრში გადავიდა — refresh მას უნდა მიჰყვეს, თორემ
+// გეგმა დამალულ ხედში ნულოვან სიგანეს გაზომავს და არ ჩაჯდება.
+test('რეესტრზე გადასვლა რუკას თავიდან ჯდომს', () => {
+  const env = sandbox();
+  vm.runInContext('UI.showView("registry")', env.context);
+  assert.strictEqual(env.calls.mapRefresh, 1, 'MapView.refresh() უნდა გამოძახებულიყო');
+});
+
+test('მთავარზე რუკა აღარ არის — refresh არ ეძახება', () => {
   const env = sandbox();
   vm.runInContext('UI.showView("home")', env.context);
-  assert.strictEqual(env.calls.mapRefresh, 1, 'MapView.refresh() უნდა გამოძახებულიყო');
+  assert.strictEqual(env.calls.mapRefresh, 0);
 });
 
 test('showView სხვა ხედებს მალავს', () => {
