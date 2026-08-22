@@ -235,12 +235,21 @@ const API = (function () {
 
   async function actionProjects() {
     await active(ROLES_MEMBER);
-    const [projects, pledges, payments] = await Promise.all([
+    // სახელები მეპატრონეების დასათვლელად: ისინი ნაკვეთზე ნაკლებია და
+    // ეს რიცხვი ბარათზევე უნდა ჩანდეს. მხოლოდ ორი სვეტი მოაქვს —
+    // ტელეფონი და მისამართი აქ არაფერში გვჭირდება.
+    const [projects, pledges, payments, plots] = await Promise.all([
       sb.from('projects').select('*').order('created_at', { ascending: false }),
       sb.from('pledges').select('project_id, cad, amount_due, status'),
       sb.from('payments').select('project_id, cad, amount'),
+      sb.from('plots').select('cad, first_name, last_name'),
     ]);
     [projects, pledges, payments].forEach(function (r) { if (r.error) fromPostgrest(r.error); });
+
+    const nameByCad = {};
+    if (!plots.error && plots.data) {
+      plots.data.forEach(function (plot) { nameByCad[plot.cad] = plot; });
+    }
 
     return projects.data.map(function (project) {
       const mine = pledges.data.filter(function (x) { return x.project_id === project.id; });
@@ -248,6 +257,12 @@ const API = (function () {
       return Object.assign({}, project, {
         totals: WebLib.projectTotals(project, mine, paid),
         households: mine.length,
+        // სახელების გარეშე დათვლა ყველა ნაკვეთს ცალკე მეპატრონედ
+        // ჩათვლიდა და რიცხვი მდუმარედ არასწორი გამოვიდოდა — სჯობს
+        // საერთოდ არ ვაჩვენოთ.
+        owners: plots.error ? null : WebLib.ownerCount(mine.map(function (pledge) {
+          return nameByCad[pledge.cad] || {};
+        })),
       });
     });
   }

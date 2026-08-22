@@ -52,6 +52,8 @@ const ProjectsView = (function () {
       '<div><dt>შეგროვდა</dt><dd class="pr-hero">' + esc(WebLib.money(totals.collected)) + '</dd></div>' +
       '<div><dt>ბიუჯეტი</dt><dd>' + esc(WebLib.money(totals.budget)) + '</dd></div>' +
       '<div><dt>ნაკვეთი</dt><dd>' + project.households + '</dd></div>' +
+      (project.owners == null ? ''
+        : '<div><dt>მეპატრონე</dt><dd>' + project.owners + '</dd></div>') +
       '</dl>' +
       (dates ? '<p class="pr-dates">' + esc(dates) + '</p>' : '') +
       '</article>';
