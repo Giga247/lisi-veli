@@ -80,7 +80,9 @@ input, select, button { font: inherit; padding: 6px 10px;
   color: #f2f5f7; }
 
 .signin-bg { position: absolute; inset: 0; pointer-events: none;
-  background: url("../assets/plan-backdrop.svg") center / cover no-repeat; }
+  /* `?v=` სურათსაც სჭირდება: ფაილის სახელი არ იცვლება და ბრაუზერი
+     ძველ ნახაზს ინახავდა ახალ CSS-თან ერთად. */
+  background: url("../assets/plan-backdrop.svg?v=2") center / cover no-repeat; }
 
 /* ფარდა ფერს ჩააქრობს და კონტრასტს ჩამოაგდებს, რომ თეთრი ტექსტი
    ნაკვეთების ჭრელ ფერებზეც იკითხებოდეს. */
