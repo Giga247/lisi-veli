@@ -274,6 +274,7 @@
 
 .pc-status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   border: 0; padding: 0; margin: 0; }
+.pc-status[hidden] { display: none; }
 .pc-status legend { font-size: 12px; color: var(--ink-muted); padding: 0 0 6px;
   grid-column: 1 / -1; }
 /* რადიო რჩება — კლავიატურა და ეკრანის მკითხველი მასზეა მიბმული —
@@ -308,23 +309,47 @@
 .pc-money b { display: block; font-size: 15px; color: var(--ink);
   font-variant-numeric: tabular-nums; font-weight: 600; }
 
-.pc-pay, .pc-save { height: 46px; border-radius: 12px; border: 1px solid var(--line);
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px;
+.pc-save { height: 46px; border-radius: 12px; border: 1px solid var(--ink);
+  background: var(--ink); color: var(--surface); font: inherit; font-size: 14px;
   font-weight: 500; cursor: pointer; }
-.pc-save { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.pc-pay[disabled], .pc-save[disabled] { opacity: .6; cursor: default; }
+.pc-save[disabled] { opacity: .6; cursor: default; }
+
+/* გადახდის ჩამრთველი — ბარათის ბოლო სტრიქონი. სხვა ველებისგან ხაზით
+   არის გამოყოფილი: ეს პასუხი კი არა, ფულის ფაქტია. */
+.pc-paid { display: flex; align-items: center; gap: 12px; cursor: pointer;
+  position: relative;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  font-size: 14px; font-weight: 500; }
+.pc-paid input { position: absolute; opacity: 0; pointer-events: none; }
+.pc-paid-sw { flex: none; width: 44px; height: 26px; border-radius: 13px;
+  background: var(--line); position: relative; transition: background .15s; }
+.pc-paid-sw::after { content: ''; position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s; }
+.pc-paid.is-on { border-color: var(--tone-paid); }
+.pc-paid.is-on .pc-paid-sw { background: var(--tone-paid); }
+.pc-paid.is-on .pc-paid-sw::after { transform: translateX(18px); }
+.pc-paid input:focus-visible + .pc-paid-sw {
+  outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* დადასტურების პოპაპი ბარათის თავზე ჯდება — ბარათი ღიად რჩება, რომ
+   კითხვაზე პასუხისას თვალწინ ედოს, რას ეხებოდა. */
+.pc-confirm { z-index: 60; }
+.pc-confirm-box { max-width: 320px; text-align: center; gap: 14px; }
+.pc-confirm-box h3 { margin: 0; font-size: 16px; }
+.pc-confirm-box ul { margin: 0; padding: 0; list-style: none;
+  font-size: 13px; color: var(--ink-muted); display: grid; gap: 6px; }
+.pc-confirm-act { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pc-confirm-act button { height: 44px; border-radius: 12px; font: inherit;
+  font-size: 14px; cursor: pointer; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); }
+.pc-confirm-yes { background: var(--ink); border-color: var(--ink);
+  color: var(--surface); font-weight: 500; }
 
 @media (max-width: 560px) {
   .pr-dialog { align-items: end; padding: 0; }
   .pr-card-box { width: 100%; border-radius: 20px 20px 0 0;
     padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .pc-confirm { align-items: center; padding: 20px; }
+  .pc-confirm-box { border-radius: 16px; }
 }
-
-/* შეიარაღებული ღილაკი — მეორე დაჭერის მოლოდინში ფერს იცვლის, რომ
-   შემთხვევით არავინ გაიაროს ორივე ნაბიჯი შეუმჩნევლად. */
-.pc-save.is-armed, .pc-pay.is-armed {
-  background: var(--danger); border-color: var(--danger); color: #fff; }
-/* გაუქმება არ არის ჩვეულებრივი მოქმედება — ის შეცდომას ასწორებს,
-   ამიტომ ვიზუალურად მეორეხარისხოვანია და არა მთავარი ღილაკი. */
-.pc-pay.is-undo { background: var(--surface); color: var(--danger);
-  border-color: var(--line); }

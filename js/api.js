@@ -385,23 +385,27 @@ const API = (function () {
   }
 
   /**
-   * გადახდის გაუქმება.
+   * გადახდის გაუქმება არჩეული სტატუსით.
    *
-   * ჩანაწერი იშლება და სტატუსს ბაზის ტრიგერი აბრუნებს „არ დარეკილაზე" —
-   * კლიენტი ორივეს ცალკე რომ აკეთებდეს, შუაში ჩავარდნა ვალდებულებას
-   * „გადახდილად" დატოვებდა უკვე წაშლილი ფულით.
+   * ორივე ცვლილება — ჩანაწერის წაშლა და სტატუსის დაბრუნება — ერთ
+   * ტრანზაქციაშია ბაზაში. კლიენტი რომ ორ ცალკე მოთხოვნას აგზავნიდეს,
+   * შუაში ჩავარდნა ვალდებულებას წაშლილი ფულითა და ძველი სტატუსით
+   * დატოვებდა.
    */
   async function actionCancelPayment(payload) {
     await active(ROLES_MEMBER);
     const projectId = String((payload && payload.project_id) || '').trim();
     const cad = String((payload && payload.cad) || '').trim();
+    const status = String((payload && payload.status) || '').trim();
+    const allowed = ['not_contacted', 'unreachable', 'paying', 'loan', 'declined'];
     if (!projectId || !cad) fail('VALIDATION', 'პროექტი ან ნაკვეთი არ არის მითითებული');
+    if (allowed.indexOf(status) === -1) fail('VALIDATION', 'აირჩიეთ სტატუსი');
 
-    const { error, count } = await sb.from('payments').delete({ count: 'exact' })
-      .eq('project_id', projectId).eq('cad', cad);
+    const { data, error } = await sb.rpc('cancel_payment', {
+      p_project_id: projectId, p_cad: cad, p_status: status,
+    });
     if (error) fromPostgrest(error);
-    if (!count) fail('NOT_FOUND', 'გასაუქმებელი გადახდა ვერ მოიძებნა');
-    return { cancelled: count };
+    return { cancelled: data };
   }
 
   /**

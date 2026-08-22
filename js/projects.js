@@ -278,6 +278,70 @@ const ProjectsView = (function () {
   /* ── პასუხის ჩაწერა ──────────────────────────────────────────── */
 
   /**
+   * სტატუსის ჩიპები.
+   *
+   * „გადახდილია" აქ არ არის: ის ფულის ფაქტია და არა ზარის პასუხი —
+   * ბოლოს ცალკე ჩამრთველად დგას. ჩიპებში რომ ერეოდა, ერთი და იმავე
+   * ველიდან ორი სხვადასხვა რამ იმართებოდა.
+   *
+   * `open=false` ხაზინდრისთვისაა, ვისაც სტატუსის ცვლა არ შეუძლია:
+   * ჩიპები დამალულია და მხოლოდ მაშინ ჩნდება, როცა გადახდას თიშავს —
+   * მაშინ სადღაც ხომ უნდა დაბრუნდეს ვალდებულება.
+   */
+  function statusChips(row, open) {
+    const keys = Object.keys(WebLib.PLEDGE_VIEW)
+      .filter(function (key) { return key !== 'paid'; });
+    // გადახდილს ძველი პასუხი აღარ ახსოვს — „დებს" ყველაზე ახლოა
+    // სიმართლესთან, ვინც ფული უკვე შემოიტანა.
+    const checked = row.status === 'paid' ? 'paying' : row.status;
+    return '<fieldset class="pc-status' + (open ? '' : ' is-revert') + '"' +
+      (open ? '' : ' hidden') + '>' +
+      '<legend>' + (open ? 'სტატუსი' : 'დაბრუნდეს სტატუსში') + '</legend>' +
+      keys.map(function (key) {
+        const item = WebLib.PLEDGE_VIEW[key];
+        return '<label class="pc-chip tint-' + esc(key) + '">' +
+          '<input type="radio" name="status" value="' + esc(key) + '"' +
+          (checked === key ? ' checked' : '') + '>' +
+          '<span>' + esc(item.label) + '</span></label>';
+      }).join('') + '</fieldset>';
+  }
+
+  /**
+   * დადასტურების პოპაპი.
+   *
+   * `confirm()` განზრახ არ გამოიყენება: ბრაუზერის მოდალი ინგლისურ
+   * ჩარჩოში სვამს ქართულ ტექსტს, მობაილზე ეკრანის თავში ხტება და
+   * ვერ ჩამოთვლის, კონკრეტულად რა იცვლება. აქ კითხვის ქვეშ თვითონ
+   * ცვლილებები წერია — ვინც ღილაკს ეხება, ხედავს რას ადასტურებს.
+   */
+  function confirmAsk(question, lines) {
+    return new Promise(function (resolve) {
+      const box = document.createElement('div');
+      box.className = 'pr-dialog pc-confirm';
+      box.innerHTML = '<div class="pr-dialog-box pc-confirm-box">' +
+        '<h3>' + esc(question) + '</h3>' +
+        (lines.length
+          ? '<ul>' + lines.map(function (line) {
+            return '<li>' + esc(line) + '</li>';
+          }).join('') + '</ul>'
+          : '') +
+        '<div class="pc-confirm-act">' +
+        '<button type="button" data-no="1">არა</button>' +
+        '<button type="button" class="pc-confirm-yes" data-yes="1">დიახ</button>' +
+        '</div></div>';
+
+      const done = function (answer) { box.remove(); resolve(answer); };
+      box.querySelector('[data-no]').addEventListener('click', function () { done(false); });
+      box.querySelector('[data-yes]').addEventListener('click', function () { done(true); });
+      box.addEventListener('click', function (event) {
+        if (event.target === box) done(false);
+      });
+      document.body.appendChild(box);
+      box.querySelector('[data-yes]').focus();
+    });
+  }
+
+  /**
    * ნაკვეთის ბარათი პროექტში.
    *
    * ერთი ეკრანი, რომელზეც ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს
@@ -290,6 +354,7 @@ const ProjectsView = (function () {
     if (!row) return;
     const mayAnswer = canAnswer(row);
     const mayPay = canPay();
+    const wasPaid = Number(row.paid) > 0;
     const view = WebLib.pledgeView(row.status);
 
     const dialog = document.createElement('div');
@@ -309,14 +374,7 @@ const ProjectsView = (function () {
         : '') +
 
       (mayAnswer
-        ? '<fieldset class="pc-status"><legend>სტატუსი</legend>' +
-          Object.keys(WebLib.PLEDGE_VIEW).map(function (key) {
-            const item = WebLib.PLEDGE_VIEW[key];
-            return '<label class="pc-chip tint-' + esc(key) + '">' +
-              '<input type="radio" name="status" value="' + esc(key) + '"' +
-              (row.status === key ? ' checked' : '') + '>' +
-              '<span>' + esc(item.label) + '</span></label>';
-          }).join('') + '</fieldset>' +
+        ? statusChips(row, true) +
           '<label class="pc-note">შენიშვნა' +
           '<textarea name="note" rows="2" maxlength="500" ' +
           'placeholder="მაგ. ხვალ დამირეკავს">' + esc(row.note || '') + '</textarea></label>'
@@ -329,17 +387,16 @@ const ProjectsView = (function () {
       '<span>გადახდილი <b>' + esc(WebLib.money(row.paid)) + '</b></span>' +
       '</div>' +
       (mayPay
-        ? (Number(row.paid) > 0
-            // შეცდომით დაჭერილი „გადაიხადა" გასასწორებელი უნდა იყოს —
-            // სხვა კომლს რომ დააჭირო, სხვა გზა არ რჩებოდა.
-            ? '<button type="button" class="pc-pay is-undo" data-cancel-pay="1">' +
-              'გადახდის გაუქმება</button>'
-            : '<button type="button" class="pc-pay" data-pay="1">გადაიხადა · ' +
-              esc(WebLib.money(row.amount_due)) + '</button>')
+        ? (mayAnswer ? '' : statusChips(row, false)) +
+          '<label class="pc-paid' + (wasPaid ? ' is-on' : '') + '">' +
+          '<input type="checkbox" name="paid"' + (wasPaid ? ' checked' : '') + '>' +
+          '<span class="pc-paid-sw" aria-hidden="true"></span>' +
+          '<span class="pc-paid-t">გადახდილია · ' +
+          esc(WebLib.money(row.amount_due)) + '</span></label>'
         : '') +
-
       '<p class="pr-dialog-error" hidden></p>' +
-      (mayAnswer ? '<button type="submit" class="pc-save">შენახვა</button>' : '') +
+      (mayAnswer || mayPay
+        ? '<button type="submit" class="pc-save">შენახვა</button>' : '') +
       '</form>';
 
     document.body.appendChild(dialog);
@@ -362,91 +419,77 @@ const ProjectsView = (function () {
       errorBox.hidden = false;
     };
 
-    const payButton = form.querySelector('[data-pay]');
-    if (payButton) {
-      payButton.addEventListener('click', async function () {
-        payButton.disabled = true;
-        payButton.textContent = 'იწერება…';
-        try {
-          await API.call('recordPayment', {
-            project_id: current.project.id, cad: cad,
-            amount: Number(row.amount_due),
-            paid_on: new Date().toISOString().slice(0, 10),
-          });
-          close();
-          await openProject(current.project.id);
-        } catch (error) {
-          fail(error.message || 'გადახდა ვერ ჩაიწერა');
-          payButton.disabled = false;
-          payButton.textContent = 'გადაიხადა · ' + WebLib.money(row.amount_due);
-        }
-      });
-    }
+    const paidBox = form.elements.paid || null;
+    const revert = form.querySelector('.pc-status.is-revert');
 
-    /**
-     * ორნაბიჯიანი დადასტურება.
-     *
-     * `confirm()` განზრახ არ გამოიყენება: ბრაუზერის მოდალი ინგლისურ
-     * ჩარჩოში სვამს ქართულ ტექსტს და გვერდს კეტავს. მეორე დაჭერა იმავეს
-     * აკეთებს გვერდის ენაზე. ხუთ წამში ღილაკი თავად ბრუნდება საწყისში,
-     * რომ შემთხვევით შეიარაღებული არ დარჩეს.
-     */
-    function armed(button, prompt, run) {
-      const original = button.textContent;
-      let timer = null;
-      const disarm = function () {
-        if (!button.isConnected) return;
-        button.removeAttribute('data-armed');
-        button.classList.remove('is-armed');
-        button.textContent = original;
-      };
-      button.addEventListener('click', async function (event) {
-        event.preventDefault();
-        if (button.getAttribute('data-armed') !== '1') {
-          button.setAttribute('data-armed', '1');
-          button.classList.add('is-armed');
-          button.textContent = prompt;
-          clearTimeout(timer);
-          timer = setTimeout(disarm, 5000);
-          return;
-        }
-        clearTimeout(timer);
-        button.disabled = true;
-        button.textContent = 'ინახება…';
-        try {
-          await run();
-        } catch (error) {
-          fail(error.message || 'ვერ მოხერხდა');
-          button.disabled = false;
-          disarm();
-        }
-      });
-      return button;
-    }
-
-    const cancelPay = form.querySelector('[data-cancel-pay]');
-    if (cancelPay) {
-      armed(cancelPay, 'დარწმუნებული ხარ? დააჭირე ისევ', async function () {
-        await API.call('cancelPayment', {
-          project_id: current.project.id, cad: cad,
-        });
-        close();
-        await openProject(current.project.id);
+    // ხაზინდარს სტატუსი მხოლოდ მაშინ სჭირდება, როცა გადახდას თიშავს.
+    if (paidBox) {
+      paidBox.addEventListener('change', function () {
+        paidBox.closest('.pc-paid').classList.toggle('is-on', paidBox.checked);
+        if (revert) revert.hidden = paidBox.checked || !wasPaid;
       });
     }
 
     const save = form.querySelector('.pc-save');
     if (save) {
-      armed(save, 'დაადასტურე შენახვა', async function () {
+      const original = save.textContent;
+      save.addEventListener('click', async function (event) {
+        event.preventDefault();
+        errorBox.hidden = true;
+
+        const wantPaid = paidBox ? paidBox.checked : wasPaid;
         const picked = form.querySelector('input[name="status"]:checked');
-        if (!picked) throw new Error('აირჩიეთ სტატუსი');
-        await API.call('setPledge', {
-          project_id: current.project.id, cad: cad,
-          status: picked.value,
-          note: form.elements.note.value,
-        });
-        close();
-        await openProject(current.project.id);
+        // სტატუსი მაშინაა სავალდებულო, როცა მართლა ვწერთ: პასუხის
+        // შეცვლისას ან გადახდის გაუქმებისას.
+        if (!picked && (mayAnswer || (wasPaid && !wantPaid))) {
+          fail('აირჩიეთ სტატუსი');
+          return;
+        }
+
+        const lines = [];
+        if (mayAnswer && !(wasPaid && wantPaid)) {
+          lines.push('სტატუსი: ' + WebLib.pledgeView(picked.value).label);
+        }
+        if (wantPaid && !wasPaid) {
+          lines.push('გადახდა ჩაიწერება: ' + WebLib.money(row.amount_due));
+        }
+        if (!wantPaid && wasPaid) {
+          lines.push('გადახდა უქმდება და ბრუნდება: ' +
+            WebLib.pledgeView(picked.value).label);
+        }
+        if (!await confirmAsk('მართლა გსურს შენახვა?', lines)) return;
+
+        save.disabled = true;
+        save.textContent = 'ინახება…';
+        try {
+          // თანმიმდევრობას მნიშვნელობა აქვს: გაუქმება სტატუსს თავად
+          // სვამს, ჩაწერა კი ბოლოს „გადახდილზე" გადაიყვანს.
+          if (wasPaid && !wantPaid) {
+            await API.call('cancelPayment', {
+              project_id: current.project.id, cad: cad, status: picked.value,
+            });
+          }
+          if (mayAnswer) {
+            await API.call('setPledge', {
+              project_id: current.project.id, cad: cad,
+              status: (wasPaid && wantPaid) ? 'paid' : picked.value,
+              note: form.elements.note.value,
+            });
+          }
+          if (wantPaid && !wasPaid) {
+            await API.call('recordPayment', {
+              project_id: current.project.id, cad: cad,
+              amount: Number(row.amount_due),
+              paid_on: new Date().toISOString().slice(0, 10),
+            });
+          }
+          close();
+          await openProject(current.project.id);
+        } catch (error) {
+          fail(error.message || 'ვერ შეინახა');
+          save.disabled = false;
+          save.textContent = original;
+        }
       });
     }
 
