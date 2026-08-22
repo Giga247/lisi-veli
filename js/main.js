@@ -129,22 +129,21 @@ function configNotFilled() {
 }
 
 /**
- * შესვლის ეკრანის ინტერაქტიული გეგმა.
+ * შესვლის ეკრანის ფონი.
  *
  * ავტორიზაციისგან დამოუკიდებელია — მონაცემი სტატიკური ფაილია და
  * მფლობელებს არ შეიცავს, ამიტომ ჩატვირთვისთანავე ეშვება. ჩავარდნაზე
  * ხმას არ იღებს: გეგმა შესვლის ეკრანის ილუსტრაციაა, არა მისი პირობა.
+ *
+ * ინსტანცია `window`-ზე ინახება, რომ `UI.showScreen`-მა გამოჩენისას
+ * ჩასმა დაავალოს — დამალულ ელემენტს ნულოვანი სიგანე აქვს და გეგმა
+ * ეკრანში არ ჯდება.
  */
 function renderHeroPlan() {
   const host = document.getElementById('plan-hero');
   if (!host || typeof PlanView === 'undefined') return;
   PlanView.load().then(function (data) {
-    PlanView.create(host, data, { sidebar: false });
-    const count = document.getElementById('plan-hero-count');
-    if (count) {
-      count.textContent = data.streets.length + ' ქუჩა · ' +
-        (data.parcels.length + data.noshape.length) + ' ნაკვეთი';
-    }
+    window.HeroPlan = PlanView.create(host, data, { sidebar: false });
   }).catch(function () { /* ილუსტრაციის გარეშეც შესვლა მუშაობს */ });
 }
 

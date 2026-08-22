@@ -70,40 +70,55 @@ input, select, button { font: inherit; padding: 6px 10px;
    დესკტოპზე ორი სვეტი: მარცხნივ ვინ ვართ, მარჯვნივ როგორ შემოხვიდე.
    ვიწრო ეკრანზე იმავე რიგით ჩამოიშლება — ჯერ სახელი და ნახაზი, მერე
    ღილაკი, რომ პირველი ეკრანი აზრს ატარებდეს და არა მხოლოდ ფორმას. */
-#screen-signin { max-width: 1320px; padding: 32px 24px 48px; }
-.signin-grid { display: grid; gap: 40px; align-items: center;
-  min-height: calc(100vh - 80px); }
-@media (min-width: 900px) {
-  /* მარჯვენა სვეტს ფიქსირებული სიგანე აქვს — ბარათი ფართო ეკრანზე
-     უაზროდ რომ არ გაიწელოს; დარჩენილს მარცხენა იღებს. */
-  .signin-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; }
-}
+/* ── შესვლის ეკრანი ───────────────────────────────────────────────
+   უბნის გეგმა მთელ ეკრანს იკავებს ფონად, ჩამქრალი; ზემოდან მხოლოდ
+   სახელი და შესვლის ღილაკი. ადრე ორსვეტიანი იყო — ნახაზი მარცხნივ,
+   ბარათი მარჯვნივ — და ტელეფონზე ღილაკამდე მისვლას გადაგრაგნვა
+   სჭირდებოდა. აქ პირველივე ეკრანზე ჩანს ორივე: სად შემოხვედი და
+   როგორ შემოხვალ. */
+#screen-signin { position: relative; max-width: none; padding: 0;
+  min-height: 100vh; min-height: 100dvh; display: grid; place-items: center;
+  overflow: hidden; }
 
-/* ნახაზი ინტერაქტიულია და სვეტს მთლიანად იკავებს; სიმაღლეს ვზღუდავთ,
-   რომ დესკტოპზე შესვლის ბარათთან ერთად ერთ ეკრანში ეტეოდეს. */
-.signin-brand .plan { width: 100%; max-width: 100%; }
-.signin-brand .plan .plan-svg { height: min(62vh, 560px); }
+.signin-bg { position: absolute; inset: 0; pointer-events: none; }
+.signin-bg .plan-view { height: 100%; }
+.signin-bg .plan-map { height: 100%; }
+.signin-bg .plan-svg { height: 100%; cursor: default; }
+/* ხელსაწყოები და ლეგენდა ფონს არ სჭირდება — ისინი წასაკითხად არიან,
+   აქ კი ნახაზი მხოლოდ ფაქტურაა. */
+.signin-bg .plan-tools, .signin-bg .plan-legend { display: none; }
 
-.signin-brand h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15;
-  margin: 0 0 10px; letter-spacing: -.01em; }
-.signin-brand .lede { color: var(--ink-muted); font-size: 15px;
-  line-height: 1.55; margin: 0 0 24px; max-width: 42ch; }
+/* ორი ფენა ერთ საქმეს აკეთებს: ფერს ჩააქრობს და კონტრასტს ჩამოაგდებს,
+   რომ თეთრი ტექსტი ნაკვეთების ჭრელ ფერებზეც იკითხებოდეს. */
+.signin-bg .plan-svg { filter: saturate(.45) brightness(.85); }
+.signin-veil { position: absolute; inset: 0; pointer-events: none;
+  /* `color-mix`-ის გარეშე ბრაუზერი მთელ დეკლარაციას აგდებს — ამიტომ
+     მარტივი ფენა ცალკე სტრიქონად წინ დგას. */
+  background: rgba(0, 0, 0, .55);
+  background:
+    radial-gradient(120% 80% at 50% 45%,
+      rgba(0, 0, 0, .18) 0%, rgba(0, 0, 0, .62) 70%),
+    color-mix(in srgb, var(--surface) 58%, transparent); }
 
-.signin-card { border: 1px solid var(--line); border-radius: 14px;
-  padding: 28px; background: var(--pl-card);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 32px rgba(0, 0, 0, .06); }
-.signin-card h2 { font-size: 20px; margin: 0 0 8px; }
-.signin-card p { color: var(--ink-muted); font-size: 14px; line-height: 1.55;
-  margin: 0 0 20px; }
+.signin-mid { position: relative; z-index: 1; width: min(420px, calc(100% - 40px));
+  text-align: center; display: grid; gap: 14px; justify-items: center;
+  padding: 28px 0; }
+.signin-mid h1 { font-size: clamp(30px, 7vw, 44px); line-height: 1.1;
+  margin: 0; letter-spacing: -.01em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .55); }
+.signin-mid .lede { color: var(--ink); opacity: .82; font-size: 15px;
+  line-height: 1.55; margin: 0; max-width: 34ch;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .5); }
 /* GSI ღილაკი iframe-ია — ზომას თავად განსაზღვრავს, ჩვენ მხოლოდ ვასწორებთ */
-#signin-button { display: flex; justify-content: center; min-height: 44px; }
-.signin-card .note { font-size: 12.5px; margin: 20px 0 0;
-  padding-top: 16px; border-top: 1px solid var(--line); }
+#signin-button { display: flex; justify-content: center; min-height: 44px;
+  margin-top: 6px; }
+.signin-mid .note { font-size: 12.5px; color: var(--ink); opacity: .68;
+  line-height: 1.5; margin: 6px 0 0; max-width: 36ch;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .5); }
 
-@media (prefers-color-scheme: dark) {
-  .signin-card { box-shadow: 0 1px 2px rgba(0, 0, 0, .3),
-    0 12px 32px rgba(0, 0, 0, .35); }
-}
+.signin-cred { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0;
+  margin: 0; padding: 0 16px calc(10px + env(safe-area-inset-bottom));
+  text-align: center; font-size: 11px; color: var(--ink); opacity: .5; }
 
 /* დეტალების პანელის მფლობელის ბლოკი — მხოლოდ „რუკა" ტაბზე. */
 .plan-owner { border-top: 1px solid var(--pl-rule-soft); margin-top: 12px; padding-top: 11px; }
