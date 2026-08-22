@@ -43,8 +43,11 @@ def main():
 
     out = [
         '<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="{x} {y} {w} {h}" preserveAspectRatio="xMidYMid slice" '
-        'role="presentation">',
+        # `preserveAspectRatio` განზრახ არ იწერება: ნაგულისხმევი `meet`
+        # ფაილს ბუნებრივ პროპორციას აძლევს და მოჭრას CSS-ის `cover`
+        # წყვეტს. ორივეგან `slice` ნახაზს ორჯერ აახლოებდა და ეკრანზე
+        # მხოლოდ რამდენიმე ნაკვეთი რჩებოდა.
+        f'viewBox="{x} {y} {w} {h}" role="presentation">',
         '<g fill="none" stroke="%s" stroke-linecap="round" '
         'stroke-linejoin="round">' % ROAD,
     ]
@@ -53,11 +56,13 @@ def main():
                    % (road['d'], road_width(road.get('cls'))))
     out.append('</g>')
 
-    out.append('<g stroke="%s" stroke-width="1.1" stroke-opacity=".22">' % EDGE)
+    # გამჭვირვალობა დაბალია განზრახ: ეს ფონია და არა რუკა — სრული
+    # ფერით ნაკვეთები შესვლის ღილაკს ეცილებოდნენ ყურადღებაში.
+    out.append('<g stroke="%s" stroke-width="1.1" stroke-opacity=".13">' % EDGE)
     for parcel in data['parcels']:
         si = parcel.get('si', -1)
         fill = STREET[si % len(STREET)] if si is not None and si >= 0 else ROAD
-        out.append('<path d="%s" fill="%s" fill-opacity=".55"/>'
+        out.append('<path d="%s" fill="%s" fill-opacity=".32"/>'
                    % (parcel['d'], fill))
     out.append('</g></svg>')
 

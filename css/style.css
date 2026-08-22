@@ -86,8 +86,8 @@ input, select, button { font: inherit; padding: 6px 10px;
    ნაკვეთების ჭრელ ფერებზეც იკითხებოდეს. */
 .signin-veil { position: absolute; inset: 0; pointer-events: none;
   background:
-    radial-gradient(120% 85% at 50% 45%,
-      rgba(8, 11, 14, .42) 0%, rgba(8, 11, 14, .82) 72%); }
+    radial-gradient(115% 80% at 50% 45%,
+      rgba(8, 11, 14, .55) 0%, rgba(8, 11, 14, .88) 74%); }
 
 .signin-mid { position: relative; z-index: 1; width: min(420px, calc(100% - 40px));
   text-align: center; display: grid; gap: 14px; justify-items: center;
