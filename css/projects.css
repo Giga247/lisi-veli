@@ -8,10 +8,15 @@
 
   ბნელ რეჟიმში ნარინჯისფერი ნათდება (#fbbf24): იქ სიკაშკაშის სხვაობა
   სწორედ ის არხია, რომლითაც მწვანე და ნარინჯისფერი გაირჩევა.
+
+  „ვერ ვუკავშირდები" იისფერია და არა ნაცრისფერი. ორივე ნაცრისფერი რომ
+  იყო, ისინი მხოლოდ სიკაშკაშით განსხვავდებოდნენ — რუკაზე კი მათ სხვა
+  გამჭვირვალობაც აქვთ, ასე რომ სხვაობა საერთოდ იკარგებოდა. იისფერი
+  პალიტრაში თავისუფალი იყო და დანარჩენ ხუთს არსად ერევა.
 */
 :root {
   --tone-not-contacted: #b8b8b2;   /* არ დარეკილა — ნაცრისფერი */
-  --tone-unreachable:   #6f6f68;   /* ვერ ვუკავშირდები — მუქი ნაცრისფერი */
+  --tone-unreachable:   #7c6ce0;   /* ვერ ვუკავშირდები — იისფერი */
   --tone-paying:        #84cc16;   /* დებს — ფოსფორისფერი */
   --tone-loan:          #f59e0b;   /* ვალად იღებს — ნარინჯისფერი */
   --tone-declined:      #ef4444;   /* არ დებს — კაშკაშა წითელი */
@@ -24,7 +29,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --tone-not-contacted: #63635e;
-    --tone-unreachable:   #45453f;
+    --tone-unreachable:   #a99cf5;
     --tone-paying:        #a3e635;
     --tone-loan:          #fbbf24;
     --tone-declined:      #f87171;
@@ -33,7 +38,7 @@
 }
 :root[data-theme="dark"] {
   --tone-not-contacted: #63635e;
-  --tone-unreachable:   #45453f;
+  --tone-unreachable:   #a99cf5;
   --tone-paying:        #a3e635;
   --tone-loan:          #fbbf24;
   --tone-declined:      #f87171;
