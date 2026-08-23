@@ -39,6 +39,8 @@ const PlanView = (function () {
    *   `opts.sidebar`  ნაგულისხმევად true; false — მხოლოდ ნახაზი (ჰერო)
    *   `opts.extra`    fn(record) -> HTML, დეტალების პანელში დამატებით
    *   `opts.onSelect` fn(cad|null)
+   *   `opts.label`    fn(cad) -> ნაკვეთის წარწერა; ცარიელზე გეგმის
+   *                   ფაილის ნომერი, მის გარეშე კი კოდის ბოლო სეგმენტი
    *   `opts.tint`     fn(cad) -> კლასის სუფიქსი ან null. თუ მოცემულია,
    *                   ნაკვეთი ქუჩის ფერის ნაცვლად ამ კლასს იღებს —
    *                   პროექტის გვერდზე ფერი პასუხს ნიშნავს, არა ქუჩას.
@@ -139,11 +141,16 @@ const PlanView = (function () {
       path.appendChild(title);
       gPlot.appendChild(path);
 
+      // ნომერი ბაზიდან უნდა მოვიდეს და არა გეგმის ფაილიდან: ფაილი
+      // გეომეტრიაა და ერთხელ აიგო, ნომერს კი მოდერატორი ასწორებს.
+      // მათ გარეშე რუკა სამუდამოდ ძველ წარწერას აჩვენებდა.
+      const given = options.label ? options.label(parcel.cad) : '';
+      const shown = String(given || parcel.num || parcel.tail);
       const tag = el('text', {
         x: parcel.cx, y: parcel.cy, dy: '.34em',
-        class: 'tag ' + (parcel.num ? 't-num' : 't-code'),
+        class: 'tag ' + ((given || parcel.num) ? 't-num' : 't-code'),
       });
-      tag.textContent = parcel.num || parcel.tail;
+      tag.textContent = shown;
       gTag.appendChild(tag);
 
       nodes[parcel.cad] = { path: path, tag: tag, parcel: parcel };
@@ -439,7 +446,27 @@ const PlanView = (function () {
     requestAnimationFrame(fit);
     window.addEventListener('resize', fit);
 
-    return { select: select, refresh: fit, records: records, recolor: applyTint };
+    /**
+     * წარწერების განახლება ხელახლა ხატვის გარეშე.
+     *
+     * ნომრის შესწორების შემდეგ მთელი რუკის თავიდან აგება მასშტაბსა და
+     * პოზიციას დააკარგვინებდა — მოდერატორი კი სწორედ იმ ადგილას დგას,
+     * სადაც შესწორება გააკეთა.
+     */
+    function applyLabel() {
+      if (!options.label) return;
+      for (const cad in nodes) {
+        const node = nodes[cad];
+        const given = options.label(cad);
+        const named = Boolean(given || node.parcel.num);
+        node.tag.textContent = String(given || node.parcel.num || node.parcel.tail);
+        node.tag.classList.toggle('t-num', named);
+        node.tag.classList.toggle('t-code', !named);
+      }
+    }
+
+    return { select: select, refresh: fit, records: records,
+      recolor: applyTint, relabel: applyLabel };
   }
 
   // გეგმის მონაცემი სტატიკურია და ორ ადგილას სჭირდება (შესვლის ეკრანი და

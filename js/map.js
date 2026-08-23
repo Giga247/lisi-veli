@@ -47,6 +47,9 @@ const MapView = (function () {
     PlanView.load().then(function (data) {
       instance = PlanView.create(document.getElementById('plan-app'), data, {
         sidebar: false,
+        // წარწერა ბაზიდან: გეგმის ფაილში ნომრები ერთხელ ჩაიწერა და
+        // მოდერატორის შესწორებები იქ არ ხვდება.
+        label: function (cad) { return byCad[cad] ? byCad[cad].num : ''; },
         onSelect: function (cad) { if (cad) openSheet(cad); },
       });
     }).catch(function (error) {
@@ -56,6 +59,9 @@ const MapView = (function () {
   }
 
   function refresh() { if (instance) instance.refresh(); }
+  /** ნომრის შესწორების შემდეგ — რუკის თავიდან აგების გარეშე. */
+  function relabel() { if (instance) instance.relabel(); }
 
-  return { render: render, refresh: refresh, openSheet: openSheet };
+  return { render: render, refresh: refresh, relabel: relabel,
+    openSheet: openSheet };
 })();

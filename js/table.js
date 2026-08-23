@@ -185,6 +185,9 @@ const TableView = (function () {
         plot.updated_at = result.updated_at;
         dialog.close();
         draw();
+        // რუკის წარწერა ნომერს ბაზიდან იღებს — შესწორება მასაც უნდა
+        // მიჰყვეს, თორემ სიაში ახალი ნომერი ეწერება, რუკაზე კი ძველი.
+        if (typeof MapView !== 'undefined') MapView.relabel();
         if (typeof onSaved === 'function') onSaved(plot);
         // რუკის თავიდან ხატვა არ სჭირდება: `MapView` სიის იმავე
         // ობიექტებს იხსენებს, ამიტომ `Object.assign` მასაც ეხება.

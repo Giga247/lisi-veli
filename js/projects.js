@@ -19,6 +19,7 @@ const ProjectsView = (function () {
   let current = null;      // { project, totals, rows, payments }
   let planData = null;
   let planInstance = null;
+  let numCache = null;
 
   const TONE_ORDER = ['paid', 'paying', 'loan', 'declined', 'unreachable', 'not_contacted'];
 
@@ -412,6 +413,7 @@ const ProjectsView = (function () {
     const project = current.project;
     const totals = current.totals;
     byCadCache = null;
+    numCache = null;
 
     UI.el('view-project').innerHTML =
       '<div class="pr-page">' +
@@ -445,6 +447,21 @@ const ProjectsView = (function () {
     wireFind();
   }
 
+  /**
+   * ნაკვეთის ნომრები რეესტრიდან, კოდზე მიბმული.
+   *
+   * გეგმის ფაილი გეომეტრიაა და ერთხელ აიგო; ნომერი კი ბაზაშია და
+   * მოდერატორი მას ასწორებს. რუკის წარწერა ბაზას უნდა მიჰყვეს.
+   */
+  function numByCad() {
+    if (numCache) return numCache;
+    numCache = {};
+    (window.PLOTS || []).forEach(function (plot) {
+      if (plot.num) numCache[plot.cad] = String(plot.num);
+    });
+    return numCache;
+  }
+
   function renderPlan() {
     const host = document.getElementById('pr-plan');
     if (!host) return;
@@ -452,6 +469,9 @@ const ProjectsView = (function () {
       const map = rowByCad();
       planInstance = PlanView.create(host, planData, {
         sidebar: false,
+        // რეესტრიდან და არა გეგმის ფაილიდან — იქ ნომრები ერთხელ
+        // ჩაიწერა და შესწორებები აღარ ხვდება.
+        label: function (cad) { return numByCad()[cad] || ''; },
         // პროექტში არმყოფი ნაკვეთი „არ დარეკილად" იღებებოდა — თითქოს
         // მასზეც ველოდებით პასუხს. ის უბრალოდ არ მონაწილეობს.
         tint: function (cad) { return map[cad] ? map[cad].color : null; },
@@ -499,6 +519,24 @@ const ProjectsView = (function () {
   }
 
   /**
+   * Escape ხურავს ფანჯარას.
+   *
+   * `<dialog>` ამას თავად აკეთებს, ჩვენი ბარათები კი ჩვეულებრივი
+   * div-ებია — ბარათი ეკრანს ფარავდა და კლავიატურიდან გამოსვლა
+   * შეუძლებელი იყო. მსმენელი დახურვისთანავე იხსნება: ბარათი ბევრჯერ
+   * იხსნება და დარჩენილი მსმენელები დაგროვდებოდა.
+   */
+  function closeOnEscape(close) {
+    const onKey = function (event) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      close();
+    };
+    document.addEventListener('keydown', onKey);
+    return function () { document.removeEventListener('keydown', onKey); };
+  }
+
+  /**
    * დადასტურების პოპაპი.
    *
    * `confirm()` განზრახ არ გამოიყენება: ბრაუზერის მოდალი ინგლისურ
@@ -522,7 +560,15 @@ const ProjectsView = (function () {
         '<button type="button" class="pc-confirm-yes" data-yes="1">დიახ</button>' +
         '</div></div>';
 
-      const done = function (answer) { box.remove(); resolve(answer); };
+      let offEscape = null;
+      // Escape = „არა": დადასტურების ფანჯარაში უმოქმედობა ყოველთვის
+      // უსაფრთხო პასუხია.
+      const done = function (answer) {
+        if (offEscape) offEscape();
+        box.remove();
+        resolve(answer);
+      };
+      offEscape = closeOnEscape(function () { done(false); });
       box.querySelector('[data-no]').addEventListener('click', function () { done(false); });
       box.querySelector('[data-yes]').addEventListener('click', function () { done(true); });
       box.addEventListener('click', function (event) {
@@ -633,11 +679,14 @@ const ProjectsView = (function () {
 
     const form = dialog.querySelector('form');
     const errorBox = dialog.querySelector('.pr-dialog-error');
+    let offEscape = null;
     const close = function () {
+      if (offEscape) offEscape();
       dialog.remove();
       document.body.classList.remove('sheet-open');
       if (planInstance) planInstance.select(null);
     };
+    offEscape = closeOnEscape(close);
     dialog.querySelector('[data-cancel]').addEventListener('click', close);
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
@@ -887,10 +936,13 @@ const ProjectsView = (function () {
 
     document.body.appendChild(dialog);
     document.body.classList.add('sheet-open');
+    let offEscape = null;
     const close = function () {
+      if (offEscape) offEscape();
       dialog.remove();
       document.body.classList.remove('sheet-open');
     };
+    offEscape = closeOnEscape(close);
     dialog.querySelector('[data-cancel]').addEventListener('click', close);
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
@@ -990,10 +1042,13 @@ const ProjectsView = (function () {
 
     document.body.appendChild(dialog);
     document.body.classList.add('sheet-open');
+    let offEscape = null;
     const close = function () {
+      if (offEscape) offEscape();
       dialog.remove();
       document.body.classList.remove('sheet-open');
     };
+    offEscape = closeOnEscape(close);
     dialog.querySelector('[data-cancel]').addEventListener('click', close);
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
