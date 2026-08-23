@@ -167,30 +167,36 @@
    * პროტანოპიისთვის ახლოს დგანან, და ფერი მარტო ვერასდროს ატარებს
    * მნიშვნელობას.
    */
+  /*
+   * სტატუსის სახელი ერთია ყველგან.
+   *
+   * `short` ადრე მოკლე ვარიანტს ინახავდა („ვალად იღებს" და არა „ვერ
+   * დებს და ვალად იღებს"), ამიტომ ერთი და იგივე სტატუსი ბარათში ერთი
+   * სახელით ეწერა, ლეგენდაში კი მეორეთი. ადგილის ეს მოგება იმად არ
+   * ღირდა, რომ მოდერატორი ორ სახელს იმახსოვრებდეს. ველი დარჩა, რომ
+   * გამომძახებლები არ დაიმტვრეს, მაგრამ ტექსტი ერთნაირია.
+   */
   const PLEDGE_VIEW = {
     not_contacted: { label: 'არ დარეკილა', short: 'არ დარეკილა', icon: '·', tone: 'not_contacted' },
     unreachable: { label: 'ვერ ვუკავშირდები', short: 'ვერ ვუკავშირდები', icon: '?', tone: 'unreachable' },
     paying: { label: 'დებს', short: 'დებს', icon: '↑', tone: 'paying' },
-    loan: { label: 'ვერ დებს და ვალად იღებს', short: 'ვალად იღებს', icon: '⟳', tone: 'loan' },
+    loan: { label: 'ვერ დებს და ვალად იღებს', short: 'ვერ დებს და ვალად იღებს', icon: '⟳', tone: 'loan' },
     declined: { label: 'არ დებს', short: 'არ დებს', icon: '✕', tone: 'declined' },
     paid: { label: 'გადახდილია', short: 'გადახდილია', icon: '✓', tone: 'paid' },
   };
 
-  const TONE_VIEW = {
-    not_contacted: { label: 'არ დარეკილა', icon: '·' },
-    unreachable: { label: 'ვერ ვუკავშირდები', icon: '?' },
-    paying: { label: 'დებს', icon: '↑' },
-    loan: { label: 'ვალად იღებს', icon: '⟳' },
-    declined: { label: 'არ დებს', icon: '✕' },
-    paid: { label: 'გადახდილია', icon: '✓' },
-  };
+
 
   function pledgeView(status) {
     return PLEDGE_VIEW[status] || PLEDGE_VIEW.not_contacted;
   }
 
   function toneView(tone) {
-    return TONE_VIEW[tone] || TONE_VIEW.not_contacted;
+    // ცალკე ცხრილი აქ ეგდო და მასში „ვალად იღებს" ეწერა, `PLEDGE_VIEW`
+    // -ში კი „ვერ დებს და ვალად იღებს" — ერთი სტატუსი სამი სახელით
+    // დადიოდა ეკრანზე. ტონი და სტატუსი ერთი და იგივე გასაღებია,
+    // ამიტომ ცხრილიც ერთი უნდა იყოს.
+    return pledgeView(tone);
   }
 
   /**
@@ -461,7 +467,7 @@
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
     treasurerIndex: treasurerIndex, staffIndex: staffIndex,
-    PLEDGE_VIEW: PLEDGE_VIEW, TONE_VIEW: TONE_VIEW,
+    PLEDGE_VIEW: PLEDGE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,
     streetBreakdown: streetBreakdown, filterPledgeRows: filterPledgeRows,
     searchRows: searchRows,

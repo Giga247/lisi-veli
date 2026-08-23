@@ -394,3 +394,13 @@ test('ownersByStatus — ერთი კაცი ორ სტატუსშ�
   assert.strictEqual(by.paid, 1);
   assert.strictEqual(by.declined, 1);
 });
+
+// ერთი სტატუსი — ერთი სახელი. ადრე სამი ცხრილი იყო და „ვალად იღებს"
+// ბარათში ერთნაირად ეწერა, ლეგენდაში კი სხვანაირად.
+test('toneView და pledgeView ერთსა და იმავე სახელს აბრუნებენ', () => {
+  ['not_contacted', 'unreachable', 'paying', 'loan', 'declined', 'paid']
+    .forEach(function (key) {
+      assert.strictEqual(WebLib.toneView(key).label, WebLib.pledgeView(key).label, key);
+      assert.strictEqual(WebLib.pledgeView(key).short, WebLib.pledgeView(key).label, key);
+    });
+});

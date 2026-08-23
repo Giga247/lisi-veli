@@ -61,23 +61,6 @@ const ProjectsView = (function () {
       '</article>';
   }
 
-  /*
-   * სტატისტიკის სახელები.
-   *
-   * ჩიპებისა და ლეგენდის წარწერები აქ არ გამოდგება: იქ ისინი პასუხს
-   * აღწერენ („დებს"), აქ კი უკვე დათვლილ ხალხზეა საუბარი („დადებს").
-   * თანმიმდევრობა შედეგისკენ მიდის: ვინც უკვე გადაიხადა, ბოლოს კი
-   * ვისთანაც ჯერ არავინ მისულა.
-   */
-  const STAT_ORDER = [
-    ['paid', 'დადო'],
-    ['paying', 'დადებს'],
-    ['loan', 'ვალად იღებს'],
-    ['declined', 'არ დებს'],
-    ['unreachable', 'ვერ დავუკავშირდით'],
-    ['not_contacted', 'დასარეკია'],
-  ];
-
   /**
    * მეპატრონეთა ჭრილი სტატუსების მიხედვით.
    *
@@ -87,14 +70,15 @@ const ProjectsView = (function () {
    */
   function statusStrip(byStatus) {
     if (!byStatus) return '';
-    const cells = STAT_ORDER.filter(function (item) {
-      return Number(byStatus[item[0]]) > 0;
+    // რიგი იგივეა, რაც ლეგენდაში — შედეგისკენ მიმავალი.
+    const cells = TONE_ORDER.filter(function (key) {
+      return Number(byStatus[key]) > 0;
     });
     if (!cells.length) return '';
-    return '<ul class="pr-stat">' + cells.map(function (item) {
-      return '<li class="tint-' + esc(item[0]) + '">' +
-        '<b>' + esc(String(byStatus[item[0]])) + '</b>' +
-        '<span>' + esc(item[1]) + '</span></li>';
+    return '<ul class="pr-stat">' + cells.map(function (key) {
+      return '<li class="tint-' + esc(key) + '">' +
+        '<b>' + esc(String(byStatus[key])) + '</b>' +
+        '<span>' + esc(WebLib.pledgeView(key).label) + '</span></li>';
     }).join('') + '</ul>';
   }
 
@@ -205,9 +189,14 @@ const ProjectsView = (function () {
     }).join('') + '</dl>';
   }
 
+  /**
+   * ლეგენდა — მეპატრონეების რიცხვით.
+   *
+   * ადრე ნაკვეთებს ითვლიდა და იმავე გვერდზე ორი სხვადასხვა რიცხვი
+   * ეწერა ერთსა და იმავე სტატუსზე: ზემოთ ხალხი, ქვემოთ ნაკვეთები.
+   */
   function legendHtml(rows) {
-    const counts = {};
-    rows.forEach(function (row) { counts[row.color] = (counts[row.color] || 0) + 1; });
+    const counts = WebLib.ownersByStatus(rows);
     return TONE_ORDER.filter(function (tone) { return counts[tone]; })
       .map(function (tone) {
         const view = WebLib.toneView(tone);
