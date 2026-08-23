@@ -336,6 +336,28 @@ const ProjectsView = (function () {
       '<div class="pr-find-r" hidden></div></div>';
   }
 
+  /**
+   * ნაპოვნის ნიშანი რუკაზე.
+   *
+   * `PlanView`-ის საკუთარი `is-sel` აქ არ გამოდგება: ბარათის დახურვისას
+   * ის იხსნება, ხოლო ძებნის აზრი სწორედ ისაა, რომ ბარათის დახურვის
+   * მერეც იცოდე, რომელი ნაკვეთი იპოვე. ეს ნიშანი შემდეგ ძებნამდე რჩება.
+   */
+  function mark(cad) {
+    const host = document.getElementById('pr-plan');
+    if (!host) return;
+    const old = host.querySelector('.plot.is-found');
+    if (old) old.classList.remove('is-found');
+    const path = host.querySelector('path.plot[data-cad="' + cad + '"]');
+    if (!path) return;
+    // ანიმაცია თავიდან რომ გაეშვას, კლასი ჯერ უნდა მოცილდეს — ერთი
+    // ნაკვეთის ორჯერ პოვნა უნიშნოდ გაივლიდა.
+    void path.getBoundingClientRect();
+    path.classList.add('is-found');
+    // მონიშნული ყველაზე ზემოთ: მეზობელი ნაკვეთის კანტი მას გადაფარავდა.
+    path.parentNode.appendChild(path);
+  }
+
   function wireFind() {
     const input = document.getElementById('pr-find-q');
     if (!input) return;
@@ -364,6 +386,7 @@ const ProjectsView = (function () {
       box.hidden = true;
       input.value = '';
       hits = [];
+      mark(cad);
       if (!planInstance) return;
       // ჯერ ვასუფთავებთ: `select` გადამრთველია და იმავე ნაკვეთზე
       // მეორედ დაძახება მას მოხსნიდა ბარათის გახსნის ნაცვლად.

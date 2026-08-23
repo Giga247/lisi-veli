@@ -460,3 +460,25 @@
 .pr-find-n { font-size: 14px; }
 .pr-find-a { font-size: 12px; color: var(--ink-muted); }
 .pr-find-r .empty { margin: 0; padding: 12px; font-size: 13px; }
+
+/* ── ძებნით ნაპოვნი ნაკვეთი ───────────────────────────────────────
+   არჩევის ნიშანი (`is-sel`) ბარათის დახურვისას იხსნება — ძებნის აზრი
+   კი სწორედ ისაა, რომ დახურვის მერეც იცოდე, რომელი იპოვე. ამიტომ
+   ცალკე კლასია, რომელიც შემდეგ ძებნამდე რჩება.
+
+   კანტი და შარავანდი ორივეა: ჭრელ რუკაზე მარტო კანტი ან მარტო შუქი
+   მეზობელი ნაკვეთის ფერს ერევა. */
+#pr-plan .plot.is-found {
+  stroke: #ffffff; stroke-width: 3.4; fill-opacity: .95;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, .95))
+          drop-shadow(0 0 12px rgba(255, 255, 255, .55));
+  animation: plot-found 800ms ease-in-out 3;
+}
+@keyframes plot-found {
+  0%, 100% { stroke-width: 3.4; }
+  50%      { stroke-width: 7; }
+}
+/* ვისაც მოძრაობა უშლის, მას კანტი და შუქი ისედაც აჩვენებს, სად არის. */
+@media (prefers-reduced-motion: reduce) {
+  #pr-plan .plot.is-found { animation: none; }
+}
