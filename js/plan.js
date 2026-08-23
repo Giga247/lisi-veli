@@ -474,7 +474,7 @@ const PlanView = (function () {
   let pending = null;
   function load() {
     if (!pending) {
-      pending = fetch('data/plan-page.json?v=1').then(function (response) {
+      pending = fetch('data/plan-page.json?v=2').then(function (response) {
         if (!response.ok) throw new Error('გეგმის მონაცემი ვერ ჩაიტვირთა (' + response.status + ')');
         return response.json();
       });

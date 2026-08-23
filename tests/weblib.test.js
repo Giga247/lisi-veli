@@ -367,3 +367,30 @@ test('searchRows — კოდის ბოლო სეგმენტით', 
 test('searchRows — ლიმიტი ითვლება', () => {
   assert.strictEqual(WebLib.searchRows(SROWS, 'კედრის', 2).length, 2);
 });
+
+test('ownersByStatus — ითვლის მეპატრონეს და არა ნაკვეთს', () => {
+  const rows = [
+    { status: 'paid', first_name: 'ალფა', last_name: 'ერთაძე' },
+    { status: 'paid', first_name: 'ალფა', last_name: 'ერთაძე' },
+    { status: 'declined', first_name: 'ბეტა', last_name: 'ორაძე' },
+  ];
+  const by = WebLib.ownersByStatus(rows);
+  assert.strictEqual(by.paid, 1, 'ორი ნაკვეთი, ერთი მეპატრონე');
+  assert.strictEqual(by.declined, 1);
+  assert.strictEqual(by.paying, 0);
+});
+
+test('ownersByStatus — უცნობი სტატუსი „არ დარეკილაში" ჯდება', () => {
+  const by = WebLib.ownersByStatus([
+    { status: 'რაღაცა', first_name: 'ალფა', last_name: 'ერთაძე' }]);
+  assert.strictEqual(by.not_contacted, 1);
+});
+
+test('ownersByStatus — ერთი კაცი ორ სტატუსში ორჯერ ითვლება', () => {
+  const by = WebLib.ownersByStatus([
+    { status: 'paid', first_name: 'ალფა', last_name: 'ერთაძე' },
+    { status: 'declined', first_name: 'ალფა', last_name: 'ერთაძე' },
+  ]);
+  assert.strictEqual(by.paid, 1);
+  assert.strictEqual(by.declined, 1);
+});

@@ -56,8 +56,46 @@ const ProjectsView = (function () {
       (project.owners == null ? ''
         : '<div><dt>მეპატრონე</dt><dd>' + project.owners + '</dd></div>') +
       '</dl>' +
+      statusStrip(project.by_status) +
       (dates ? '<p class="pr-dates">' + esc(dates) + '</p>' : '') +
       '</article>';
+  }
+
+  /*
+   * სტატისტიკის სახელები.
+   *
+   * ჩიპებისა და ლეგენდის წარწერები აქ არ გამოდგება: იქ ისინი პასუხს
+   * აღწერენ („დებს"), აქ კი უკვე დათვლილ ხალხზეა საუბარი („დადებს").
+   * თანმიმდევრობა შედეგისკენ მიდის: ვინც უკვე გადაიხადა, ბოლოს კი
+   * ვისთანაც ჯერ არავინ მისულა.
+   */
+  const STAT_ORDER = [
+    ['paid', 'დადო'],
+    ['paying', 'დადებს'],
+    ['loan', 'ვალად იღებს'],
+    ['declined', 'არ დებს'],
+    ['unreachable', 'ვერ დავუკავშირდით'],
+    ['not_contacted', 'დასარეკია'],
+  ];
+
+  /**
+   * მეპატრონეთა ჭრილი სტატუსების მიხედვით.
+   *
+   * თანხა კი არა, ხალხი: „რვა ათასი არ დებს" ბუნდოვანია — რვა კაცია თუ
+   * ერთი, რომელსაც რვა ნაკვეთი აქვს, სულ სხვა საუბარია მეზობლებთან.
+   * ნულოვანი სტატუსი არ ჩანს: ცარიელი უჯრები თვალს ფანტავს.
+   */
+  function statusStrip(byStatus) {
+    if (!byStatus) return '';
+    const cells = STAT_ORDER.filter(function (item) {
+      return Number(byStatus[item[0]]) > 0;
+    });
+    if (!cells.length) return '';
+    return '<ul class="pr-stat">' + cells.map(function (item) {
+      return '<li class="tint-' + esc(item[0]) + '">' +
+        '<b>' + esc(String(byStatus[item[0]])) + '</b>' +
+        '<span>' + esc(item[1]) + '</span></li>';
+    }).join('') + '</ul>';
   }
 
   function statusLabel(status) {
@@ -142,13 +180,17 @@ const ProjectsView = (function () {
       '<span><b>' + esc(String(owners)) + '</b> მეპატრონე</span></p>';
   }
 
+  /**
+   * ფული ზემოთ, ხალხი ქვემოთ.
+   *
+   * ადრე თითო სტატუსს ლარები ეწერა — „არ დებს 8 000 ₾". ეს ჯამი
+   * არაფერს ეუბნება მოდერატორს: მას ისიც უნდა იცოდეს, რვა კარზე
+   * უნდა მიაკითხოს თუ ერთზე.
+   */
   function figures(totals) {
     const cells = [
       ['შეგროვდა', totals.collected, 'pr-hero'],
-      ['თანხას დებს', totals.promised, ''],
-      ['ვალად იღებს', totals.loan, ''],
-      ['არ დებს', totals.declined, ''],
-      ['პასუხის გარეშე', totals.pending, ''],
+      ['ბიუჯეტი', totals.budget, ''],
     ];
     // „აკლია" და „ნამეტი" ერთდროულად ვერასდროს იქნება — ერთი მათგანი
     // ყოველთვის ნული იქნებოდა და ეკრანზე ცარიელ სვეტს იჭერდა. ნამეტი
@@ -432,6 +474,7 @@ const ProjectsView = (function () {
       staffBlock(current.staff) +
       scale(current.rows) +
       figures(totals) +
+      statusStrip(WebLib.ownersByStatus(current.rows)) +
       progressBar(totals) +
       myHousehold() +
       // სია აქ განზრახ არ არის: პროექტის გვერდზე ერთადერთი ინტერაქცია

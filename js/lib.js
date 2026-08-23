@@ -396,6 +396,29 @@
     return Object.keys(seen).length + unknown;
   }
 
+  /**
+   * მეპატრონეთა რიცხვი სტატუსების ჭრილში.
+   *
+   * თანხა კი არა, ხალხი: „რვა ათასი არ დებს" ბუნდოვანია — რვა კაცია თუ
+   * ერთი, რომელსაც რვა ნაკვეთი აქვს, სულ სხვა საუბარია მეზობლებთან.
+   *
+   * ერთი მეპატრონე რამდენიმე სტატუსში შეიძლება მოხვდეს, თუ სხვადასხვა
+   * ნაკვეთზე სხვადასხვა პასუხი გასცა — ჯამი ამიტომ შეიძლება საერთო
+   * რიცხვს აღემატებოდეს და ეს სწორია.
+   */
+  function ownersByStatus(rows) {
+    const groups = {};
+    Object.keys(PLEDGE_VIEW).forEach(function (key) { groups[key] = []; });
+    (rows || []).forEach(function (row) {
+      groups[plotColor(row)].push(row);
+    });
+    const out = {};
+    Object.keys(groups).forEach(function (key) {
+      out[key] = ownerCount(groups[key]);
+    });
+    return out;
+  }
+
   function projectTotals(project, pledges, payments) {
     const paidByCad = {};
     (payments || []).forEach(function (payment) {
@@ -445,5 +468,6 @@
     EDITABLE_FIELDS: EDITABLE_FIELDS, isEditableField: isEditableField,
     normalizePhone: normalizePhone,
     roundToFive: roundToFive, plotColor: plotColor,
-    projectTotals: projectTotals, ownerCount: ownerCount };
+    projectTotals: projectTotals, ownerCount: ownerCount,
+    ownersByStatus: ownersByStatus };
 });

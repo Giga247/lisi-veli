@@ -254,15 +254,19 @@ const API = (function () {
     return projects.data.map(function (project) {
       const mine = pledges.data.filter(function (x) { return x.project_id === project.id; });
       const paid = payments.data.filter(function (x) { return x.project_id === project.id; });
+      // სახელი ვალდებულებას ბარათზევე უნდა მიეწეროს: სტატისტიკა
+      // მეპატრონეებს ითვლის და არა ნაკვეთებს.
+      const named = mine.map(function (pledge) {
+        return Object.assign({}, pledge, nameByCad[pledge.cad] || {});
+      });
       return Object.assign({}, project, {
+        by_status: plots.error ? null : WebLib.ownersByStatus(named),
         totals: WebLib.projectTotals(project, mine, paid),
         households: mine.length,
         // სახელების გარეშე დათვლა ყველა ნაკვეთს ცალკე მეპატრონედ
         // ჩათვლიდა და რიცხვი მდუმარედ არასწორი გამოვიდოდა — სჯობს
         // საერთოდ არ ვაჩვენოთ.
-        owners: plots.error ? null : WebLib.ownerCount(mine.map(function (pledge) {
-          return nameByCad[pledge.cad] || {};
-        })),
+        owners: plots.error ? null : WebLib.ownerCount(named),
       });
     });
   }
