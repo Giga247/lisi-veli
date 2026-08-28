@@ -440,6 +440,75 @@ const ProjectsView = (function () {
     });
   }
 
+  /**
+   * „ვინც არ დადო" — ცხრილი რუკის ქვეშ.
+   *
+   * რუკა ერთი შეხედვით აჩვენებს, სად რა ხდება; ცხრილი კი პასუხობს
+   * კითხვას „ვის დავურეკო ხვალ და რა ვუთხრა". ერთი მეორეს ვერ ცვლის:
+   * ფერს მისამართი და მიზეზი არ აწერია.
+   *
+   * მხოლოდ იმას უჩანს, ვისაც სტატუსი ისედაც უჩანს — ვინ რა უპასუხა,
+   * უბნის შიდა საქმეა და მეზობლის თვალწინ არ იშლება.
+   */
+  function unpaidTable(rows) {
+    if (!canSeeProgress()) return '';
+    const list = WebLib.unpaidRows(rows);
+    if (list.length === 0) {
+      return '<section class="pr-unpaid">' +
+        '<div class="sec-h"><h3>ვინც არ დადო</h3></div>' +
+        '<p class="empty">ყველა ნაკვეთიდან პასუხი დადებითია.</p></section>';
+    }
+
+    return '<section class="pr-unpaid">' +
+      '<div class="sec-h"><h3>ვინც არ დადო</h3>' +
+      '<span class="muted">' + list.length + '</span></div>' +
+      '<div class="un-scroll"><table class="un-t"><thead><tr>' +
+      '<th>მეპატრონე</th><th>მისამართი</th><th>საკადასტრო</th>' +
+      '<th>რატომ</th><th>ვის ესაუბრა</th>' +
+      '</tr></thead><tbody>' +
+      list.map(unpaidRow).join('') +
+      '</tbody></table></div></section>';
+  }
+
+  function unpaidRow(row) {
+    const reason = WebLib.unpaidReason(row);
+    const contact = WebLib.unpaidContact(row, (current && current.people) || {});
+    const where = [row.street, row.num ? '№' + row.num : ''].filter(Boolean).join(' ');
+    const view = WebLib.pledgeView(row.status);
+
+    // სახელი ღილაკია და არა ტექსტი: ცხრილიდან ბარათამდე ერთი შეხებაა,
+    // და `data-answer` ისედაც არსებულ დელეგირებას ჩაუვარდება.
+    //
+    // ყველა უჯრას კლასი აქვს, რადგან ვიწრო ეკრანზე ცხრილი ბარათად
+    // იშლება და იქ სვეტები აღარ არსებობს — მხოლოდ კლასით თუ იტყვი,
+    // რომ მისამართი ჩუმად უნდა ეწეროს, სახელი კი მსხვილად.
+    //
+    // ნიშანი და სტატუსი ერთ სპანშია: ცალკე რომ იდგნენ, ვიწრო უჯრაში
+    // მათ შორის სტრიქონი იტეხებოდა და „✕" ტექსტს სცილდებოდა.
+    return '<tr>' +
+      '<td data-l="მეპატრონე" class="un-c-name">' +
+      '<button type="button" class="un-name" data-answer="' + esc(row.cad) + '">' +
+      esc(WebLib.fullName(row)) + '</button></td>' +
+      '<td data-l="მისამართი" class="un-c-addr">' +
+      esc(row.address || where || '—') + '</td>' +
+      '<td data-l="საკადასტრო" class="un-c-cad mono">' + esc(row.cad) + '</td>' +
+      '<td data-l="რატომ" class="un-c-why">' +
+      '<span class="un-why">' +
+      '<span class="pr-tone tint-' + esc(row.status) + '">' + esc(view.icon) + '</span>' +
+      '<span>' + esc(reason.label) + '</span></span>' +
+      (reason.note ? '<span class="un-note">' + esc(reason.note) + '</span>' : '') +
+      '</td>' +
+      // ცხრილში ცარიელი უჯრა ტირეს ითხოვს, ბარათში კი — არაფერს:
+      // ვიწრო ეკრანზე მარტოხელა „—" გამყოფი ხაზის ქვეშ ისე გამოიყურება,
+      // თითქოს რაღაც ვერ ჩაიტვირთა. `is-empty` სწორედ ამას მალავს.
+      '<td data-l="ვის ესაუბრა" class="un-c-who' + (contact ? '' : ' is-empty') + '">' +
+      (contact
+        ? '<span class="un-who">' + esc(contact.name) + '</span>' +
+          '<span class="un-when">' + esc(WebLib.since(contact.at)) + '</span>'
+        : '<span class="un-none">—</span>') +
+      '</td></tr>';
+  }
+
   function renderProject() {
     const project = current.project;
     const totals = current.totals;
@@ -466,12 +535,15 @@ const ProjectsView = (function () {
       statusStrip(WebLib.ownersByStatus(current.rows)) +
       progressBar(totals) +
       myHousehold() +
-      // სია აქ განზრახ არ არის: პროექტის გვერდზე ერთადერთი ინტერაქცია
-      // რუკაა. ნაკვეთზე შეხებით იხსნება კომპაქტური ბარათი, სადაც
-      // ერთ ეკრანზე ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს სჭირდება.
+      // სრული სია აქ არ არის: რუკა თავად არის სია — ყველა ნაკვეთი,
+      // ფერით. ნაკვეთზე შეხებით იხსნება ბარათი, სადაც ერთ ეკრანზე
+      // ეტევა ყველაფერი, რაც მოდერატორს ზარის დროს სჭირდება.
       findBox() +
       '<div id="pr-plan"></div>' +
       '<p class="map-hint">შეეხე ნაკვეთს — სტატუსი, შენიშვნა, გადახდა</p>' +
+      // ერთადერთი ჭრილი, რომელსაც რუკა ვერ აჩვენებს: ფერი მისამართს
+      // და მიზეზს არ გწერს, და „ვის დავურეკო ხვალ" პასუხის გარეშე რჩება.
+      unpaidTable(current.rows) +
       '</div>';
 
     UI.showView('project');

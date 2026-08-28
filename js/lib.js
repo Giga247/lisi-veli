@@ -464,6 +464,76 @@
     };
   }
 
+  // ── ვინც არ დადო ────────────────────────────────────────────────────
+  //
+  // სამი სტატუსი და არა ერთი: „არ დებს" პასუხია, „ვერ ვუკავშირდები" და
+  // „არ დარეკილა" კი — მისი არარსებობა. სამივე ერთსა და იმავეს ნიშნავს
+  // ბიუჯეტისთვის: ამ ნაკვეთიდან ფული არ მოდის.
+  //
+  // „ვერ დებს და ვალად იღებს" აქ არ არის: ვალად აღება დადებითი პასუხია
+  // და ფული მოგვიანებით შემოვა.
+  const UNPAID_STATUSES = ['declined', 'unreachable', 'not_contacted'];
+
+  /**
+   * სია იმ ნაკვეთებისა, საიდანაც ფული არ მოდის.
+   *
+   * რიგი: ჯერ ის, რაზეც პასუხი უკვე გვაქვს („არ დებს"), ბოლოს ის,
+   * რაზეც ჯერ არავინ დარეკილა. ანუ ზემოთ ის დგას, რაც უკვე ფაქტია,
+   * ქვემოთ — რაც ჯერ გასაკეთებელია. ერთი სტატუსის შიგნით ქუჩა და
+   * ნომერი, რომ სია რუკის მიხედვით იკითხებოდეს.
+   */
+  function unpaidRows(rows) {
+    const order = {};
+    UNPAID_STATUSES.forEach(function (key, index) { order[key] = index; });
+
+    return (rows || [])
+      .filter(function (row) {
+        return UNPAID_STATUSES.indexOf(String(row && row.status)) !== -1;
+      })
+      .sort(function (a, b) {
+        const byStatus = order[a.status] - order[b.status];
+        if (byStatus !== 0) return byStatus;
+        const street = String(a.street || '').localeCompare(String(b.street || ''), 'ka');
+        if (street !== 0) return street;
+        const numbers = (Number(a.num) || 0) - (Number(b.num) || 0);
+        if (numbers !== 0) return numbers;
+        return String(a.cad || '').localeCompare(String(b.cad || ''));
+      });
+  }
+
+  /**
+   * „რატომ არ დადო" — სტატუსი და, თუ არის, შენიშვნა.
+   *
+   * შენიშვნა ნამდვილი მიზეზია („საზღვარგარეთაა"), სტატუსი კი მისი
+   * კატეგორია. ორივე ერთ უჯრაშია, რადგან ცალკე სვეტად შენიშვნა
+   * უმეტეს მწკრივში ცარიელი იქნებოდა.
+   */
+  function unpaidReason(row) {
+    const entry = row || {};
+    const note = String(entry.note || '').trim();
+    return { label: pledgeView(entry.status).label, note: note };
+  }
+
+  /**
+   * „ვის ჰქონდა კომუნიკაცია და როდის".
+   *
+   * „არ დარეკილა" ყოველთვის ცარიელია და ეს განზრახაა: `recorded_by`-ში
+   * იმ ადმინის მეილი წერია, ვინც პროექტი დაამტკიცა და ვალდებულებები
+   * შექმნა — კომუნიკაცია კი არავის ჰქონია. მისი ჩვენება ცხრილს
+   * ატყუებდა.
+   */
+  function unpaidContact(row, people) {
+    const entry = row || {};
+    if (entry.status === 'not_contacted') return null;
+    const email = String(entry.recorded_by || '').trim();
+    if (!email) return null;
+    const names = people || {};
+    return {
+      name: names[email] || email.split('@')[0],
+      at: entry.recorded_at || '',
+    };
+  }
+
   // ── ისტორია ─────────────────────────────────────────────────────────
   //
   // `audit_log`-ის მწკრივი მანქანური ჩანაწერია: `field: "first_name"`,
@@ -555,6 +625,7 @@
     roundToFive: roundToFive, plotColor: plotColor,
     projectTotals: projectTotals, ownerCount: ownerCount,
     ownersByStatus: ownersByStatus,
-    HISTORY_FIELDS: HISTORY_FIELDS, historyEntry: historyEntry,
-    since: since };
+    HISTORY_FIELDS: HISTORY_FIELDS, historyEntry: historyEntry, since: since,
+    UNPAID_STATUSES: UNPAID_STATUSES, unpaidRows: unpaidRows,
+    unpaidReason: unpaidReason, unpaidContact: unpaidContact };
 });

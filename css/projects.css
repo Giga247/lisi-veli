@@ -501,3 +501,68 @@
 .pr-stat li.tint-loan          { color: var(--tone-loan); }
 .pr-stat li.tint-declined      { color: var(--tone-declined); }
 .pr-stat li.tint-paid          { color: var(--tone-paid); }
+
+/* ── „ვინც არ დადო" ───────────────────────────────────────────────
+   ერთი მარკაპი, ორი სახე: ფართო ეკრანზე ცხრილი, ვიწროზე ბარათები.
+
+   მობაილზე წარწერები („მისამართი", „საკადასტრო") საერთოდ ქრება და არა
+   მარცხნივ გადადის. მისამართს ისედაც ეტყობა, რომ მისამართია, კოდს —
+   რომ კოდია; ხუთი წარწერა თითო ბარათზე მხოლოდ სიგანეს ჭამდა და
+   მნიშვნელობას ეკრანის მეორე ბოლოში აგდებდა. იერარქიას ტიპოგრაფია
+   ატარებს: სახელი მსხვილია, დანარჩენი ჩუმი. */
+.pr-unpaid { margin-top: 22px; }
+.pr-unpaid .sec-h h3 { margin: 0; font-size: 15px;
+  font-family: "Noto Serif Georgian", Georgia, serif; }
+.un-scroll { overflow-x: auto; }
+.un-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* ზოგადი წესი ცხრილებს მარჯვნივ ასწორებს — ის რიცხვებისთვისაა.
+   აქ ხუთივე სვეტი ტექსტია და მარჯვენა სწორება მათ კითხვას ურთულებს. */
+.un-t th, .un-t td { text-align: left; padding: 8px 10px;
+  border-bottom: 1px solid var(--line); vertical-align: top; }
+.un-t th { color: var(--ink-muted); font-weight: 600; font-size: 12px;
+  white-space: nowrap; cursor: default; }
+.un-c-cad { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+
+/* სახელი ღილაკია, მაგრამ ღილაკად არ უნდა გამოიყურებოდეს — ის ცხრილის
+   უჯრაა, რომელსაც შეხება შეიძლება. */
+.un-name { background: none; border: 0; padding: 0; font: inherit;
+  font-weight: 600; color: var(--ink); cursor: pointer; text-align: left;
+  border-bottom: 1px dotted var(--line); }
+.un-name:hover { border-bottom-color: var(--ink-muted); }
+.un-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px;
+  border-radius: 4px; }
+
+/* ნიშანი და სტატუსი ერთად იტეხება ან საერთოდ არ იტეხება. */
+.un-why { display: inline-flex; align-items: center; gap: 6px; }
+.un-note, .un-when { display: block; color: var(--ink-muted); font-size: 12px;
+  margin-top: 3px; }
+.un-none { color: var(--ink-muted); }
+
+@media (max-width: 720px) {
+  .un-scroll { overflow-x: visible; }
+  .un-t, .un-t tbody, .un-t tr, .un-t td { display: block; width: 100%; }
+  .un-t thead { position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* წარწერები აღარ გვჭირდება: `data-l` მხოლოდ ფართო ეკრანის
+     სათაურებისთვისაა და აქ თავად შიგთავსი ლაპარაკობს. */
+  .un-t td::before { content: none; }
+  .un-t tr { border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px; }
+  .un-t td { border: 0; padding: 0; }
+
+  .un-c-name { margin-bottom: 1px; }
+  .un-c-name .un-name { font-size: 16px; border-bottom: 0; }
+  .un-c-addr { font-size: 13px; color: var(--ink-muted); }
+  .un-c-cad { margin-top: 1px; }
+  .un-c-why { margin-top: 10px; }
+  .un-note { margin-top: 4px; font-size: 12.5px; line-height: 1.45; }
+
+  /* კომუნიკაცია ბარათის ქვედა ხაზია: ვინ და როდის — ერთ სტრიქონზე,
+     წერტილით გაყოფილი. ცალკე ხაზებად ისინი ბარათს ორჯერ აგრძელებდნენ. */
+  .un-c-who { margin-top: 10px; padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-muted); }
+  .un-c-who.is-empty { display: none; }
+  .un-when { display: inline; margin: 0; }
+  .un-when::before { content: " · "; }
+}

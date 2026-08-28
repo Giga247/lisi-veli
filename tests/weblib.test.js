@@ -474,3 +474,66 @@ test('since — არასწორი თარიღი ცარიელ�
   assert.strictEqual(WebLib.since(null, '2026-08-28T12:00:00Z'), '');
 });
 
+// ── ვინც არ დადო ─────────────────────────────────────────────────────────
+
+const UNPAID_ROWS = [
+  { cad: 'C', status: 'paying', street: 'კედრის ქუჩა', num: '1' },
+  { cad: 'A', status: 'not_contacted', street: 'კედრის ქუჩა', num: '5' },
+  { cad: 'B', status: 'declined', street: 'კედრის ქუჩა', num: '2',
+    note: 'საზღვარგარეთაა', recorded_by: 'mod@example.com',
+    recorded_at: '2026-08-25T10:00:00Z' },
+  { cad: 'D', status: 'loan', street: 'კედრის I ჩიხი', num: '3' },
+  { cad: 'E', status: 'unreachable', street: 'კედრის ქუჩა', num: '9',
+    recorded_by: 'staff@example.com', recorded_at: '2026-08-20T10:00:00Z' },
+  { cad: 'F', status: 'paid', street: 'კედრის ქუჩა', num: '4' },
+];
+
+test('unpaidRows — დებენ, ვალად იღებენ და გადაიხადეს სიაში არ არიან', () => {
+  const list = WebLib.unpaidRows(UNPAID_ROWS);
+  assert.deepStrictEqual(list.map(function (r) { return r.cad; }), ['B', 'E', 'A']);
+});
+
+test('unpaidRows — რიგი: პასუხი ჯერ, დაუკავშირებელი ბოლოს', () => {
+  const list = WebLib.unpaidRows(UNPAID_ROWS);
+  assert.deepStrictEqual(list.map(function (r) { return r.status; }),
+    ['declined', 'unreachable', 'not_contacted']);
+});
+
+test('unpaidRows — ერთი სტატუსის შიგნით ნომრით დალაგდება', () => {
+  const list = WebLib.unpaidRows([
+    { cad: 'X', status: 'declined', street: 'კედრის ქუჩა', num: '12' },
+    { cad: 'Y', status: 'declined', street: 'კედრის ქუჩა', num: '3' },
+  ]);
+  assert.deepStrictEqual(list.map(function (r) { return r.cad; }), ['Y', 'X']);
+});
+
+test('unpaidRows — ცარიელი შემოსატანი არ ტეხს', () => {
+  assert.deepStrictEqual(WebLib.unpaidRows(null), []);
+  assert.deepStrictEqual(WebLib.unpaidRows([]), []);
+});
+
+test('unpaidReason — სტატუსი ქართულად, შენიშვნა ცალკე', () => {
+  assert.deepStrictEqual(WebLib.unpaidReason(UNPAID_ROWS[2]),
+    { label: 'არ დებს', note: 'საზღვარგარეთაა' });
+  assert.deepStrictEqual(WebLib.unpaidReason(UNPAID_ROWS[4]),
+    { label: 'ვერ ვუკავშირდები', note: '' });
+});
+
+test('unpaidContact — მეილი სახელად, თუ სახელი ცნობილია', () => {
+  assert.deepStrictEqual(
+    WebLib.unpaidContact(UNPAID_ROWS[2], { 'mod@example.com': 'მოდერატორი ა' }),
+    { name: 'მოდერატორი ა', at: '2026-08-25T10:00:00Z' });
+});
+
+test('unpaidContact — სახელის გარეშე მეილის დასაწყისი რჩება', () => {
+  assert.strictEqual(WebLib.unpaidContact(UNPAID_ROWS[4], {}).name, 'staff');
+});
+
+test('unpaidContact — „არ დარეკილა" ყოველთვის ცარიელია', () => {
+  // `recorded_by`-ში პროექტის დამამტკიცებელი ადმინი წერია და არა ის,
+  // ვინც დაურეკა — კომუნიკაცია არავის ჰქონია.
+  const untouched = { cad: 'A', status: 'not_contacted',
+    recorded_by: 'admin@example.com', recorded_at: '2026-08-20T10:00:00Z' };
+  assert.strictEqual(WebLib.unpaidContact(untouched, {}), null);
+});
+

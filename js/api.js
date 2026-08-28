@@ -297,7 +297,8 @@ const API = (function () {
     const id = String((payload && payload.id) || '').trim();
     if (!id) fail('VALIDATION', 'პროექტის id არ არის მითითებული');
 
-    const [project, pledges, payments, plots, photos, phones, staff] = await Promise.all([
+    const [project, pledges, payments, plots, photos, phones, staff, actors] =
+      await Promise.all([
       sb.from('projects').select('*').eq('id', id).maybeSingle(),
       sb.from('pledges').select('*').eq('project_id', id),
       sb.from('payments').select('*').eq('project_id', id),
@@ -305,6 +306,9 @@ const API = (function () {
       sb.from('project_photos').select('*').eq('project_id', id).order('sort'),
       sb.rpc('plot_phones'),
       sb.rpc('project_staff', { p_id: id }),
+      // ვინ ჩაწერა პასუხი — მეილიდან სახელზე. ცხრილს ყველა მწკრივი
+      // ერთბაშად სჭირდება, ამიტომ ერთი მოთხოვნა და არა თითო ნაკვეთზე.
+      sb.rpc('actor_names'),
     ]);
     [project, pledges, payments, plots, photos]
       .forEach(function (r) { if (r.error) fromPostgrest(r.error); });
@@ -344,11 +348,20 @@ const API = (function () {
       };
     });
 
+    const people = {};
+    if (!actors.error && actors.data) {
+      actors.data.forEach(function (row) { people[row.email] = row.display_name; });
+    }
+
     return {
       project: project.data,
       // სახელები ცალკე ფუნქციიდან: `projects`-ში მხოლოდ მეილი წერია და
       // `profiles`-ს მაცხოვრებელი ვერ კითხულობს.
       staff: (!staff.error && staff.data) ? staff.data : [],
+      // მეილი -> სახელი. ხაზინდარსა და მოდერატორს `profiles` დაკეტილი
+      // აქვს, ამიტომ სახელები ცალკე ფუნქციიდან მოდის; უფლების გარეშე
+      // ნაკრები ცარიელია და ცხრილი მეილს დაწერს.
+      people: people,
       totals: WebLib.projectTotals(project.data, pledges.data, payments.data),
       rows: rows,
       payments: payments.data,
