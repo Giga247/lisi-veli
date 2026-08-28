@@ -43,7 +43,8 @@ const Sheet = (function () {
 
   /**
    * @param {object} plot     ნაკვეთი `plots`-იდან
-   * @param {object} [ctx]    { status, amount_due, canEdit, projectName }
+   * @param {object} [ctx]    { status, amount_due, canEdit, projectName,
+   *                            canSeePhone, canSeeHistory }
    */
   function open(plot, ctx) {
     close();
@@ -69,6 +70,9 @@ const Sheet = (function () {
               esc(WebLib.money(info.amount_due)))
         : '') +
       row('შენიშვნა', esc(plot.note || '')) +
+      // ვინ შეცვალა ბოლოს — ღილაკებამდე, რადგან ის ინფორმაციაა და არა
+      // მოქმედება. ცარიელი კონტეინერი მოგვიანებით ივსება.
+      (info.canSeeHistory ? '<div class="hist-box" data-history hidden></div>' : '') +
       '<div class="cta">' +
       // სამი მდგომარეობაა და სამივე სხვადასხვა რამეს ნიშნავს: ნომერი
       // არსებობს; ნომერი არ არის ჩაწერილი; ნომერი არსებობს, მაგრამ ამ
@@ -85,6 +89,8 @@ const Sheet = (function () {
 
     document.body.appendChild(box);
     document.body.classList.add('sheet-open');
+
+    HistoryView.mount(box.querySelector('[data-history]'), plot.cad);
 
     box.addEventListener('click', function (event) {
       if (event.target.closest('[data-close]')) { close(); return; }

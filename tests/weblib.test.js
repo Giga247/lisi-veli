@@ -404,3 +404,73 @@ test('toneView და pledgeView ერთსა და იმავე სა�
       assert.strictEqual(WebLib.pledgeView(key).short, WebLib.pledgeView(key).label, key);
     });
 });
+
+// ── ისტორია ──────────────────────────────────────────────────────────────
+
+test('historyEntry — სტატუსი ქართულად, ძველიდან ახალზე', () => {
+  const entry = WebLib.historyEntry({
+    action: 'setPledge', field: 'status',
+    old_value: 'not_contacted', new_value: 'paying',
+  });
+  assert.strictEqual(entry.title, 'სტატუსი');
+  assert.strictEqual(entry.detail, 'არ დარეკილა → დებს');
+});
+
+test('historyEntry — ძველის გარეშე ისარი არ ჩნდება', () => {
+  const entry = WebLib.historyEntry({
+    action: 'updatePlot', field: 'phone', old_value: null, new_value: '+995599111111',
+  });
+  assert.strictEqual(entry.title, 'ტელეფონი');
+  assert.strictEqual(entry.detail, '+995599111111');
+});
+
+test('historyEntry — ნაკვეთის ველი ქართული სახელით', () => {
+  const entry = WebLib.historyEntry({
+    action: 'updatePlot', field: 'first_name', old_value: 'ზურა', new_value: 'ზურაბ',
+  });
+  assert.strictEqual(entry.title, 'სახელი');
+  assert.strictEqual(entry.detail, 'ზურა → ზურაბ');
+});
+
+test('historyEntry — გადახდა: `field` პროექტის id-ია და არა სვეტი', () => {
+  assert.deepStrictEqual(
+    WebLib.historyEntry({ action: 'payment', field: 'PRJ-001', new_value: '150' }),
+    { title: 'გადახდა', detail: '150 ₾' });
+  assert.deepStrictEqual(
+    WebLib.historyEntry({ action: 'payment_set', field: 'PRJ-001',
+      old_value: '100', new_value: '150' }),
+    { title: 'გადახდა', detail: '150 ₾' });
+  assert.deepStrictEqual(
+    WebLib.historyEntry({ action: 'payment_cancel', field: 'PRJ-001',
+      old_value: '150', new_value: null }),
+    { title: 'გადახდა გაუქმდა', detail: '150 ₾' });
+});
+
+test('historyEntry — უცნობი ველი თავისივე სახელით რჩება', () => {
+  const entry = WebLib.historyEntry({ action: 'updatePlot', field: 'source',
+    old_value: '', new_value: 'tas.ge' });
+  assert.strictEqual(entry.title, 'source');
+  assert.strictEqual(entry.detail, 'tas.ge');
+});
+
+test('since — წუთი, საათი, დღე', () => {
+  const now = '2026-08-28T12:00:00Z';
+  assert.strictEqual(WebLib.since('2026-08-28T11:59:30Z', now), 'ახლახან');
+  assert.strictEqual(WebLib.since('2026-08-28T11:45:00Z', now), '15 წუთის წინ');
+  assert.strictEqual(WebLib.since('2026-08-28T09:00:00Z', now), '3 საათის წინ');
+  assert.strictEqual(WebLib.since('2026-08-25T12:00:00Z', now), '3 დღის წინ');
+});
+
+test('since — 30 დღეზე ძველი თარიღად იწერება', () => {
+  const now = '2026-08-28T12:00:00Z';
+  // 30 დღეზე ძველი — თვე ქართულად, წელი მიმდინარეა და არ ჩანს.
+  assert.match(WebLib.since('2026-06-10T12:00:00Z', now), /^10 ივნ$/);
+  // სხვა წელი — წელიც ეწერება, თორემ „10 ივნ" ორ სხვადასხვა დღეს ნიშნავს.
+  assert.match(WebLib.since('2025-06-10T12:00:00Z', now), /^10 ივნ 2025$/);
+});
+
+test('since — არასწორი თარიღი ცარიელს აბრუნებს', () => {
+  assert.strictEqual(WebLib.since('არა-თარიღი', '2026-08-28T12:00:00Z'), '');
+  assert.strictEqual(WebLib.since(null, '2026-08-28T12:00:00Z'), '');
+});
+

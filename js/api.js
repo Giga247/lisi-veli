@@ -227,6 +227,27 @@ const API = (function () {
     return data;
   }
 
+  /**
+   * ერთი ნაკვეთის ისტორია — ვინ რა შეცვალა.
+   *
+   * `logs`-ისგან განსხვავებით ეს ადმინზე დაკეტილი არ არის: ბაზის
+   * ფუნქცია თვითონ ამოწმებს, რომ მიმართვა მოდერატორისგან, ადმინისგან
+   * ან ხაზინდარისგან მოდის — ანუ იმისგან, ვისაც სტატუსი ისედაც უჩანს.
+   * როლი აქ `member`-ზეა გახსნილი სწორედ ხაზინდრის გამო: ის გლობალური
+   * როლი არ არის, პროექტის ველია.
+   */
+  async function actionPlotHistory(payload) {
+    await active(ROLES_MEMBER);
+    const cad = String((payload && payload.cad) || '').trim();
+    if (!cad) fail('VALIDATION', 'ნაკვეთი არ არის მითითებული');
+    const { data, error } = await sb.rpc('plot_history', {
+      p_cad: cad,
+      p_limit: Number(payload && payload.limit) || 20,
+    });
+    if (error) fromPostgrest(error);
+    return data || [];
+  }
+
   // ── პროექტები ───────────────────────────────────────────────────────
   // ჯამებს და ფერებს კლიენტი ითვლის `WebLib`-ით. Apps Script-ის დროს ეს
   // სერვერზე ხდებოდა, რომ რუკა და ცხრილი ერთ პასუხს დაყრდნობოდნენ —
@@ -361,10 +382,13 @@ const API = (function () {
     if (!projectId || !cad) fail('VALIDATION', 'პროექტი ან ნაკვეთი არ არის მითითებული');
     if (allowed.indexOf(status) === -1) fail('VALIDATION', 'უცნობი პასუხი: ' + status);
 
+    // `recorded_by`/`recorded_at` აქ არ იგზავნება: ორივეს `pledges_stamp`
+    // ტრიგერი სვამს სესიის მიხედვით. კლიენტი დროს რომ წერდა, ავტორი კი
+    // პროექტის შემქმნელად რჩებოდა, ბარათზე „ვინ შეცვალა" მუდამ ერთსა და
+    // იმავე ადამიანს აჩვენებდა.
     const patch = {
       status: status,
       note: String((payload && payload.note) || '').trim().slice(0, 500) || null,
-      recorded_at: new Date().toISOString(),
     };
     const { data, error } = await sb.from('pledges')
       .update(patch).eq('project_id', projectId).eq('cad', cad).select();
@@ -456,6 +480,7 @@ const API = (function () {
     users: actionUsers,
     setRole: actionSetRole,
     logs: actionLogs,
+    plotHistory: actionPlotHistory,
     projects: actionProjects,
     project: actionProject,
     setPledge: actionSetPledge,

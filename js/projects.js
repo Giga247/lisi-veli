@@ -681,6 +681,11 @@ const ProjectsView = (function () {
             (row.note ? ' · ' + esc(row.note) : '') + '</p>'
           : '') +
 
+      // ვინ შეცვალა ბოლოს. სტატუსის ქვეშ დგას იმიტომ, რომ სწორედ ის
+      // არის ყველაზე ხშირი პასუხი კითხვაზე „ეს ვინ ჩაწერა?" —
+      // შიგთავსი მოგვიანებით ჩნდება, ცალკე მოთხოვნით.
+      (maySee ? '<div class="hist-box" data-history hidden></div>' : '') +
+
       (maySee
         ? '<div class="pc-money">' +
           '<span>წილი <b>' + esc(WebLib.money(row.amount_due)) + '</b></span>' +
@@ -708,6 +713,9 @@ const ProjectsView = (function () {
 
     document.body.appendChild(dialog);
     document.body.classList.add('sheet-open');
+
+    // ბარათი პასუხს არ ელოდება: ისტორია მოგვიანებით ჩაჯდება ადგილზე.
+    HistoryView.mount(dialog.querySelector('[data-history]'), row.cad);
 
     const form = dialog.querySelector('form');
     const errorBox = dialog.querySelector('.pr-dialog-error');

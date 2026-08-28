@@ -25,7 +25,11 @@ const MapView = (function () {
   function openSheet(cad) {
     const plot = byCad[String(cad).trim()];
     if (!plot) return;
-    Sheet.open(plot, { canEdit: canEdit(), canSeePhone: phonesVisible });
+    // ისტორიას იგივე წრე ხედავს, რაც ტელეფონს — მოდერატორი, ადმინი და
+    // ნებისმიერი პროექტის ხაზინდარი. ბაზაშიც ერთი და იგივე შემოწმებაა,
+    // ამიტომ აქ ერთი და იგივე დროშა.
+    Sheet.open(plot, { canEdit: canEdit(), canSeePhone: phonesVisible,
+      canSeeHistory: phonesVisible });
   }
 
   function render(plots, currentUser, showPhones) {

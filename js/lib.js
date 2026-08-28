@@ -464,6 +464,85 @@
     };
   }
 
+  // ── ისტორია ─────────────────────────────────────────────────────────
+  //
+  // `audit_log`-ის მწკრივი მანქანური ჩანაწერია: `field: "first_name"`,
+  // `new_value: "paying"`. ბარათზე კი ადამიანური წინადადება უნდა ეწეროს.
+  // თარგმანი აქ არის და არა ეკრანთან ახლოს, რადგან იმავე მწკრივს ორი
+  // სხვადასხვა ბარათი კითხულობს — მთავარი გვერდისა და პროექტისა.
+
+  const HISTORY_FIELDS = {
+    first_name: 'სახელი', last_name: 'გვარი', phone: 'ტელეფონი',
+    street: 'ქუჩა', num: 'ნომერი', address: 'მისამართი',
+    area: 'ფართობი', purpose: 'დანიშნულება', note: 'შენიშვნა',
+    status: 'სტატუსი', amount_due: 'წილი',
+  };
+
+  const MONTHS_SHORT = ['იან', 'თებ', 'მარ', 'აპრ', 'მაი', 'ივნ',
+    'ივლ', 'აგვ', 'სექ', 'ოქტ', 'ნოე', 'დეკ'];
+
+  /**
+   * ერთი ჩანაწერი -> `{ title, detail }`.
+   *
+   * `title` არის ის, რაც შეიცვალა; `detail` — როგორ. ცარიელი ძველი
+   * მნიშვნელობა გამოტოვებულია განზრახ: „— → +995…" ხმაურია, როცა
+   * ველი უბრალოდ პირველად შეივსო.
+   */
+  function historyEntry(row) {
+    const entry = row || {};
+    const action = String(entry.action || '');
+    const field = String(entry.field || '');
+    const before = entry.old_value == null ? '' : String(entry.old_value);
+    const after = entry.new_value == null ? '' : String(entry.new_value);
+
+    // ფული ცალკე დგას: იქ `field` პროექტის id-ია და არა სვეტის სახელი.
+    if (action === 'payment' || action === 'payment_set') {
+      return { title: 'გადახდა', detail: money(after) };
+    }
+    if (action === 'payment_cancel') {
+      return { title: 'გადახდა გაუქმდა', detail: money(before) };
+    }
+
+    if (field === 'status') {
+      return {
+        title: 'სტატუსი',
+        detail: (before ? pledgeView(before).label + ' → ' : '')
+          + pledgeView(after).label,
+      };
+    }
+
+    const title = HISTORY_FIELDS[field] || field || action;
+    const shown = after || '—';
+    return { title: title, detail: before ? before + ' → ' + shown : shown };
+  }
+
+  /**
+   * „3 დღის წინ". თარიღი მაშინ, როცა უკვე აღარავის ახსოვს კვირა.
+   *
+   * `now` არგუმენტია და არა `Date.now()` ფუნქციის შიგნით — თორემ
+   * ტესტი დროზე იქნებოდა დამოკიდებული.
+   */
+  function since(iso, now) {
+    // `new Date(null)` 1970 წელია და არა შეცდომა — ცარიელი ველი ბარათზე
+    // „1 იან 1970"-ად გამოჩნდებოდა.
+    if (!iso) return '';
+    const then = new Date(iso);
+    if (isNaN(then.getTime())) return '';
+    const at = now === undefined ? new Date() : new Date(now);
+    const minutes = Math.floor((at.getTime() - then.getTime()) / 60000);
+
+    if (minutes < 1) return 'ახლახან';
+    if (minutes < 60) return minutes + ' წუთის წინ';
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + ' საათის წინ';
+    const days = Math.floor(hours / 24);
+    if (days < 30) return days + ' დღის წინ';
+
+    const date = then.getDate() + ' ' + MONTHS_SHORT[then.getMonth()];
+    return then.getFullYear() === at.getFullYear()
+      ? date : date + ' ' + then.getFullYear();
+  }
+
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
     treasurerIndex: treasurerIndex, staffIndex: staffIndex,
@@ -475,5 +554,7 @@
     normalizePhone: normalizePhone,
     roundToFive: roundToFive, plotColor: plotColor,
     projectTotals: projectTotals, ownerCount: ownerCount,
-    ownersByStatus: ownersByStatus };
+    ownersByStatus: ownersByStatus,
+    HISTORY_FIELDS: HISTORY_FIELDS, historyEntry: historyEntry,
+    since: since };
 });

@@ -180,3 +180,33 @@ input, select, button { font: inherit; padding: 6px 10px;
     padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
   .pe-grid { grid-template-columns: 1fr; }
 }
+
+/* ── ისტორია — „ვინ შეცვალა" ─────────────────────────────────────────────
+   ორივე ბარათი იყენებს: მთავარი გვერდის ქვედა ფურცელი და პროექტის
+   ბარათი. სტილი ჩუმია განზრახ — ეს არის ის, რასაც თვალი მაშინ ეძებს,
+   როცა ეძებს, და დანარჩენ დროს არ უნდა უშლიდეს ხელს ზარის პასუხს. */
+.hist-box { border-top: 1px solid var(--line); padding-top: 10px;
+  display: grid; gap: 6px; }
+.hist-last { margin: 0; font-size: 12px; color: var(--ink-muted); }
+.hist-last b { color: var(--ink); font-weight: 600; }
+.hist-p { opacity: .6; }
+
+.hist > summary { font-size: 12px; color: var(--ink-muted); cursor: pointer;
+  list-style: none; min-height: 28px; display: flex; align-items: center;
+  gap: 6px; user-select: none; }
+.hist > summary::-webkit-details-marker { display: none; }
+/* სამკუთხედი ხელით: ნაგულისხმევი მარკერი ბრაუზერებში სხვადასხვა ზომისაა
+   და ქართულ 12px-იან სტრიქონს არ ჯდება. */
+.hist > summary::before { content: "▸"; display: inline-block;
+  transition: transform .12s ease; }
+.hist[open] > summary::before { transform: rotate(90deg); }
+.hist > summary:focus-visible { outline: 2px solid var(--accent);
+  outline-offset: 2px; border-radius: 6px; }
+
+.hist-l { list-style: none; margin: 6px 0 0; padding: 0 0 0 10px;
+  display: grid; gap: 8px; border-left: 1px solid var(--line); }
+.hist-solo { margin: 0; }
+.hist-i { display: grid; gap: 1px; font-size: 12px; }
+.hist-t { color: var(--ink-muted); }
+.hist-d { color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.hist-w { color: var(--ink-muted); font-size: 11px; }
