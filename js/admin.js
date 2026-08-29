@@ -26,6 +26,31 @@ const AdminView = (function () {
     blocked: 'დაბლოკილი',
   };
 
+  /**
+   * ჯგუფები „მომხმარებლების" განყოფილებაში.
+   *
+   * ათი ბარათი ერთ გროვად ეკრანს ავსებდა და ადმინი მათ სათითაოდ
+   * კითხულობდა. ჯგუფი პასუხობს კითხვას „ვინ რას აკეთებს" ერთი
+   * შეხედვით. ხაზინდრობა როლი არ არის — ის პროექტის ველია, ამიტომ
+   * ცალკე ჯგუფად მხოლოდ მაშინ ჩნდება, როცა კაცს გლობალური როლით
+   * უფრო მაღალი ადგილი არ უჭირავს.
+   */
+  const GROUPS = [
+    { key: 'admin', label: 'ადმინები' },
+    { key: 'moderator', label: 'მოდერატორები' },
+    { key: 'treasurer', label: 'ხაზინდრები' },
+    { key: 'member', label: 'მაცხოვრებლები' },
+    { key: 'blocked', label: 'დაბლოკილები' },
+  ];
+
+  function groupOf(user) {
+    if (user.role === 'blocked') return 'blocked';
+    if (user.role === 'admin') return 'admin';
+    if (user.role === 'moderator') return 'moderator';
+    if ((user.treasurer_of || []).length) return 'treasurer';
+    return 'member';
+  }
+
   let bound = false;
   let state = { users: [], logs: [] };
 
@@ -156,7 +181,15 @@ const AdminView = (function () {
     return letters.toUpperCase();
   }
 
-  function userCard(user) {
+  /** ერთი ან რამდენიმე — შეკეცილ მწკრივზე ორივე ერთ სტრიქონად უნდა ჩაჯდეს. */
+  function cadsSummary(cads) {
+    const list = cads || [];
+    if (!list.length) return 'ნაკვეთის გარეშე';
+    if (list.length === 1) return plotText(list[0]);
+    return list.length + ' ნაკვეთი';
+  }
+
+  function userCard(user, open) {
     const name = String(user.display_name || '').trim();
     const isMe = String(user.email || '').trim().toLowerCase() === myEmail();
     // ხაზინდრობა როლი არ არის და აქ არც იცვლება — ის პროექტის ველია.
@@ -164,19 +197,29 @@ const AdminView = (function () {
     // პროექტში ევალება ფულის ჩაწერა.
     const projects = user.treasurer_of || [];
     const moderates = user.moderator_of || [];
-    return '<article class="ad-u" data-email="' + esc(user.email) + '">' +
-      '<header class="ad-u-h">' +
+    // `<details>` და არა ჩვენი ჩამკეცი: კლავიატურა, სკრინრიდერი და
+    // ბრაუზერის ძებნა (Cmd+F ხსნის დახურულს) უფასოდ მოდის.
+    return '<details class="ad-u" data-email="' + esc(user.email) + '"' +
+      (open ? ' open' : '') + '>' +
+      '<summary class="ad-u-h">' +
       '<span class="ad-av">' + esc(initials(user)) + '</span>' +
       '<span class="ad-u-id">' +
       '<span class="ad-u-n">' + esc(name || '— სახელის გარეშე') + '</span>' +
       '<span class="ad-u-e">' + esc(user.email) + '</span></span>' +
+      // მისამართი შეკეცილ მწკრივზეც ჩანს: ადმინი ბარათს ხშირად
+      // სწორედ იმის სანახავად ხსნიდა, მიბმულია თუ არა ნაკვეთი.
+      '<span class="ad-u-sum">' + esc(cadsSummary(user.cads)) + '</span>' +
       '<span class="ad-tags">' +
       '<span class="ad-tag ad-tag-' + esc(user.role) + '">' +
       esc(ROLE_SHORT[user.role] || user.role) + '</span>' +
       (projects.length
         ? '<span class="ad-tag ad-tag-treasurer">ხაზინდარი</span>' : '') +
       '</span>' +
-      '</header>' +
+      '</summary>' +
+      // შიგთავსი ცალკე კონტეინერშია: `<details>`-ის პირდაპირ ბავშვებზე
+      // grid/flex-ის დაყრდნობა ბრაუზერებში სხვადასხვანაირად იქცევა
+      // (Chrome-ს `::details-content` ფენა აქვს), ეს კი უბრალო div-ია.
+      '<div class="ad-u-b">' +
       (projects.length
         ? '<p class="ad-u-tre"><span>ხაზინდარი:</span> ' +
           esc(projects.join(', ')) + '</p>'
@@ -214,7 +257,8 @@ const AdminView = (function () {
       (isMe ? '' : '<button type="button" class="ad-del" data-del>წაშლა</button>') +
       '<span class="ad-msg" data-msg></span>' +
       '</div>' +
-      '</article>';
+      '</div>' +
+      '</details>';
   }
 
   function logItem(row) {
@@ -238,9 +282,39 @@ const AdminView = (function () {
       '<span class="muted">' + count + '</span></div>' + body + '</section>';
   }
 
-  function draw(panel) {
+  /** სახელით — ჯგუფის შიგნით ანბანური რიგი ყველაზე მოსალოდნელია. */
+  function byName(a, b) {
+    const left = String(a.display_name || a.email || '').toLowerCase();
+    const right = String(b.display_name || b.email || '').toLowerCase();
+    return left < right ? -1 : left > right ? 1 : 0;
+  }
+
+  function groupBlock(users, opened) {
+    return GROUPS.map(function (group) {
+      const rows = users.filter(function (user) {
+        return groupOf(user) === group.key;
+      }).sort(byName);
+      if (!rows.length) return '';
+      return '<div class="ad-grp">' +
+        '<h3 class="ad-grp-h">' + esc(group.label) +
+        '<span>' + rows.length + '</span></h3>' +
+        '<div class="ad-cards">' + rows.map(function (user) {
+          return userCard(user, opened.indexOf(user.email) !== -1);
+        }).join('') + '</div></div>';
+    }).join('');
+  }
+
+  /**
+   * ხელახლა დახატვა.
+   *
+   * `opened` — ის ბარათები, რომლებიც ადმინს გახსნილი ჰქონდა: შენახვის
+   * შემდეგ სია თავიდან იგება და გახსნილი ბარათი სხვაგვარად ჩუმად
+   * დაიკეცებოდა სწორედ მაშინ, როცა ადმინი მასზე მუშაობს.
+   */
+  function draw(panel, opened) {
     const users = state.users;
     const logs = state.logs;
+    const open = opened || [];
     const pending = users.filter(function (u) { return u.role === 'pending'; });
     const active = users.filter(function (u) { return u.role !== 'pending'; });
 
@@ -248,12 +322,16 @@ const AdminView = (function () {
       section('დასამტკიცებელი მოთხოვნები', pending.length,
         pending.length === 0
           ? '<p class="empty">ახალი მოთხოვნა არ არის.</p>'
-          : '<p class="empty">აირჩიე როლი და ქუჩა, შემდეგ დააჭირე „შენახვა".</p>' +
-            '<div class="ad-cards">' + pending.map(userCard).join('') + '</div>') +
+          // დასამტკიცებელი ბარათი თავიდანვე გახსნილია: ის სამუშაოა და
+          // არა საცნობარო მწკრივი.
+          : '<p class="empty">აირჩიე როლი და მისამართი, შემდეგ დააჭირე „შენახვა".</p>' +
+            '<div class="ad-cards">' + pending.map(function (user) {
+              return userCard(user, true);
+            }).join('') + '</div>') +
       section('მომხმარებლები', active.length,
         active.length === 0
           ? '<p class="empty">ჯერ არავინაა.</p>'
-          : '<div class="ad-cards">' + active.map(userCard).join('') + '</div>') +
+          : groupBlock(active, open)) +
       section('ცვლილებების ლოგი', logs.length,
         logs.length === 0
           ? '<p class="empty">ჩანაწერი არ არის.</p>'
@@ -437,7 +515,7 @@ const AdminView = (function () {
         return user.email === email ? Object.assign({}, user, saved) : user;
       });
       const scroll = window.scrollY;
-      draw(UI.el('view-admin'));
+      draw(UI.el('view-admin'), openCards());
       window.scrollTo(0, scroll);
       flash(email, 'is-ok', 'შენახულია');
     } catch (error) {
@@ -479,7 +557,7 @@ const AdminView = (function () {
         return user.email !== email;
       });
       const scroll = window.scrollY;
-      draw(UI.el('view-admin'));
+      draw(UI.el('view-admin'), openCards());
       window.scrollTo(0, scroll);
       // წაშლა ბანი არ არის — ადმინმა ეს უნდა იცოდეს მაშინვე, თორემ
       // იმავე კაცის ხელახლა გამოჩენა შეცდომად მოეჩვენება.
@@ -492,6 +570,13 @@ const AdminView = (function () {
       button.removeAttribute('data-armed');
       button.classList.remove('is-armed');
     }
+  }
+
+  /** რომელი ბარათებია ახლა გახსნილი — გადახატვამდე. */
+  function openCards() {
+    return Array.prototype.map.call(
+      UI.el('view-admin').querySelectorAll('.ad-u[open]'),
+      function (card) { return card.getAttribute('data-email'); });
   }
 
   /** გადახატვის შემდეგ ბარათი ახალია — შეტყობინება მას უნდა მიება. */
