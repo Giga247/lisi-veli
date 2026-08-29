@@ -54,6 +54,10 @@ const MapView = (function () {
         // წარწერა ბაზიდან: გეგმის ფაილში ნომრები ერთხელ ჩაიწერა და
         // მოდერატორის შესწორებები იქ არ ხვდება.
         label: function (cad) { return byCad[cad] ? byCad[cad].num : ''; },
+        // საკუთარი ნაკვეთები გამოყოფილია ყველა რუკაზე: სამოცდაათი
+        // ერთნაირი ოთხკუთხედიდან „ჩემი რომელია" პირველი კითხვაა.
+        mark: user ? user.cads : null,
+        markLabel: 'ჩემი ნაკვეთი',
         onSelect: function (cad) { if (cad) openSheet(cad); },
       });
     }).catch(function (error) {

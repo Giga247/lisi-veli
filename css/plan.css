@@ -30,6 +30,10 @@
   --st-6: #4a3aa7;
   --st-7: #e34948;
   --st-x: #898781;
+
+  /* გამოყოფილი ნაკვეთი. ქუჩების პალიტრაში ასეთი წითელი არ არის —
+     გამოყოფა ქუჩის ფერს არ უნდა დაემსგავსოს. */
+  --mine: #e01b28;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -54,6 +58,7 @@
     --st-6: #9085e9;
     --st-7: #e66767;
     --st-x: #898781;
+    --mine: #ff4d4d;
   }
 }
 :root[data-theme="dark"] {
@@ -78,6 +83,7 @@
   --st-6: #9085e9;
   --st-7: #e66767;
   --st-x: #898781;
+  --mine: #ff4d4d;
 }
 
 /* ── განლაგება ─────────────────────────────────────────────── */
@@ -129,6 +135,22 @@
 .plot.is-new { stroke-dasharray: 4 2.5; }
 .plot.is-dim { opacity: .14; }
 .plot:focus { outline: none; }
+
+/* ── გამოყოფილი ნაკვეთი („ჩემი") ────────────────────────────
+   ცალკე ფენაა ყველა ნაკვეთის ზემოთ, ამიტომ მეზობლის კანტი მას ვერ
+   ჭრის. `fill: none` — ფერი ქუჩისა რჩება, იცვლება მხოლოდ კონტური;
+   `pointer-events: none` — ქვემოთ მდებარე ნაკვეთი კლიკს ისევ იღებს. */
+.plot-mark {
+  fill: none; stroke: var(--mine); stroke-width: 3;
+  stroke-linejoin: round; pointer-events: none;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mine) 80%, transparent));
+  animation: mine-pulse 2.4s ease-in-out infinite;
+}
+@keyframes mine-pulse { 50% { opacity: .45; } }
+
+/* მოძრაობა დამხმარეა და არა შინაარსი — ვისაც გამორთული აქვს, კანტი
+   უძრავად რჩება და ისევე კარგად ჩანს. */
+@media (prefers-reduced-motion: reduce) { .plot-mark { animation: none; } }
 
 .tag { text-anchor: middle; pointer-events: none; font-family: "JetBrains Mono", ui-monospace, monospace; }
 .tag.t-num { fill: var(--pl-ink); font-weight: 700; }
@@ -185,6 +207,8 @@
 .plan-legend .lg i.st-6 { color: var(--st-6); }
 .plan-legend .lg i.st-7 { color: var(--st-7); }
 .plan-legend .lg i.st-x { color: var(--st-x); }
+/* „ჩემი ნაკვეთი" — რუკაზე მხოლოდ კანტია, ამიტომ ნიმუშიც ღრუა. */
+.plan-legend .lg i.mine { color: var(--mine); background: none; }
 .plan-legend .lg-note {
   color: var(--pl-ink-3); font-size: 11px; line-height: 1.45;
   flex: 1 1 100%; margin-top: 1px;

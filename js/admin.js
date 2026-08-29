@@ -61,8 +61,33 @@ const AdminView = (function () {
         UI.showView('home');
         return;
       }
+      const pick = event.target.closest('[data-pick]');
+      if (pick) { openPicker(pick.closest('[data-email]')); return; }
+      const add = event.target.closest('[data-add]');
+      if (add) { addTyped(add.closest('[data-email]')); return; }
+      const drop = event.target.closest('[data-drop]');
+      if (drop) {
+        const card = drop.closest('[data-email]');
+        dropPlot(card, drop.getAttribute('data-drop'));
+        return;
+      }
+      const remove = event.target.closest('[data-del]');
+      if (remove) { confirmDelete(remove); return; }
       const button = event.target.closest('[data-save]');
       if (button) save(button);
+    });
+    // ქუჩა და ნომერი აკრეფისთანავე ეძებს ნაკვეთს. `input` ორივეს ხვდება —
+    // ტექსტურ ველსაც და სელექტსაც.
+    panel.addEventListener('input', function (event) {
+      if (!event.target.closest('[data-street], [data-num]')) return;
+      preview(event.target.closest('[data-email]'));
+    });
+    // Enter ნომრის ველში = „დამატება": მისამართი ისედაც აკრეფილია და
+    // თითის მაუსზე გადატანა ზედმეტი ნაბიჯია.
+    panel.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' || !event.target.closest('[data-num]')) return;
+      event.preventDefault();
+      addTyped(event.target.closest('[data-email]'));
     });
   }
 
@@ -73,25 +98,54 @@ const AdminView = (function () {
     }).join('');
   }
 
-  function streetOptions(current) {
+  /**
+   * ქუჩების ნუსხა დასამატებელი მისამართისთვის.
+   *
+   * აქ შენახული მნიშვნელობა აღარ არსებობს: ქუჩა და ნომერი პროფილის
+   * ველები აღარაა, არამედ ის ორი სიტყვაა, რომლითაც ადმინი ნაკვეთს
+   * ეძებს. ამიტომ სია ყოველთვის ცარიელი არჩევანით იწყება.
+   */
+  function streetOptions() {
     const streets = window.PLOTS ? WebLib.streetList(window.PLOTS) : [];
-    const trimmedCurrent = String(current || '').trim();
-    // მომხმარებლის შენახული ქუჩა შეიძლება არცერთ ნაკვეთზე აღარ ჩანდეს
-    // (გადარქმეული, სხვანაირად აკრეფილი, ან ბოლო ნაკვეთი შეიცვალა) — ასეთ
-    // შემთხვევაში streets-ს შორის selected ვერაფერი ემთხვევა და ბრაუზერი
-    // პირველ option-ს (ქუჩის გარეშე) აირჩევდა ნაგულისხმევად. მხოლოდ როლის
-    // შესაცვლელად შენახვისას ეს ჩუმად წაშლიდა ქუჩას — ამიტომ რეალური მნიშვნელობა
-    // ყოველთვის უნდა ჩანდეს, თუნდაც არცერთ ნაკვეთს არ ეკუთვნოდეს.
-    const isOrphan = trimmedCurrent && streets.indexOf(trimmedCurrent) === -1;
-    const orphanOption = isOrphan
-      ? '<option value="' + esc(trimmedCurrent) + '" selected>' +
-        esc(trimmedCurrent) + ' (ნაკვეთებში არ გვხვდება)</option>'
-      : '';
-    return orphanOption + '<option value="">ქუჩის გარეშე</option>' +
+    return '<option value="">ქუჩა…</option>' +
       streets.map(function (street) {
-        return '<option value="' + esc(street) + '"' +
-          (street === trimmedCurrent ? ' selected' : '') + '>' + esc(street) + '</option>';
+        return '<option value="' + esc(street) + '">' + esc(street) + '</option>';
       }).join('');
+  }
+
+  /** ნაკვეთი კოდით — `window.PLOTS`-ში, რომელიც ისედაც ჩატვირთულია. */
+  function plotOf(cad) {
+    const code = String(cad || '').trim();
+    if (!code) return null;
+    return (window.PLOTS || []).filter(function (plot) {
+      return plot.cad === code;
+    })[0] || null;
+  }
+
+  /**
+   * რა ეწეროს ბარათზე ნაკვეთის ადგილას.
+   *
+   * სამი მდგომარეობაა: მიბმული ნაკვეთი, მიბმა არ არის, და მიბმულია
+   * ისეთი კოდი, რომელიც რეესტრში აღარ ჩანს. ბოლო ჩუმად რომ იმალებოდეს,
+   * ადმინი ვერ მიხვდებოდა, რატომ არ უჩანს მაცხოვრებელს „ჩემი ნაკვეთი".
+   */
+  function plotText(cad) {
+    const code = String(cad || '').trim();
+    if (!code) return 'მიბმული არ არის';
+    const plot = plotOf(code);
+    return plot ? WebLib.plotLabel(plot) : code + ' — რეესტრში არ არის';
+  }
+
+  /**
+   * ჩემი მეილი — მთავარი ნაკადის გლობალიდან.
+   *
+   * პანელს ორი რამისთვის სჭირდება: საკუთარ როლს ადმინი ვერ იცვლის და
+   * საკუთარ ანგარიშს ვერ შლის. სია კი ყველა ბარათს ერთნაირად აჩვენებს,
+   * ამიტომ „ჩემი" მხოლოდ მეილის შედარებით იცნობა.
+   */
+  function myEmail() {
+    return typeof CURRENT_USER !== 'undefined' && CURRENT_USER
+      ? String(CURRENT_USER.email || '').trim().toLowerCase() : '';
   }
 
   /** ავატარის ორი ასო — იგივე წესი, რაც ზედა ზოლში. */
@@ -104,6 +158,7 @@ const AdminView = (function () {
 
   function userCard(user) {
     const name = String(user.display_name || '').trim();
+    const isMe = String(user.email || '').trim().toLowerCase() === myEmail();
     // ხაზინდრობა როლი არ არის და აქ არც იცვლება — ის პროექტის ველია.
     // ნიშანი და სტრიქონი მხოლოდ იმას ეუბნება ადმინს, ვის რომელ
     // პროექტში ევალება ფულის ჩაწერა.
@@ -131,11 +186,32 @@ const AdminView = (function () {
           esc(moderates.join(', ')) + '</p>'
         : '') +
       '<div class="ad-u-f">' +
-      '<label>როლი<select data-role>' + roleOptions(user.role) + '</select></label>' +
-      '<label>ქუჩა<select data-street>' + streetOptions(user.street) + '</select></label>' +
+      // საკუთარ როლს ადმინი ვერ იცვლის (ბაზაშიც და `setRole`-შიც ასეა) —
+      // ჩაკეტილი სელექტი ამას შენახვამდე ამბობს და არა შემდეგ, წითელი
+      // შეცდომით. მისამართი კი საკუთარ ბარათზეც იწერება.
+      '<label>როლი<select data-role' + (isMe ? ' disabled' : '') + '>' +
+      roleOptions(user.role) + '</select>' +
+      (isMe ? '<span class="ad-u-hint">საკუთარ როლს ვერ შეცვლი</span>' : '') +
+      '</label>' +
+      '</div>' +
+      // ნაკვეთები სიაა და არა ერთი ველი: ერთ კაცს უბანში რამდენიმე
+      // ნაკვეთი აქვს. ქუჩა და ნომერი აქ პროფილის ველები აღარაა —
+      // ისინი დასამატებელი მისამართის საძებნი ველებია.
+      '<div class="ad-plots" data-plots>' +
+      '<span class="ad-u-plot-l">ნაკვეთები</span>' +
+      '<ul class="ad-plot-list" data-list>' + plotChips(user.cads) + '</ul>' +
+      '<div class="ad-plot-add">' +
+      '<select data-street aria-label="ქუჩა">' + streetOptions() + '</select>' +
+      '<input type="text" data-num maxlength="16" autocomplete="off" ' +
+      'placeholder="ნომერი" aria-label="სახლის ნომერი">' +
+      '<button type="button" class="ad-plot-b" data-add disabled>დამატება</button>' +
+      '<button type="button" class="ad-u-plot-x" data-pick>რუკიდან</button>' +
+      '</div>' +
+      '<span class="ad-plot-found" data-found></span>' +
       '</div>' +
       '<div class="ad-u-a">' +
       '<button type="button" class="ad-save" data-save>შენახვა</button>' +
+      (isMe ? '' : '<button type="button" class="ad-del" data-del>წაშლა</button>') +
       '<span class="ad-msg" data-msg></span>' +
       '</div>' +
       '</article>';
@@ -184,6 +260,158 @@ const AdminView = (function () {
           : '<ol class="ad-log">' + logs.map(logItem).join('') + '</ol>'));
   }
 
+  /* ── ნაკვეთის არჩევა რუკიდან ─────────────────────────────── */
+
+  // გეგმის მონაცემს `PlanView` თვითონ იქეშებს, ინსტანციას კი ყოველ
+  // გახსნაზე თავიდან ვაგებთ: ფანჯარა იხურება და მისი DOM ქრება.
+  function openPicker(card) {
+    const currentCads = cadsOf(card);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'pr-dialog';
+    dialog.innerHTML = '<div class="pr-dialog-box ad-pick">' +
+      '<header class="ad-pick-h"><h3>ნაკვეთის არჩევა</h3>' +
+      '<button type="button" class="pc-x" data-close aria-label="დახურვა">✕</button>' +
+      '</header>' +
+      '<p class="ad-pick-hint">შეეხე ნაკვეთს — სიაში დაემატება.' +
+      (currentCads.length
+        ? ' ახლა მიბმულია: <b>' + esc(currentCads.map(plotText).join(', ')) + '</b>.'
+        : '') +
+      '</p>' +
+      '<div class="ad-pick-map"><p class="empty">იტვირთება…</p></div>' +
+      '</div>';
+    document.body.appendChild(dialog);
+    document.body.classList.add('sheet-open');
+
+    const close = function () {
+      document.removeEventListener('keydown', dialog._key);
+      dialog.remove();
+      document.body.classList.remove('sheet-open');
+    };
+    dialog._key = function (event) { if (event.key === 'Escape') close(); };
+    document.addEventListener('keydown', dialog._key);
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog || event.target.closest('[data-close]')) close();
+    });
+
+    const host = dialog.querySelector('.ad-pick-map');
+    PlanView.load().then(function (data) {
+      if (!host.isConnected) return;
+      PlanView.create(host, data, {
+        sidebar: false,
+        // წარწერა რეესტრიდან და არა გეგმის ფაილიდან — იქ ნომრები
+        // ერთხელ ჩაიწერა და შესწორებები აღარ ხვდება.
+        label: function (cad) {
+          const plot = plotOf(cad);
+          return plot && plot.num ? String(plot.num) : '';
+        },
+        // ახლა მიბმული ნაკვეთი ნახაზზეც უნდა ჩანდეს და არა მხოლოდ
+        // ზემოთ, ტექსტში — ადმინი სწორედ იმას ეძებს, რომ შეცვალოს.
+        mark: currentCads,
+        markLabel: 'ახლა მიბმულია',
+        onSelect: function (cad) {
+          if (!cad) return;
+          addPlot(card, cad);
+          close();
+        },
+      });
+    }).catch(function () {
+      if (host.isConnected) {
+        host.innerHTML = '<p class="empty">გეგმა ვერ ჩაიტვირთა — ' +
+          'გადატვირთეთ გვერდი.</p>';
+      }
+    });
+  }
+
+  /** მიბმული ნაკვეთები ისე, როგორც ბარათზე ახლა წერია. */
+  function cadsOf(card) {
+    return Array.prototype.map.call(
+      card.querySelectorAll('[data-list] [data-cad]'),
+      function (item) { return item.getAttribute('data-cad'); });
+  }
+
+  /** სიის მწკრივები. ცარიელი სია ტექსტია და არა უჩინარი ადგილი. */
+  function plotChips(cads) {
+    const list = cads || [];
+    if (!list.length) return '<li class="ad-plot-none">მიბმული არ არის</li>';
+    return list.map(function (cad) {
+      return '<li class="ad-plot-i" data-cad="' + esc(cad) + '">' +
+        '<span>' + esc(plotText(cad)) + '</span>' +
+        '<button type="button" class="ad-plot-x" data-drop="' + esc(cad) + '" ' +
+        'aria-label="მოხსნა">✕</button></li>';
+    }).join('');
+  }
+
+  function redrawChips(card) {
+    card.querySelector('[data-list]').innerHTML = plotChips(cadsOf(card));
+    preview(card);
+  }
+
+  /**
+   * აკრეფილი მისამართის შედეგი — ჯერ მხოლოდ საჩვენებლად.
+   *
+   * ავტომატური მიბმა აქ აღარ გამოდგება: სიაში აკრეფის გზაზე ყოველი
+   * შუალედური ნომერიც ჩავარდებოდა („1" გზაზე „17"-ისკენ). ამიტომ ძებნა
+   * მაინც აკრეფისთანავე მუშაობს, ჩამატება კი ერთ დაჭერას ითხოვს.
+   */
+  function preview(card) {
+    if (!card) return;
+    const found = card.querySelector('[data-found]');
+    const button = card.querySelector('[data-add]');
+    if (!found || !button) return;
+    const street = card.querySelector('[data-street]').value;
+    const num = card.querySelector('[data-num]').value;
+    const plot = WebLib.findPlotByAddress(window.PLOTS || [], street, num);
+
+    button.removeAttribute('data-cad');
+    if (!street || !String(num).trim()) {
+      button.disabled = true;
+      found.textContent = '';
+      return;
+    }
+    if (!plot) {
+      button.disabled = true;
+      found.textContent = 'ასეთი მისამართი რეესტრში არ არის';
+      return;
+    }
+    if (cadsOf(card).indexOf(plot.cad) !== -1) {
+      button.disabled = true;
+      found.textContent = plotText(plot.cad) + ' — უკვე დამატებულია';
+      return;
+    }
+    button.disabled = false;
+    button.setAttribute('data-cad', plot.cad);
+    found.textContent = plotText(plot.cad);
+  }
+
+  /** აკრეფილის ჩამატება სიაში. */
+  function addTyped(card) {
+    const button = card.querySelector('[data-add]');
+    if (!button || button.disabled) return;
+    addPlot(card, button.getAttribute('data-cad'));
+    // ქუჩა რჩება, ნომერი იწმინდება: ერთსა და იმავე ქუჩაზე ორი ნაკვეთი
+    // ჩვეულებრივი შემთხვევაა და ქუჩის ხელახლა არჩევა ზედმეტი ნაბიჯია.
+    card.querySelector('[data-num]').value = '';
+    card.querySelector('[data-num]').focus();
+    preview(card);
+  }
+
+  function addPlot(card, cad) {
+    const code = String(cad || '').trim();
+    if (!code || cadsOf(card).indexOf(code) !== -1) return;
+    const list = card.querySelector('[data-list]');
+    const empty = list.querySelector('.ad-plot-none');
+    if (empty) empty.remove();
+    list.insertAdjacentHTML('beforeend', plotChips([code]));
+    preview(card);
+  }
+
+  function dropPlot(card, cad) {
+    const item = card.querySelector('[data-list] [data-cad="' + cad + '"]');
+    if (item) item.remove();
+    redrawChips(card);
+  }
+
   /**
    * შენახვა და სიის ადგილზე განახლება.
    *
@@ -197,13 +425,14 @@ const AdminView = (function () {
     const message = card.querySelector('[data-msg]');
     const email = card.getAttribute('data-email');
     const role = card.querySelector('[data-role]').value;
-    const street = card.querySelector('[data-street]').value;
+    const cads = cadsOf(card);
 
     button.disabled = true;
     message.className = 'ad-msg';
     message.textContent = 'ინახება…';
     try {
-      const saved = await API.call('setRole', { email: email, role: role, street: street });
+      const saved = await API.call('setRole',
+        { email: email, role: role, cads: cads });
       state.users = state.users.map(function (user) {
         return user.email === email ? Object.assign({}, user, saved) : user;
       });
@@ -216,6 +445,52 @@ const AdminView = (function () {
       message.textContent = error.message;
       UI.showError(error.message);
       button.disabled = false;
+    }
+  }
+
+  /**
+   * მომხმარებლის წაშლა — ორ დაჭერაში.
+   *
+   * იგივე წესი, რაც პროექტის დამტკიცებას: `confirm()` ბრაუზერის მოდალია,
+   * ინგლისურ ჩარჩოში ქართული ტექსტით. მეორე დაჭერა შემთხვევითისგან
+   * ისევე იცავს, ხუთ წამში კი ღილაკი თავისით უკან ბრუნდება.
+   */
+  async function confirmDelete(button) {
+    const card = button.closest('[data-email]');
+    const email = card.getAttribute('data-email');
+    if (button.getAttribute('data-armed') !== '1') {
+      button.setAttribute('data-armed', '1');
+      button.textContent = 'ნამდვილად წავშალო?';
+      button.classList.add('is-armed');
+      setTimeout(function () {
+        if (!button.isConnected) return;
+        button.removeAttribute('data-armed');
+        button.textContent = 'წაშლა';
+        button.classList.remove('is-armed');
+      }, 5000);
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'იშლება…';
+    try {
+      await API.call('deleteUser', { email: email });
+      state.users = state.users.filter(function (user) {
+        return user.email !== email;
+      });
+      const scroll = window.scrollY;
+      draw(UI.el('view-admin'));
+      window.scrollTo(0, scroll);
+      // წაშლა ბანი არ არის — ადმინმა ეს უნდა იცოდეს მაშინვე, თორემ
+      // იმავე კაცის ხელახლა გამოჩენა შეცდომად მოეჩვენება.
+      UI.showError(email + ' წაიშალა. თუ ისევ შემოვა, ახალ მოთხოვნად ' +
+        'გამოჩნდება — სამუდამოდ დახურვა „დაბლოკილია".');
+    } catch (error) {
+      UI.showError(error.message || 'წაშლა ვერ მოხერხდა');
+      button.disabled = false;
+      button.textContent = 'წაშლა';
+      button.removeAttribute('data-armed');
+      button.classList.remove('is-armed');
     }
   }
 

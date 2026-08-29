@@ -40,6 +40,38 @@
     return name || '—';
   }
 
+  /**
+   * ნაკვეთის მოკლე წარწერა — „კედრის ქუჩა N12".
+   *
+   * ადმინის ბარათზე და მაცხოვრებელთა სიაში საკადასტრო კოდი ცუდი
+   * წარწერაა: ის ზუსტია, მაგრამ ვერავინ კითხულობს. ნომერი ხან არ
+   * არის ჩაწერილი, ამიტომ სამი დონე გვაქვს — ქუჩა და ნომერი,
+   * მისამართი, ბოლოს კოდი.
+   */
+  function plotLabel(plot) {
+    if (!plot) return '—';
+    const street = String(plot.street || '').trim();
+    const num = String(plot.num || '').trim();
+    if (street && num) return street + ' N' + num;
+    const address = String(plot.address || '').trim();
+    if (address) return address;
+    return String(plot.cad || '').trim() || '—';
+  }
+
+  /**
+   * მაცხოვრებლის სახელი ბარათზე.
+   *
+   * `plot_residents()` სახელს თვითონ ავსებს მეილის დასაწყისით, მაგრამ
+   * `display_name` ბაზაში ცარიელი სტრიქონიც შეიძლება იყოს — და მეილი
+   * მაცხოვრებელს საერთოდ არ მოსდის (მას მხოლოდ მოდერატორი ხედავს).
+   */
+  function residentName(row) {
+    const name = String((row && row.display_name) || '').trim();
+    if (name) return name;
+    const email = String((row && row.email) || '').trim();
+    return email ? email.split('@')[0] : '—';
+  }
+
   /** რუკაზე როგორ გამოჩნდება: პოლიგონით, მარკერით, ან არანაირად. */
   function mapStatus(plot) {
     if (plot.geometry && plot.geometry.length) return 'polygon';
@@ -60,6 +92,39 @@
     // (და შედეგი დამოკიდებულია LANG/LC_ALL გარემოს ცვლადზეც), ხოლო წმინდა
     // კოდპოინტური შედარება ქართული ანბანისთვის უკვე სწორი თანმიმდევრობაა.
     return Object.keys(seen).sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+  }
+
+  /**
+   * მისამართის ნომრის ნორმალიზება შედარებისთვის.
+   *
+   * ერთი და იგივე ნომერი რეესტრში და ადმინის ველში სამნაირად წერია:
+   * „12", „N12", „12 " — შესადარებლად სამივე ერთი უნდა გახდეს. ასოიანი
+   * ნომერი („12ა") არ იშლება: ეს სხვა სახლია.
+   */
+  function normalizeHouseNum(value) {
+    return String(value == null ? '' : value)
+      .trim().toLowerCase()
+      .replace(/^[n№#]\s*/, '')
+      .replace(/\s+/g, '');
+  }
+
+  /**
+   * ქუჩა და სახლის ნომერი → ნაკვეთი.
+   *
+   * ადმინი მისამართს ხელით კრეფს, ნაკვეთი კი საკადასტრო კოდით ებმება —
+   * რომ ერთი და იგივე სახლი ორჯერ არ ეძებოს, აკრეფილს რეესტრში თვითონ
+   * ვუძებნით. ნაკვეთი მხოლოდ მაშინ ბრუნდება, როცა ერთადერთი ემთხვევა:
+   * ორ ერთნაირ მისამართზე არჩევანი ადმინისაა და არა ჩვენი.
+   */
+  function findPlotByAddress(plots, street, num) {
+    const wantStreet = String(street || '').trim().toLowerCase();
+    const wantNum = normalizeHouseNum(num);
+    if (!wantStreet || !wantNum) return null;
+    const hits = (plots || []).filter(function (plot) {
+      return String(plot.street || '').trim().toLowerCase() === wantStreet &&
+        normalizeHouseNum(plot.num) === wantNum;
+    });
+    return hits.length === 1 ? hits[0] : null;
   }
 
   /**
@@ -614,7 +679,9 @@
   }
 
   return { escapeHtml: escapeHtml, fullName: fullName, mapStatus: mapStatus,
+    plotLabel: plotLabel, residentName: residentName,
     streetList: streetList, filterPlots: filterPlots, sortPlots: sortPlots,
+    normalizeHouseNum: normalizeHouseNum, findPlotByAddress: findPlotByAddress,
     treasurerIndex: treasurerIndex, staffIndex: staffIndex,
     PLEDGE_VIEW: PLEDGE_VIEW,
     pledgeView: pledgeView, toneView: toneView, money: money,

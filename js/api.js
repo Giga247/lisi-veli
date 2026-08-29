@@ -59,8 +59,29 @@ const API = (function () {
 
   // ── action-ები ──────────────────────────────────────────────────────
 
+  /**
+   * ჩემი პროფილი და ჩემი ნაკვეთები.
+   *
+   * ნაკვეთები ცალკე ცხრილშია (`profile_plots`) — ერთ კაცს რამდენიმე
+   * ნაკვეთი აქვს. მისი ჩავარდნა შესვლას არ აჩერებს: სია რუკის
+   * გამოსაყოფად სჭირდება და არა წვდომისთვის.
+   */
   async function actionMe() {
-    return await active(ROLES_MEMBER);
+    const me = await active(ROLES_MEMBER);
+    const { data } = await sb.from('profile_plots')
+      .select('cad').eq('profile_id', me.id).order('cad');
+    return Object.assign({}, me, {
+      cads: (data || []).map(function (row) { return row.cad; }),
+    });
+  }
+
+  /** მიბმული ნაკვეთები პროფილის id-ზე დაჯგუფებული. */
+  function cadsByProfile(rows) {
+    const index = {};
+    (rows || []).forEach(function (row) {
+      (index[row.profile_id] = index[row.profile_id] || []).push(row.cad);
+    });
+    return index;
   }
 
   /**
@@ -164,9 +185,10 @@ const API = (function () {
    */
   async function actionUsers() {
     await active(['admin']);
-    const [profiles, projects] = await Promise.all([
+    const [profiles, projects, links] = await Promise.all([
       sb.from('profiles').select('*').order('requested_at', { ascending: false }),
       sb.from('projects').select('id, name, treasurers, moderators, status'),
+      sb.from('profile_plots').select('profile_id, cad').order('cad'),
     ]);
     if (profiles.error) fromPostgrest(profiles.error);
     // პროექტების ჩავარდნა მომხმარებლების სიას არ აჩერებს — ხაზინდრობა
@@ -175,12 +197,14 @@ const API = (function () {
       ? {} : WebLib.staffIndex(projects.data, 'treasurers');
     const asModerator = projects.error
       ? {} : WebLib.staffIndex(projects.data, 'moderators');
+    const cads = links.error ? {} : cadsByProfile(links.data);
 
     return profiles.data.map(function (profile) {
       const email = String(profile.email || '').trim().toLowerCase();
       return Object.assign({}, profile, {
         treasurer_of: asTreasurer[email] || [],
         moderator_of: asModerator[email] || [],
+        cads: cads[profile.id] || [],
       });
     });
   }
@@ -192,13 +216,36 @@ const API = (function () {
     const allowed = ['admin', 'moderator', 'member', 'pending', 'blocked'];
     if (!email) fail('VALIDATION', 'მეილი არ არის მითითებული');
     if (allowed.indexOf(role) === -1) fail('VALIDATION', 'უცნობი როლი: ' + role);
-    if (email === me.email) fail('VALIDATION', 'საკუთარ როლს ვერ შეცვლით');
+    // აკრძალული საკუთარი *როლის* შეცვლაა და არა საკუთარი ბარათის
+    // შენახვა: ადმინი თავის მისამართს ისევე იწერს, როგორც სხვისას, და
+    // აქამდე ამაზე „საკუთარ როლს ვერ შეცვლით" ხვდებოდა.
+    if (email === me.email && role !== me.role) {
+      fail('VALIDATION', 'საკუთარ როლს ვერ შეცვლით');
+    }
 
-    // ქუჩა იმავე მოთხოვნაში მიდის. ადრე `admin.js` მას აგზავნიდა, აქ კი
-    // ჩუმად იკარგებოდა: ადმინი ირჩევდა ქუჩას, „შენახვას" აჭერდა, შეცდომას
-    // ვერ ხედავდა — და ველი მაინც ძველი რჩებოდა.
-    const street = payload && payload.street !== undefined
-      ? String(payload.street || '').trim() : null;
+    // ნაკვეთების სია იმავე მოთხოვნაში მიდის. `undefined` ნიშნავს
+    // „არ შეხებია" — მაშინ მიბმებს ხელს არ ვახლებთ (მაგ. მხოლოდ
+    // როლის შეცვლისას).
+    const cads = payload && payload.cads !== undefined
+      ? unique((payload.cads || []).map(function (item) {
+        return String(item || '').trim();
+      }).filter(Boolean))
+      : null;
+
+    // ნაკვეთს ბაზაშიც უცხო გასაღები იცავს, მაგრამ მისი უარი
+    // `23503`-ია და ინგლისურად — ადმინმა უნდა წაიკითხოს, რომელი კოდი
+    // აღარ არის რეესტრში და არა „ბაზასთან კავშირი ვერ დამყარდა".
+    if (cads && cads.length) {
+      const found = await sb.from('plots').select('cad').in('cad', cads);
+      if (found.error) fromPostgrest(found.error);
+      const known = (found.data || []).map(function (row) { return row.cad; });
+      const missing = cads.filter(function (code) {
+        return known.indexOf(code) === -1;
+      });
+      if (missing.length) {
+        fail('NOT_FOUND', 'ასეთი ნაკვეთი რეესტრში არ არის: ' + missing.join(', '));
+      }
+    }
 
     const approving = role !== 'pending' && role !== 'blocked';
     const fields = {
@@ -206,13 +253,99 @@ const API = (function () {
       approved_at: approving ? new Date().toISOString() : null,
       approved_by: approving ? me.email : null,
     };
-    if (payload && payload.street !== undefined) fields.street = street || null;
+    // ძველი ერთსვეტიანი მიბმა პირველ ნაკვეთზე რჩება — ის ბაზაშივეა და
+    // ახალ ცხრილს არ უნდა აცდეს.
+    if (cads) fields.cad = cads[0] || null;
 
     const { data, error } = await sb.from('profiles').update(fields)
       .eq('email', email).select();
     if (error) fromPostgrest(error);
     if (!data || data.length === 0) fail('NOT_FOUND', 'მომხმარებელი ვერ მოიძებნა');
-    return data[0];
+
+    const saved = data[0];
+    // `cads: undefined` აქ არ გამოდგება: `Object.assign`-ს გასაღები
+    // მაინც შეაქვს და ადმინის ბარათში არსებულ სიას ცარიელით ცვლის.
+    if (!cads) return saved;
+    return Object.assign({}, saved, { cads: await syncPlots(saved.id, cads) });
+  }
+
+  /** განმეორებების გარეშე, თანმიმდევრობის შენარჩუნებით. */
+  function unique(list) {
+    return list.filter(function (item, index) {
+      return list.indexOf(item) === index;
+    });
+  }
+
+  /**
+   * მიბმების სინქრონიზაცია.
+   *
+   * მთელი სიის წაშლა-ხელახლა ჩაწერა უფრო მოკლე იქნებოდა, მაგრამ
+   * აუდიტის ლოგში ყოველი შენახვა ათ ცრუ ჩანაწერს დატოვებდა
+   * („მოხსნა" და მაშინვე „მიბმა"). ამიტომ მხოლოდ სხვაობა მიდის.
+   */
+  async function syncPlots(profileId, cads) {
+    const current = await sb.from('profile_plots')
+      .select('cad').eq('profile_id', profileId);
+    if (current.error) fromPostgrest(current.error);
+    const had = (current.data || []).map(function (row) { return row.cad; });
+
+    const gone = had.filter(function (code) { return cads.indexOf(code) === -1; });
+    if (gone.length) {
+      const dropped = await sb.from('profile_plots').delete()
+        .eq('profile_id', profileId).in('cad', gone);
+      if (dropped.error) fromPostgrest(dropped.error);
+    }
+
+    const fresh = cads.filter(function (code) { return had.indexOf(code) === -1; });
+    if (fresh.length) {
+      const added = await sb.from('profile_plots').insert(fresh.map(function (code) {
+        return { profile_id: profileId, cad: code };
+      }));
+      if (added.error) fromPostgrest(added.error);
+    }
+    return cads;
+  }
+
+  /**
+   * მომხმარებლის წაშლა.
+   *
+   * წაშლა და დაბლოკვა ორი სხვადასხვა რამაა: `blocked` წვდომას კეტავს და
+   * ჩანაწერი რჩება, წაშლა კი ჩანაწერს შლის. `auth.users` ადგილზე რჩება
+   * (მისი წაშლა service-role-ის უფლებას ითხოვს), ამიტომ იგივე კაცი თუ
+   * ისევ შემოვა, ახალ `pending` მოთხოვნად გამოჩნდება — ვინც სამუდამოდ
+   * უნდა დაიხუროს, მას `blocked` სჭირდება და არა წაშლა.
+   *
+   * საკუთარ თავს ვერავინ შლის — იმავე მიზეზით, რის გამოც საკუთარ როლს
+   * ვერ იცვლის: ერთადერთი ადმინი ერთი დაჭერით გარეთ დარჩებოდა. ბაზაშიც
+   * იგივე წესია (`profiles_delete_admin`), აქ კი ქართული შეტყობინებისთვის.
+   */
+  async function actionDeleteUser(payload) {
+    const me = await active(['admin']);
+    const email = String((payload && payload.email) || '').trim().toLowerCase();
+    if (!email) fail('VALIDATION', 'მეილი არ არის მითითებული');
+    if (email === me.email) fail('VALIDATION', 'საკუთარ ანგარიშს ვერ წაშლით');
+
+    const { data, error } = await sb.from('profiles').delete()
+      .eq('email', email).select();
+    if (error) fromPostgrest(error);
+    if (!data || data.length === 0) fail('NOT_FOUND', 'მომხმარებელი ვერ მოიძებნა');
+    return { email: email };
+  }
+
+  /**
+   * ნაკვეთის მაცხოვრებლები — ვინ ცხოვრობს, სახელით.
+   *
+   * `plotHistory`-ის მსგავსად ეს ადმინზე დაკეტილი არ არის: ბაზის
+   * ფუნქცია თვითონ წყვეტს, ვის რა მოსდის — სახელი ყველა დამტკიცებულს,
+   * მეილი მხოლოდ მოდერატორსა და ადმინს.
+   */
+  async function actionPlotResidents(payload) {
+    await active(ROLES_MEMBER);
+    const cad = String((payload && payload.cad) || '').trim();
+    if (!cad) fail('VALIDATION', 'ნაკვეთი არ არის მითითებული');
+    const { data, error } = await sb.rpc('plot_residents', { p_cad: cad });
+    if (error) fromPostgrest(error);
+    return data || [];
   }
 
   async function actionLogs(payload) {
@@ -492,8 +625,10 @@ const API = (function () {
     updatePlot: actionUpdatePlot,
     users: actionUsers,
     setRole: actionSetRole,
+    deleteUser: actionDeleteUser,
     logs: actionLogs,
     plotHistory: actionPlotHistory,
+    plotResidents: actionPlotResidents,
     projects: actionProjects,
     project: actionProject,
     setPledge: actionSetPledge,

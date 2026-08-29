@@ -181,6 +181,18 @@ input, select, button { font: inherit; padding: 6px 10px;
   .pe-grid { grid-template-columns: 1fr; }
 }
 
+/* ── მაცხოვრებლები — „ვინ ცხოვრობს" ─────────────────────────────────────
+   ისტორიის მეზობელი ბლოკია და იმავე წესებით: ორივე ბარათი იყენებს,
+   სტილი ჩუმია. მეპატრონე სათაურში წერია — ეს კი მისი გაგრძელებაა:
+   ვინ არის ამ სახლიდან საიტზე. */
+.res-box { border-top: 1px solid var(--line); padding-top: 10px;
+  display: grid; gap: 6px; }
+.res-h { margin: 0; font-size: 12px; color: var(--ink-muted); }
+.res-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.res-i { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.res-n { font-size: 13px; color: var(--ink); }
+.res-e { font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
 /* ── ისტორია — „ვინ შეცვალა" ─────────────────────────────────────────────
    ორივე ბარათი იყენებს: მთავარი გვერდის ქვედა ფურცელი და პროექტის
    ბარათი. სტილი ჩუმია განზრახ — ეს არის ის, რასაც თვალი მაშინ ეძებს,

@@ -289,28 +289,35 @@ const ProjectsView = (function () {
   /**
    * „ჩემი ნაკვეთი" — შესული მომხმარებლის საკუთარი წილი, თავშივე.
    *
-   * ეს არის მიზეზი, რის გამოც `მომხმარებლები` ფურცელს საკადასტრო კოდის
-   * სვეტი აქვს. თუ კოდი მიბმული არ არის, ბლოკი უბრალოდ არ ჩნდება —
-   * ცარიელი ჩარჩო უფრო აბნევს, ვიდრე მისი არარსებობა.
+   * ერთ კაცს რამდენიმე ნაკვეთი შეიძლება ჰქონდეს — თითოეულს თავისი
+   * წილი და თავისი პასუხი აქვს, ამიტომ ბლოკიც თითოზე ცალკეა. თუ
+   * არცერთი მიბმული არ არის, ბლოკი უბრალოდ არ ჩნდება — ცარიელი
+   * ჩარჩო უფრო აბნევს, ვიდრე მისი არარსებობა.
    */
   function myHousehold() {
-    const cad = String((user && user.cad) || '').trim();
-    if (!cad) return '';
-    const row = rowByCad()[cad];
-    if (!row) return '';
+    const rows = ((user && user.cads) || [])
+      .map(function (cad) { return rowByCad()[String(cad).trim()]; })
+      .filter(Boolean);
+    if (!rows.length) return '';
+    return '<section class="pr-mine">' +
+      '<h3>' + (rows.length > 1 ? 'ჩემი ნაკვეთები' : 'ჩემი ნაკვეთი') + '</h3>' +
+      rows.map(myHouseholdRow).join('') +
+      '</section>';
+  }
+
+  function myHouseholdRow(row) {
     const view = WebLib.pledgeView(row.status);
     const tone = WebLib.toneView(row.color);
     const left = Math.max(0, (row.amount_due || 0) - (row.paid || 0));
-    return '<section class="pr-mine">' +
-      '<h3>ჩემი ნაკვეთი</h3>' +
-      '<p class="pr-mine-address">' + esc(row.address || cad) + '</p>' +
+    return '<div class="pr-mine-one">' +
+      '<p class="pr-mine-address">' + esc(row.address || row.cad) + '</p>' +
       '<dl class="pr-kpi">' +
       '<div><dt>ჩემი წილი</dt><dd>' + esc(WebLib.money(row.amount_due)) + '</dd></div>' +
       '<div><dt>გადახდილი</dt><dd>' + esc(WebLib.money(row.paid)) + '</dd></div>' +
       '<div><dt>დარჩენილი</dt><dd>' + esc(WebLib.money(left)) + '</dd></div>' +
       '<div><dt>ჩემი პასუხი</dt><dd><span class="pr-tone tint-' + esc(row.color) + '">' +
       esc(tone.icon) + '</span> ' + esc(view.short) + '</dd></div>' +
-      '</dl></section>';
+      '</dl></div>';
   }
 
   /**
@@ -580,6 +587,8 @@ const ProjectsView = (function () {
         // მასზეც ველოდებით პასუხს. ის უბრალოდ არ მონაწილეობს.
         tint: function (cad) { return map[cad] ? map[cad].color : null; },
         legend: legendHtml(current.rows),
+        mark: user ? user.cads : null,
+        markLabel: 'ჩემი ნაკვეთი',
         onSelect: function (cad) { if (cad) openAnswer(cad); },
       });
     };
@@ -742,6 +751,8 @@ const ProjectsView = (function () {
           'დარეკვა · ' + esc(row.phone) + '</a>'
         : '') +
 
+      '<div class="res-box" data-residents hidden></div>' +
+
       (mayAnswer
         ? statusChips(row, true) +
           '<label class="pc-note">შენიშვნა' +
@@ -788,6 +799,7 @@ const ProjectsView = (function () {
 
     // ბარათი პასუხს არ ელოდება: ისტორია მოგვიანებით ჩაჯდება ადგილზე.
     HistoryView.mount(dialog.querySelector('[data-history]'), row.cad);
+    ResidentsView.mount(dialog.querySelector('[data-residents]'), row.cad);
 
     const form = dialog.querySelector('form');
     const errorBox = dialog.querySelector('.pr-dialog-error');

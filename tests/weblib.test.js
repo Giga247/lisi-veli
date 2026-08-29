@@ -537,3 +537,70 @@ test('unpaidContact — „არ დარეკილა" ყოველთ�
   assert.strictEqual(WebLib.unpaidContact(untouched, {}), null);
 });
 
+
+test('plotLabel — ქუჩა და ნომერი, თუ ორივე იცის', () => {
+  assert.strictEqual(WebLib.plotLabel(PLOTS[0]), 'კედრის ქუჩა N1');
+});
+
+test('plotLabel — ნომრის გარეშე მისამართი, მის გარეშე კოდი', () => {
+  assert.strictEqual(
+    WebLib.plotLabel({ cad: 'D', street: 'კედრის ქუჩა', num: '',
+      address: 'კედრის ქუჩა, ეზო' }), 'კედრის ქუჩა, ეზო');
+  assert.strictEqual(WebLib.plotLabel(PLOTS[2]), 'C');
+});
+
+test('plotLabel — უცნობი ნაკვეთი ტირეა', () => {
+  assert.strictEqual(WebLib.plotLabel(null), '—');
+});
+
+test('residentName — სახელი, მისი გარეშე მეილის დასაწყისი', () => {
+  assert.strictEqual(
+    WebLib.residentName({ display_name: 'გიგა გ.', email: 'giga@example.com' }),
+    'გიგა გ.');
+  assert.strictEqual(
+    WebLib.residentName({ display_name: '  ', email: 'nino@example.com' }),
+    'nino');
+});
+
+test('residentName — არც სახელი, არც მეილი (მეილი ბაზამ დამალა)', () => {
+  assert.strictEqual(WebLib.residentName({ display_name: '', email: null }), '—');
+});
+
+/* ── მისამართი → ნაკვეთი ─────────────────────────────────────── */
+
+test('normalizeHouseNum — N-პრეფიქსი, ჰარეები და რიცხვი ერთნაირდება', () => {
+  assert.strictEqual(WebLib.normalizeHouseNum(' N 12 '), '12');
+  assert.strictEqual(WebLib.normalizeHouseNum('№12'), '12');
+  assert.strictEqual(WebLib.normalizeHouseNum(12), '12');
+  assert.strictEqual(WebLib.normalizeHouseNum('12ა'), '12ა');
+  assert.strictEqual(WebLib.normalizeHouseNum(null), '');
+});
+
+test('findPlotByAddress — ქუჩა და ნომერი პოულობს ნაკვეთს', () => {
+  const plot = WebLib.findPlotByAddress(PLOTS, 'კედრის I ჩიხი', '2');
+  assert.strictEqual(plot.cad, 'B');
+});
+
+test('findPlotByAddress — „N2" და „2" ერთი და იგივეა', () => {
+  assert.strictEqual(
+    WebLib.findPlotByAddress(PLOTS, ' კედრის I ჩიხი ', 'N2').cad, 'B');
+});
+
+test('findPlotByAddress — ნახევრად შევსებული მისამართი არაფერს აბამს', () => {
+  assert.strictEqual(WebLib.findPlotByAddress(PLOTS, 'კედრის ქუჩა', ''), null);
+  assert.strictEqual(WebLib.findPlotByAddress(PLOTS, '', '1'), null);
+});
+
+test('findPlotByAddress — უცნობი ნომერი -> null', () => {
+  assert.strictEqual(WebLib.findPlotByAddress(PLOTS, 'კედრის ქუჩა', '99'), null);
+});
+
+// ორ ერთნაირ მისამართზე ავტომატური არჩევანი ტყუილი იქნებოდა — ადმინმა
+// რუკიდან უნდა აირჩიოს, რომელია.
+test('findPlotByAddress — ორი ერთნაირი მისამართი -> null', () => {
+  const twins = [
+    { cad: 'X', street: 'კედრის ქუჩა', num: '5' },
+    { cad: 'Y', street: 'კედრის ქუჩა', num: '5' },
+  ];
+  assert.strictEqual(WebLib.findPlotByAddress(twins, 'კედრის ქუჩა', '5'), null);
+});

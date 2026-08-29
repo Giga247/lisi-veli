@@ -27,6 +27,14 @@ const PlanView = (function () {
   }
 
   /** `d`-ატრიბუტიდან წერტილების უკან ამოღება — ქუჩის წარწერის დასაყრდნობად. */
+  /** `mark` ერთ კოდსაც იღებს და სიასაც — ორივე ერთ სიად. */
+  function markList(value) {
+    const many = Array.isArray(value) ? value : [value];
+    return many
+      .map(function (item) { return String(item == null ? '' : item).trim(); })
+      .filter(Boolean);
+  }
+
   function pointsOf(d) {
     return d.slice(1).replace(' Z', '').split(' L')
       .map(function (pair) { return pair.split(' ').map(Number); });
@@ -45,6 +53,12 @@ const PlanView = (function () {
    *                   ნაკვეთი ქუჩის ფერის ნაცვლად ამ კლასს იღებს —
    *                   პროექტის გვერდზე ფერი პასუხს ნიშნავს, არა ქუჩას.
    *   `opts.legend`   მზა HTML ლეგენდისთვის; ცვლის ქუჩების ნუსხას.
+   *   `opts.mark`     გამოსაყოფი ნაკვეთის კოდი ან კოდების სია —
+   *                   მაცხოვრებლის „ჩემი" ან ადმინის პანელში ახლა
+   *                   მიბმული. კანტი ცალკე ფენაშია, რომ მეზობელმა
+   *                   ნაკვეთმა არ გადაფაროს.
+   *   `opts.markLabel` ლეგენდის წარწერა ამ კანტისთვის; მის გარეშე
+   *                   ლეგენდაში არაფერი ემატება.
    */
   function create(root, data, opts) {
     const options = opts || {};
@@ -62,7 +76,7 @@ const PlanView = (function () {
     mapBox.innerHTML =
       '<div class="plan-canvas">' +
       '<svg class="plan-svg" role="img" aria-label="უბნის საკადასტრო გეგმა">' +
-      '<g class="g-road"></g><g class="g-plot"></g>' +
+      '<g class="g-road"></g><g class="g-plot"></g><g class="g-mark"></g>' +
       '<g class="g-street"></g><g class="g-tag"></g></svg>' +
       '<div class="plan-tools">' +
       '<button type="button" data-zoom="in" title="მოახლოება" aria-label="მოახლოება">+</button>' +
@@ -86,6 +100,7 @@ const PlanView = (function () {
     const svg = mapBox.querySelector('.plan-svg');
     const gRoad = mapBox.querySelector('.g-road');
     const gPlot = mapBox.querySelector('.g-plot');
+    const gMark = mapBox.querySelector('.g-mark');
     const gStreet = mapBox.querySelector('.g-street');
     const gTag = mapBox.querySelector('.g-tag');
 
@@ -167,6 +182,14 @@ const PlanView = (function () {
         ? '<span class="lg"><i class="st-x"></i>ქუჩა უცნობია</span>' : '') +
       '<span class="lg-note">ნაკვეთში სახლის ნომერია; სადაც ნომერი არ ვიცით — ' +
       'საკადასტრო კოდის ბოლო სეგმენტი.</span>';
+
+    if (options.markLabel && markList(options.mark).some(function (code) {
+      return nodes[code];
+    })) {
+      legend.insertAdjacentHTML('afterbegin',
+        '<span class="lg"><i class="mine"></i>' +
+        WebLib.escapeHtml(options.markLabel) + '</span>');
+    }
 
     /* ── გადაადგილება და მასშტაბი ──────────────────────────── */
     const view = { x: initial[0], y: initial[1], w: initial[2], h: initial[3] };
@@ -397,6 +420,26 @@ const PlanView = (function () {
       }
     }
 
+    /**
+     * გამოყოფილი ნაკვეთები.
+     *
+     * კანტი ნაკვეთის თავის `path`-ს კი არ ედება, არამედ ცალკე ასლს
+     * ყველა ნაკვეთის ზემოთ: მიჯნა ორ ნაკვეთს საერთო აქვს და მეზობელი,
+     * რომელიც მოგვიანებით დაიხატა, გამოყოფის ნახევარს ფარავდა.
+     *
+     * ერთი კოდიც მიიღება და სიაც: ერთ კაცს რამდენიმე ნაკვეთი აქვს.
+     */
+    function applyMark(cad) {
+      gMark.textContent = '';
+      markList(cad).forEach(function (code) {
+        const node = nodes[code];
+        if (!node) return;
+        gMark.appendChild(el('path', {
+          d: node.parcel.d, class: 'plot-mark', 'vector-effect': 'non-scaling-stroke',
+        }));
+      });
+    }
+
     function paint() {
       const active = {};
       records.filter(matches).forEach(function (r) { active[r.cad] = true; });
@@ -442,6 +485,7 @@ const PlanView = (function () {
     renderList();
     renderDetail();
     applyTint();
+    applyMark(options.mark);
     paint();
     requestAnimationFrame(fit);
     window.addEventListener('resize', fit);
@@ -466,7 +510,7 @@ const PlanView = (function () {
     }
 
     return { select: select, refresh: fit, records: records,
-      recolor: applyTint, relabel: applyLabel };
+      recolor: applyTint, relabel: applyLabel, mark: applyMark };
   }
 
   // გეგმის მონაცემი სტატიკურია და ორ ადგილას სჭირდება (შესვლის ეკრანი და

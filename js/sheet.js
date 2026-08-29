@@ -70,6 +70,9 @@ const Sheet = (function () {
               esc(WebLib.money(info.amount_due)))
         : '') +
       row('შენიშვნა', esc(plot.note || '')) +
+      // ვინ ცხოვრობს — მეპატრონის ქვეშ, რადგან იმავე კითხვის გაგრძელებაა.
+      // შიგთავსი მოგვიანებით ჩნდება, ცალკე მოთხოვნით.
+      '<div class="res-box" data-residents hidden></div>' +
       // ვინ შეცვალა ბოლოს — ღილაკებამდე, რადგან ის ინფორმაციაა და არა
       // მოქმედება. ცარიელი კონტეინერი მოგვიანებით ივსება.
       (info.canSeeHistory ? '<div class="hist-box" data-history hidden></div>' : '') +
@@ -91,6 +94,7 @@ const Sheet = (function () {
     document.body.classList.add('sheet-open');
 
     HistoryView.mount(box.querySelector('[data-history]'), plot.cad);
+    ResidentsView.mount(box.querySelector('[data-residents]'), plot.cad);
 
     box.addEventListener('click', function (event) {
       if (event.target.closest('[data-close]')) { close(); return; }
