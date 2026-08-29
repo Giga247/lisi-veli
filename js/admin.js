@@ -181,12 +181,34 @@ const AdminView = (function () {
     return letters.toUpperCase();
   }
 
-  /** ერთი ან რამდენიმე — შეკეცილ მწკრივზე ორივე ერთ სტრიქონად უნდა ჩაჯდეს. */
+  /**
+   * მისამართები შეკეცილ მწკრივზე.
+   *
+   * „3 ნაკვეთი" არაფერს ეუბნება ადმინს — ის სწორედ იმის სანახავად
+   * ხსნიდა ბარათს, სად ცხოვრობს ეს კაცი. ერთი ქუჩის ნომრები ერთად
+   * იწერება („კედრის I ჩიხი N2, N4"), თორემ ქუჩის სახელი სამჯერ
+   * გამეორდებოდა და მწკრივში ვეღარაფერი ჩაეტეოდა.
+   */
   function cadsSummary(cads) {
     const list = cads || [];
     if (!list.length) return 'ნაკვეთის გარეშე';
-    if (list.length === 1) return plotText(list[0]);
-    return list.length + ' ნაკვეთი';
+
+    const order = [];
+    const nums = {};
+    list.forEach(function (cad) {
+      const plot = plotOf(cad);
+      const street = plot ? String(plot.street || '').trim() : '';
+      const num = plot && plot.num != null ? String(plot.num).trim() : '';
+      // ქუჩის ან ნომრის გარეშე დაჯგუფება არაფერს იძლევა — ასეთი
+      // ნაკვეთი ისე იწერება, როგორც ბარათზე (მისამართით ან კოდით).
+      if (!street || !num) { order.push({ text: plotText(cad) }); return; }
+      if (!nums[street]) { nums[street] = []; order.push({ street: street }); }
+      nums[street].push('N' + num);
+    });
+
+    return order.map(function (item) {
+      return item.street ? item.street + ' ' + nums[item.street].join(', ') : item.text;
+    }).join(' · ');
   }
 
   function userCard(user, open) {
@@ -208,7 +230,9 @@ const AdminView = (function () {
       '<span class="ad-u-e">' + esc(user.email) + '</span></span>' +
       // მისამართი შეკეცილ მწკრივზეც ჩანს: ადმინი ბარათს ხშირად
       // სწორედ იმის სანახავად ხსნიდა, მიბმულია თუ არა ნაკვეთი.
-      '<span class="ad-u-sum">' + esc(cadsSummary(user.cads)) + '</span>' +
+      // `title` სრულ ტექსტს აჩვენებს მაშინაც, როცა მწკრივში აღარ ეტევა.
+      '<span class="ad-u-sum" title="' + esc(cadsSummary(user.cads)) + '">' +
+      esc(cadsSummary(user.cads)) + '</span>' +
       '<span class="ad-tags">' +
       '<span class="ad-tag ad-tag-' + esc(user.role) + '">' +
       esc(ROLE_SHORT[user.role] || user.role) + '</span>' +
